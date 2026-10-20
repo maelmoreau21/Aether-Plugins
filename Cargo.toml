@@ -16,6 +16,7 @@ authors = ["Aether Team"]
 license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
+media-extension-sdk = { path = "../Aether/crates/extension-sdk" }
 aether-plugin-api = { path = "crates/aether-plugin-api" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-util", "time"] }
 serde = { version = "1", features = ["derive"] }
