@@ -6,9 +6,12 @@ use aether_plugin_api::{
     SearchQuery, SearchResultItem, StructuredMetadata,
 };
 use async_trait::async_trait;
+#[cfg(not(target_arch = "wasm32"))]
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde::Deserialize;
 use std::collections::BTreeMap;
+use std::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::Duration;
 
 const DEFAULT_BASE_URL: &str = "https://webservice.fanart.tv/v3";
@@ -33,6 +36,7 @@ impl FanartTvPlugin {
         Err(PluginError::missing_api_key("fanart.tv"))
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn build_client(
         &self,
         config: &ProviderConfig,
@@ -59,6 +63,100 @@ impl FanartTvPlugin {
             .map_err(|e| PluginError::new("client_error", e.to_string()))?;
 
         Ok((client, base_url))
+    }
+
+    async fn fetch_artwork_json(
+        &self,
+        endpoint: &str,
+        api_key: &str,
+        config: &ProviderConfig,
+    ) -> Result<serde_json::Value, PluginError> {
+        let base_url = config
+            .base_url
+            .as_deref()
+            .unwrap_or(DEFAULT_BASE_URL)
+            .trim_end_matches('/');
+        let url = format!("{base_url}/{endpoint}?api_key={api_key}");
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            let mut headers = BTreeMap::new();
+            headers.insert("User-Agent".into(), "Aether-Plugin-FanartTv/0.1.0".into());
+            headers.insert("Accept".into(), "application/json".into());
+            if let Some(user_key) = config.user_key.as_deref().filter(|s| !s.trim().is_empty()) {
+                headers.insert("user-key".into(), user_key.to_string());
+            }
+
+            let host_req = media_extension_sdk::HostHttpRequest {
+                url,
+                method: "GET".into(),
+                headers,
+                body: None,
+                timeout_secs: config.timeout_secs.map(|s| s as u32),
+            };
+
+            let resp = media_extension_sdk::host_http_fetch(&host_req)
+                .map_err(|e| PluginError::new(e.code, e.message))?;
+
+            if resp.status == 404 {
+                return Err(PluginError::not_found(endpoint));
+            }
+            if resp.status == 429 {
+                return Err(PluginError::rate_limited(10));
+            }
+            if resp.status == 401 {
+                return Err(PluginError::new(
+                    "unauthorized",
+                    "Invalid fanart.tv API key",
+                ));
+            }
+            if resp.status != 200 {
+                return Err(PluginError::new(
+                    "provider_error",
+                    format!("fanart.tv returned HTTP status {}", resp.status),
+                ));
+            }
+
+            serde_json::from_slice(&resp.body)
+                .map_err(|e| PluginError::new("parse_error", e.to_string()))
+        }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let (client, _) = self.build_client(config)?;
+            let mut req = client.get(&url);
+            if let Some(user_key) = config.user_key.as_deref().filter(|s| !s.trim().is_empty()) {
+                req = req.header("user-key", user_key);
+            }
+
+            let res = req
+                .send()
+                .await
+                .map_err(|e| PluginError::new("network_error", e.to_string()))?;
+
+            if res.status() == reqwest::StatusCode::NOT_FOUND {
+                return Err(PluginError::not_found(endpoint));
+            }
+            if res.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                return Err(PluginError::rate_limited(10));
+            }
+            if res.status() == reqwest::StatusCode::UNAUTHORIZED {
+                return Err(PluginError::new(
+                    "unauthorized",
+                    "Invalid fanart.tv API key",
+                ));
+            }
+            if !res.status().is_success() {
+                return Err(PluginError::new(
+                    "provider_error",
+                    format!("fanart.tv returned status {}", res.status()),
+                ));
+            }
+
+            res.json()
+                .await
+                .map_err(|e| PluginError::new("parse_error", e.to_string()))
+        }
     }
 
     fn convert_image_list(
@@ -191,7 +289,6 @@ impl MetadataProviderPlugin for FanartTvPlugin {
         config: &ProviderConfig,
     ) -> Result<StructuredMetadata, PluginError> {
         let api_key = self.resolve_api_key(config)?;
-        let (client, base_url) = self.build_client(config)?;
 
         let is_tv = matches!(request.media_type, MediaType::TvShow | MediaType::Episode);
         let id = if !request.id.is_empty() {
@@ -210,39 +307,12 @@ impl MetadataProviderPlugin for FanartTvPlugin {
         };
 
         let endpoint = if is_tv {
-            format!("{base_url}/tv/{id}")
+            format!("tv/{id}")
         } else {
-            format!("{base_url}/movies/{id}")
+            format!("movies/{id}")
         };
 
-        let mut req = client.get(&endpoint).query(&[("api_key", api_key)]);
-        if let Some(user_key) = config.user_key.as_deref().filter(|s| !s.trim().is_empty()) {
-            req = req.header("user-key", user_key);
-        }
-
-        let res = req
-            .send()
-            .await
-            .map_err(|e| PluginError::new("network_error", e.to_string()))?;
-
-        if res.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(PluginError::not_found(&id));
-        }
-        if res.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
-            return Err(PluginError::rate_limited(10));
-        }
-        if res.status() == reqwest::StatusCode::UNAUTHORIZED {
-            return Err(PluginError::new(
-                "unauthorized",
-                "Invalid fanart.tv API key",
-            ));
-        }
-        if !res.status().is_success() {
-            return Err(PluginError::new(
-                "provider_error",
-                format!("fanart.tv returned status {}", res.status()),
-            ));
-        }
+        let raw_val = self.fetch_artwork_json(&endpoint, api_key, config).await?;
 
         let mut posters = Vec::new();
         let mut backdrops = Vec::new();
@@ -251,9 +321,7 @@ impl MetadataProviderPlugin for FanartTvPlugin {
         let title: Option<String>;
 
         if is_tv {
-            let data: FanartTvShowResponse = res
-                .json()
-                .await
+            let data: FanartTvShowResponse = serde_json::from_value(raw_val)
                 .map_err(|e| PluginError::new("parse_error", e.to_string()))?;
 
             title = Some(data.name);
@@ -279,9 +347,7 @@ impl MetadataProviderPlugin for FanartTvPlugin {
             all_images.extend(self.convert_image_list(data.tvbanner, ImageType::Banner));
             all_images.extend(self.convert_image_list(data.tvthumb, ImageType::Thumb));
         } else {
-            let data: FanartMovieResponse = res
-                .json()
-                .await
+            let data: FanartMovieResponse = serde_json::from_value(raw_val)
                 .map_err(|e| PluginError::new("parse_error", e.to_string()))?;
 
             title = Some(data.name);
@@ -405,4 +471,61 @@ struct FanartTvShowResponse {
     tvbanner: Vec<FanartImageItem>,
     #[serde(default)]
     tvthumb: Vec<FanartImageItem>,
+}
+
+// Lightweight synchronous runner for guest WebAssembly execution
+fn block_on_guest<F: std::future::Future>(future: F) -> F::Output {
+    let raw_waker = RawWaker::new(std::ptr::null(), &VTABLE);
+    let waker = unsafe { Waker::from_raw(raw_waker) };
+    let mut cx = Context::from_waker(&waker);
+    let mut pinned = std::pin::pin!(future);
+    match pinned.as_mut().poll(&mut cx) {
+        Poll::Ready(output) => output,
+        Poll::Pending => panic!("Guest Wasm async operation did not complete synchronously"),
+    }
+}
+static VTABLE: RawWakerVTable =
+    RawWakerVTable::new(|p| RawWaker::new(p, &VTABLE), |_| {}, |_| {}, |_| {});
+
+media_extension_sdk::extension!(handle_fanart_extension_request);
+
+pub fn handle_fanart_extension_request(
+    req: media_extension_sdk::ExtensionRequest,
+) -> media_extension_sdk::ExtensionResponse {
+    let plugin = FanartTvPlugin::new();
+    let config = ProviderConfig::default();
+
+    let result_json = match req.operation.as_str() {
+        "manifest" => serde_json::to_value(plugin.manifest()).unwrap_or_default(),
+        "metadata.details" | "details" => {
+            let Ok(d) = serde_json::from_value::<DetailsRequest>(req.input) else {
+                return media_extension_sdk::ExtensionResponse {
+                    api_version: 1,
+                    result: serde_json::json!({"error": "invalid_details_input"}),
+                };
+            };
+            match block_on_guest(plugin.details(d, &config)) {
+                Ok(meta) => serde_json::to_value(meta).unwrap_or_default(),
+                Err(e) => serde_json::json!({"error": e.code, "message": e.message}),
+            }
+        }
+        "metadata.images" | "images" => {
+            let Ok(i) = serde_json::from_value::<ImagesRequest>(req.input) else {
+                return media_extension_sdk::ExtensionResponse {
+                    api_version: 1,
+                    result: serde_json::json!({"error": "invalid_images_input"}),
+                };
+            };
+            match block_on_guest(plugin.images(i, &config)) {
+                Ok(imgs) => serde_json::to_value(imgs).unwrap_or_default(),
+                Err(e) => serde_json::json!({"error": e.code, "message": e.message}),
+            }
+        }
+        _ => serde_json::json!({"error": "unsupported_operation"}),
+    };
+
+    media_extension_sdk::ExtensionResponse {
+        api_version: 1,
+        result: result_json,
+    }
 }

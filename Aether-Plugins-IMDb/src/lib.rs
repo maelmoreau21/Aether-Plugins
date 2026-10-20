@@ -2,13 +2,16 @@
 
 use aether_plugin_api::{
     ActorCredit, ConfigField, DetailsRequest, ImageType, ImagesRequest, MediaImage, MediaType,
-    MetadataProviderPlugin, PluginCapability, PluginError, PluginManifest, ProviderConfig,
-    ProviderRating, SearchQuery, SearchResultItem, StructuredMetadata,
+    MetadataProposal, MetadataProviderPlugin, PluginCapability, PluginError, PluginManifest,
+    ProviderConfig, ProviderRating, SearchQuery, SearchResultItem, StructuredMetadata,
 };
 use async_trait::async_trait;
+#[cfg(not(target_arch = "wasm32"))]
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde::Deserialize;
 use std::collections::BTreeMap;
+use std::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::Duration;
 
 const DEFAULT_SUGGESTION_URL: &str = "https://v3.sg.media-imdb.com/suggestion";
@@ -22,6 +25,7 @@ impl ImdbPlugin {
         Self
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn build_client(&self, config: &ProviderConfig) -> Result<reqwest::Client, PluginError> {
         let timeout = Duration::from_secs(config.timeout_secs.unwrap_or(10));
         let mut headers = HeaderMap::new();
@@ -43,6 +47,78 @@ impl ImdbPlugin {
             .default_headers(headers)
             .build()
             .map_err(|e| PluginError::new("client_error", e.to_string()))
+    }
+
+    async fn fetch_text(&self, url: &str, config: &ProviderConfig) -> Result<String, PluginError> {
+        #[cfg(target_arch = "wasm32")]
+        {
+            let mut headers = BTreeMap::new();
+            headers.insert(
+                "User-Agent".into(),
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Aether/0.1.0".into(),
+            );
+            headers.insert(
+                "Accept".into(),
+                "text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.8,*/*;q=0.7".into(),
+            );
+            headers.insert(
+                "Accept-Language".into(),
+                "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7".into(),
+            );
+
+            let host_req = media_extension_sdk::HostHttpRequest {
+                url: url.to_string(),
+                method: "GET".into(),
+                headers,
+                body: None,
+                timeout_secs: config.timeout_secs.map(|s| s as u32),
+            };
+
+            let resp = media_extension_sdk::host_http_fetch(&host_req)
+                .map_err(|e| PluginError::new(e.code, e.message))?;
+
+            if resp.status == 404 {
+                return Err(PluginError::not_found(url));
+            }
+            if resp.status == 429 {
+                return Err(PluginError::rate_limited(10));
+            }
+            if resp.status != 200 {
+                return Err(PluginError::new(
+                    "provider_error",
+                    format!("IMDb page returned HTTP status {}", resp.status),
+                ));
+            }
+
+            String::from_utf8(resp.body).map_err(|e| PluginError::new("read_error", e.to_string()))
+        }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let client = self.build_client(config)?;
+            let res = client
+                .get(url)
+                .send()
+                .await
+                .map_err(|e| PluginError::new("network_error", e.to_string()))?;
+
+            if res.status() == reqwest::StatusCode::NOT_FOUND {
+                return Err(PluginError::not_found(url));
+            }
+            if res.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                return Err(PluginError::rate_limited(10));
+            }
+            if !res.status().is_success() {
+                return Err(PluginError::new(
+                    "provider_error",
+                    format!("IMDb page returned status {}", res.status()),
+                ));
+            }
+
+            res.text()
+                .await
+                .map_err(|e| PluginError::new("read_error", e.to_string()))
+        }
     }
 
     fn normalize_query(&self, raw: &str) -> String {
@@ -156,7 +232,6 @@ impl MetadataProviderPlugin for ImdbPlugin {
         query: SearchQuery,
         config: &ProviderConfig,
     ) -> Result<Vec<SearchResultItem>, PluginError> {
-        let client = self.build_client(config)?;
         let normalized = self.normalize_query(&query.title);
         if normalized.is_empty() {
             return Ok(Vec::new());
@@ -170,25 +245,9 @@ impl MetadataProviderPlugin for ImdbPlugin {
             .trim_end_matches('/');
 
         let url = format!("{base_url}/{first_char}/{normalized}.json");
-        let res = client
-            .get(&url)
-            .send()
-            .await
-            .map_err(|e| PluginError::new("network_error", e.to_string()))?;
+        let text = self.fetch_text(&url, config).await?;
 
-        if res.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
-            return Err(PluginError::rate_limited(10));
-        }
-        if !res.status().is_success() {
-            return Err(PluginError::new(
-                "provider_error",
-                format!("IMDb suggestion API returned status {}", res.status()),
-            ));
-        }
-
-        let data: ImdbSuggestionResponse = res
-            .json()
-            .await
+        let data: ImdbSuggestionResponse = serde_json::from_str(&text)
             .map_err(|e| PluginError::new("parse_error", e.to_string()))?;
 
         let is_tv_query = matches!(query.media_type, MediaType::TvShow | MediaType::Episode);
@@ -249,7 +308,6 @@ impl MetadataProviderPlugin for ImdbPlugin {
         request: DetailsRequest,
         config: &ProviderConfig,
     ) -> Result<StructuredMetadata, PluginError> {
-        let client = self.build_client(config)?;
         let imdb_id = if request.id.starts_with("tt") {
             request.id.clone()
         } else if let Some(id) = request.external_ids.get("imdb") {
@@ -271,29 +329,7 @@ impl MetadataProviderPlugin for ImdbPlugin {
             .trim_end_matches('/');
 
         let url = format!("{base_url}/{imdb_id}/");
-        let res = client
-            .get(&url)
-            .send()
-            .await
-            .map_err(|e| PluginError::new("network_error", e.to_string()))?;
-
-        if res.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(PluginError::not_found(&imdb_id));
-        }
-        if res.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
-            return Err(PluginError::rate_limited(10));
-        }
-        if !res.status().is_success() {
-            return Err(PluginError::new(
-                "provider_error",
-                format!("IMDb page returned status {}", res.status()),
-            ));
-        }
-
-        let html = res
-            .text()
-            .await
-            .map_err(|e| PluginError::new("read_error", e.to_string()))?;
+        let html = self.fetch_text(&url, config).await?;
 
         // Extract Schema.org JSON-LD from HTML: <script type="application/ld+json">...</script>
         let json_ld_start = html
@@ -507,5 +543,103 @@ impl<T> IntoIterator for OneOrMany<T> {
             OneOrMany::One(item) => vec![item].into_iter(),
             OneOrMany::Many(vec) => vec.into_iter(),
         }
+    }
+}
+
+// Lightweight synchronous runner for guest WebAssembly execution
+fn block_on_guest<F: std::future::Future>(future: F) -> F::Output {
+    let raw_waker = RawWaker::new(std::ptr::null(), &VTABLE);
+    let waker = unsafe { Waker::from_raw(raw_waker) };
+    let mut cx = Context::from_waker(&waker);
+    let mut pinned = std::pin::pin!(future);
+    match pinned.as_mut().poll(&mut cx) {
+        Poll::Ready(output) => output,
+        Poll::Pending => panic!("Guest Wasm async operation did not complete synchronously"),
+    }
+}
+static VTABLE: RawWakerVTable =
+    RawWakerVTable::new(|p| RawWaker::new(p, &VTABLE), |_| {}, |_| {}, |_| {});
+
+media_extension_sdk::extension!(handle_imdb_extension_request);
+
+pub fn handle_imdb_extension_request(
+    req: media_extension_sdk::ExtensionRequest,
+) -> media_extension_sdk::ExtensionResponse {
+    let plugin = ImdbPlugin::new();
+    let config = ProviderConfig::default();
+
+    let result_json = match req.operation.as_str() {
+        "manifest" => serde_json::to_value(plugin.manifest()).unwrap_or_default(),
+        "metadata.search" | "search" => {
+            let Ok(q) = serde_json::from_value::<SearchQuery>(req.input) else {
+                return media_extension_sdk::ExtensionResponse {
+                    api_version: 1,
+                    result: serde_json::json!({"error": "invalid_search_input"}),
+                };
+            };
+            match block_on_guest(plugin.search(q, &config)) {
+                Ok(items) => serde_json::to_value(items).unwrap_or_default(),
+                Err(e) => serde_json::json!({"error": e.code, "message": e.message}),
+            }
+        }
+        "metadata.details" | "details" => {
+            let Ok(d) = serde_json::from_value::<DetailsRequest>(req.input) else {
+                return media_extension_sdk::ExtensionResponse {
+                    api_version: 1,
+                    result: serde_json::json!({"error": "invalid_details_input"}),
+                };
+            };
+            match block_on_guest(plugin.details(d, &config)) {
+                Ok(meta) => serde_json::to_value(meta).unwrap_or_default(),
+                Err(e) => serde_json::json!({"error": e.code, "message": e.message}),
+            }
+        }
+        "metadata.images" | "images" => {
+            let Ok(i) = serde_json::from_value::<ImagesRequest>(req.input) else {
+                return media_extension_sdk::ExtensionResponse {
+                    api_version: 1,
+                    result: serde_json::json!({"error": "invalid_images_input"}),
+                };
+            };
+            match block_on_guest(plugin.images(i, &config)) {
+                Ok(imgs) => serde_json::to_value(imgs).unwrap_or_default(),
+                Err(e) => serde_json::json!({"error": e.code, "message": e.message}),
+            }
+        }
+        "metadata.propose" => {
+            let title = req
+                .input
+                .get("title")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let query = SearchQuery {
+                title,
+                year: None,
+                media_type: MediaType::Movie,
+                language: Some("fr-FR".into()),
+                external_ids: BTreeMap::new(),
+            };
+            match block_on_guest(plugin.search(query, &config)) {
+                Ok(items) => {
+                    if let Some(first) = items.first() {
+                        let proposal = MetadataProposal {
+                            title: first.title.clone(),
+                            summary: first.overview.clone().unwrap_or_default(),
+                        };
+                        serde_json::to_value(proposal).unwrap_or_default()
+                    } else {
+                        serde_json::json!({"error": "not_found"})
+                    }
+                }
+                Err(e) => serde_json::json!({"error": e.code, "message": e.message}),
+            }
+        }
+        _ => serde_json::json!({"error": "unsupported_operation"}),
+    };
+
+    media_extension_sdk::ExtensionResponse {
+        api_version: 1,
+        result: result_json,
     }
 }
