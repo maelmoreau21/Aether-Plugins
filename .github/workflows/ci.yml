@@ -19,10 +19,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: maelmoreau21/Aether
+          ref: develop
           path: Aether
-          sparse-checkout: |
-            crates/extension-sdk
-            Cargo.toml
 
       - name: Checkout Aether-Plugins
         uses: actions/checkout@v4
