@@ -1,0 +1,14 @@
+C:\Users\Mael\Documents\GitHub\Aether-Plugins\target\release\deps\serde-d47da59aa491aa05.d: C:\Users\Mael\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs C:\Users\Mael\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs C:\Users\Mael\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs C:\Users\Mael\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs C:\Users\Mael\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs C:\Users\Mael\Documents\GitHub\Aether-Plugins\target\release\build\serde-6d2ae9d4905e03f4\out/private.rs
+
+C:\Users\Mael\Documents\GitHub\Aether-Plugins\target\release\deps\libserde-d47da59aa491aa05.rlib: C:\Users\Mael\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs C:\Users\Mael\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs C:\Users\Mael\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs C:\Users\Mael\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs C:\Users\Mael\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs C:\Users\Mael\Documents\GitHub\Aether-Plugins\target\release\build\serde-6d2ae9d4905e03f4\out/private.rs
+
+C:\Users\Mael\Documents\GitHub\Aether-Plugins\target\release\deps\libserde-d47da59aa491aa05.rmeta: C:\Users\Mael\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs C:\Users\Mael\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs C:\Users\Mael\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs C:\Users\Mael\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs C:\Users\Mael\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs C:\Users\Mael\Documents\GitHub\Aether-Plugins\target\release\build\serde-6d2ae9d4905e03f4\out/private.rs
+
+C:\Users\Mael\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs:
+C:\Users\Mael\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs:
+C:\Users\Mael\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs:
+C:\Users\Mael\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs:
+C:\Users\Mael\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs:
+C:\Users\Mael\Documents\GitHub\Aether-Plugins\target\release\build\serde-6d2ae9d4905e03f4\out/private.rs:
+
+# env-dep:OUT_DIR=C:\\Users\\Mael\\Documents\\GitHub\\Aether-Plugins\\target\\release\\build\\serde-6d2ae9d4905e03f4\\out

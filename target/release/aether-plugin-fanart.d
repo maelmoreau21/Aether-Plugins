@@ -1,0 +1,1 @@
+C:\Users\Mael\Documents\GitHub\Aether-Plugins\target\release\aether-plugin-fanart.exe: C:\Users\Mael\Documents\GitHub\Aether-Plugins\Aether-Plugins-fanart.tv\src\lib.rs C:\Users\Mael\Documents\GitHub\Aether-Plugins\Aether-Plugins-fanart.tv\src\main.rs C:\Users\Mael\Documents\GitHub\Aether-Plugins\crates\aether-plugin-api\src\lib.rs

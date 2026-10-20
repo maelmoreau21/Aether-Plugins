@@ -1,0 +1,21 @@
+[package]
+name = "aether-plugin-tmdb"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "TMDb (The Movie Database) metadata provider extension for Aether"
+
+[dependencies]
+aether-plugin-api.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+reqwest.workspace = true
+clap.workspace = true
+async-trait.workspace = true
+
+[dev-dependencies]
+hyper.workspace = true
+hyper-util.workspace = true
+http-body-util.workspace = true
