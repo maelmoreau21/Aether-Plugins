@@ -28,6 +28,7 @@ impl MetadataProviderPlugin for MockPlugin {
             supported_media_types: vec![MediaType::Movie, MediaType::TvShow],
             default_priority: 50,
             config_schema: vec![],
+            ..Default::default()
         }
     }
 

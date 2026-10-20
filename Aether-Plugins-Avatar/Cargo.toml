@@ -1,0 +1,29 @@
+[package]
+name = "aether-plugin-avatar"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Avatar packs and profile picture management extension for Aether (inspired by jellyfin-avatars)"
+
+[package.metadata.aether]
+id = "avatars"
+name = "Aether Avatars"
+category = "Avatars"
+target-abi = "1.0"
+min-server-version = "0.1.0"
+max-server-version = "1.0.0"
+banner = "assets/banner.svg"
+
+[dependencies]
+aether-plugin-api.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+clap.workspace = true
+async-trait.workspace = true
+
+[dev-dependencies]
+hyper.workspace = true
+hyper-util.workspace = true
+http-body-util.workspace = true

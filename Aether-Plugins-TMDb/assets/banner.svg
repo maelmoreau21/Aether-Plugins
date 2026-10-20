@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 240" width="800" height="240">
+  <defs>
+    <linearGradient id="tmdbLogoGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#90cea1"/>
+      <stop offset="100%" stop-color="#01b4e4"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="240" fill="#0d253f"/>
+  <!-- Official TMDB Logo -->
+  <g transform="translate(200, 60)">
+    <text x="200" y="88" font-family="'Source Sans Pro', 'Helvetica Neue', Arial, sans-serif" font-weight="900" font-size="92" fill="url(#tmdbLogoGrad)" text-anchor="middle" letter-spacing="4">TMDB</text>
+    <rect x="50" y="112" width="300" height="10" rx="5" fill="url(#tmdbLogoGrad)"/>
+  </g>
+</svg>

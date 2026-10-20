@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 240" width="800" height="240">
+  <rect width="800" height="240" fill="#0f0f0f"/>
+  <!-- Official IMDb Yellow Badge -->
+  <g transform="translate(260, 50)">
+    <rect width="280" height="140" rx="16" fill="#f5c518"/>
+    <text x="140" y="102" font-family="Impact, 'Arial Black', sans-serif" font-weight="900" font-size="88" fill="#000000" text-anchor="middle" letter-spacing="-2">IMDb</text>
+  </g>
+</svg>

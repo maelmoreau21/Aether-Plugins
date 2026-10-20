@@ -170,20 +170,28 @@ pub struct SearchResultItem {
     pub score: Option<f64>,
 }
 
-/// Configuration field descriptor
+/// Configuration field descriptor (Jellyfin-style dynamic configuration)
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConfigField {
     pub key: String,
     pub label: String,
+    #[serde(default = "default_field_type")]
+    pub field_type: String,
     pub description: String,
     pub required: bool,
     pub secret: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub default_value: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub options: Vec<String>,
 }
 
-/// Plugin Manifest describing the plugin metadata
+fn default_field_type() -> String {
+    "text".into()
+}
+
+/// Plugin Manifest describing the plugin metadata (inspired by Jellyfin plugin system)
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginManifest {
@@ -191,14 +199,34 @@ pub struct PluginManifest {
     pub id: String,
     pub name: String,
     pub version: String,
+    #[serde(default = "default_category")]
+    pub category: String,
     pub provider: String,
     pub description: String,
     pub author: String,
     pub license: String,
+    #[serde(default = "default_target_abi")]
+    pub target_abi: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min_server_version: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_server_version: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub checksum: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub banner: Option<String>,
     pub capabilities: Vec<PluginCapability>,
     pub supported_media_types: Vec<MediaType>,
     pub default_priority: u32,
     pub config_schema: Vec<ConfigField>,
+}
+
+fn default_category() -> String {
+    "Metadata".into()
+}
+
+fn default_target_abi() -> String {
+    "1.0".into()
 }
 
 /// Provider Configuration passed at runtime

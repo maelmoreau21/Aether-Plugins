@@ -6,6 +6,15 @@ rust-version.workspace = true
 license.workspace = true
 description = "fanart.tv high-quality artwork and image provider extension for Aether"
 
+[package.metadata.aether]
+id = "fanart-tv"
+name = "fanart.tv"
+category = "Artwork"
+target-abi = "1.0"
+min-server-version = "0.1.0"
+max-server-version = "1.0.0"
+banner = "assets/banner.svg"
+
 [dependencies]
 aether-plugin-api.workspace = true
 tokio.workspace = true

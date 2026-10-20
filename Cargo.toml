@@ -5,6 +5,7 @@ members = [
     "Aether-Plugins-TMDb",
     "Aether-Plugins-IMDb",
     "Aether-Plugins-fanart.tv",
+    "Aether-Plugins-Avatar",
 ]
 
 [workspace.package]
