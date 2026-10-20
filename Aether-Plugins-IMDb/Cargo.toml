@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "IMDb (Internet Movie Database) metadata provider extension for Aether"
+description = "IMDb metadata provider extension for Aether"
 
 [package.metadata.aether]
 id = "imdb"
@@ -15,14 +15,20 @@ min-server-version = "0.1.0"
 max-server-version = "1.0.0"
 banner = "assets/banner.svg"
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
-aether-plugin-api.workspace = true
-tokio.workspace = true
+aether-plugin-api = { path = "../crates/aether-plugin-api" }
+media-extension-sdk = { path = "../../Aether/crates/extension-sdk" }
 serde.workspace = true
 serde_json.workspace = true
+async-trait.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio.workspace = true
 reqwest.workspace = true
 clap.workspace = true
-async-trait.workspace = true
 
 [dev-dependencies]
 hyper.workspace = true

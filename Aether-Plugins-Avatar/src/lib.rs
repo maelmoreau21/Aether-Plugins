@@ -427,3 +427,37 @@ mod urlencoding {
         result
     }
 }
+
+media_extension_sdk::extension!(handle_avatar_extension_request);
+
+pub fn handle_avatar_extension_request(
+    req: media_extension_sdk::ExtensionRequest,
+) -> media_extension_sdk::ExtensionResponse {
+    let plugin = AvatarPlugin::new();
+    let result_json = match req.operation.as_str() {
+        "manifest" => serde_json::to_value(plugin.manifest()).unwrap_or_default(),
+        "avatars.list" | "avatars" => serde_json::to_value(plugin.packs()).unwrap_or_default(),
+        "avatars.generate" => {
+            let seed = req.input.get("seed").and_then(|v| v.as_str());
+            let pack = req.input.get("pack").and_then(|v| v.as_str());
+            let item = plugin.random_avatar(pack, seed);
+            serde_json::json!({
+                "id": item.id,
+                "label": item.label,
+                "svg": item.svg,
+            })
+        }
+        "metadata.propose" => {
+            serde_json::json!({
+                "title": "Avatars",
+                "summary": "Pack d'avatars vectoriels pour profils Aether",
+            })
+        }
+        _ => serde_json::json!({ "error": "unsupported_operation" }),
+    };
+
+    media_extension_sdk::ExtensionResponse {
+        api_version: 1,
+        result: result_json,
+    }
+}
