@@ -1,1 +1,0 @@
-C:\Users\Mael\Documents\GitHub\Aether-Plugins\target\release\aether-plugin-tmdb.exe: C:\Users\Mael\Documents\GitHub\Aether-Plugins\Aether-Plugins-TMDb\src\lib.rs C:\Users\Mael\Documents\GitHub\Aether-Plugins\Aether-Plugins-TMDb\src\main.rs C:\Users\Mael\Documents\GitHub\Aether-Plugins\crates\aether-plugin-api\src\lib.rs

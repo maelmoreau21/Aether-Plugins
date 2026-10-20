@@ -1,1 +1,0 @@
-C:\Users\Mael\Documents\GitHub\Aether-Plugins\target\release\aether-plugin-imdb.exe: C:\Users\Mael\Documents\GitHub\Aether-Plugins\Aether-Plugins-IMDb\src\lib.rs C:\Users\Mael\Documents\GitHub\Aether-Plugins\Aether-Plugins-IMDb\src\main.rs C:\Users\Mael\Documents\GitHub\Aether-Plugins\crates\aether-plugin-api\src\lib.rs

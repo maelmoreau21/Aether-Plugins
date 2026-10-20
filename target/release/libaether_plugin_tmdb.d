@@ -1,1 +1,0 @@
-C:\Users\Mael\Documents\GitHub\Aether-Plugins\target\release\libaether_plugin_tmdb.rlib: C:\Users\Mael\Documents\GitHub\Aether-Plugins\Aether-Plugins-TMDb\src\lib.rs C:\Users\Mael\Documents\GitHub\Aether-Plugins\crates\aether-plugin-api\src\lib.rs
