@@ -18,7 +18,7 @@ jobs:
       - name: Checkout Aether (for shared SDK)
         uses: actions/checkout@v4
         with:
-          repository: MaelR/Aether
+          repository: maelmoreau21/Aether
           path: Aether
           sparse-checkout: |
             crates/extension-sdk
