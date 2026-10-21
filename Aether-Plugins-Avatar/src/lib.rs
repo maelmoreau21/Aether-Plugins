@@ -121,12 +121,19 @@ impl AvatarPlugin {
                 .fold(0usize, |acc, b| acc.wrapping_add(b as usize));
             hash % pool.len()
         } else {
-            use std::time::SystemTime;
-            let nanos = SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap_or_default()
-                .subsec_nanos() as usize;
-            nanos % pool.len()
+            #[cfg(target_arch = "wasm32")]
+            {
+                0
+            }
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                use std::time::SystemTime;
+                let nanos = SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .subsec_nanos() as usize;
+                nanos % pool.len()
+            }
         };
 
         pool[index].clone()

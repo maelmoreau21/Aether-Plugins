@@ -734,21 +734,36 @@ pub fn handle_tmdb_extension_request(
                 .to_string();
             let query = SearchQuery {
                 title,
-                year: None,
-                media_type: MediaType::Movie,
+                year: req
+                    .input
+                    .get("year")
+                    .and_then(|v| v.as_u64())
+                    .and_then(|v| u16::try_from(v).ok()),
+                media_type: req
+                    .input
+                    .get("mediaType")
+                    .cloned()
+                    .and_then(|v| serde_json::from_value(v).ok())
+                    .unwrap_or(MediaType::Movie),
                 language: config.language.clone().or_else(|| Some("fr-FR".into())),
-                external_ids: BTreeMap::new(),
+                external_ids: req
+                    .input
+                    .get("externalIds")
+                    .cloned()
+                    .and_then(|v| serde_json::from_value(v).ok())
+                    .unwrap_or_default(),
             };
             match block_on_guest(plugin.search(query, &config)) {
                 Ok(items) => {
-                    if let Some(first) = items.first() {
+                    if items.len() == 1 {
+                        let first = &items[0];
                         let proposal = MetadataProposal {
                             title: first.title.clone(),
                             summary: first.overview.clone().unwrap_or_default(),
                         };
                         serde_json::to_value(proposal).unwrap_or_default()
                     } else {
-                        serde_json::json!({"error": "not_found"})
+                        serde_json::json!({"error": if items.is_empty() { "not_found" } else { "ambiguous_match" }})
                     }
                 }
                 Err(e) => serde_json::json!({"error": e.code, "message": e.message}),

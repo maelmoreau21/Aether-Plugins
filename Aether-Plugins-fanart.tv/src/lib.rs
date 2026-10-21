@@ -255,33 +255,31 @@ impl MetadataProviderPlugin for FanartTvPlugin {
         query: SearchQuery,
         _config: &ProviderConfig,
     ) -> Result<Vec<SearchResultItem>, PluginError> {
-        // fanart.tv is an artwork provider, indexed by external ID (TMDb, IMDb, TVDB)
-        if let Some(tmdb_id) = query.external_ids.get("tmdb") {
+        let id = if matches!(query.media_type, MediaType::TvShow | MediaType::Episode) {
+            query.external_ids.get("tvdb")
+        } else {
+            query
+                .external_ids
+                .get("tmdb")
+                .or_else(|| query.external_ids.get("imdb"))
+        };
+        if let Some(id) = id {
             return Ok(vec![SearchResultItem {
-                id: tmdb_id.clone(),
+                id: id.clone(),
                 title: query.title,
                 original_title: None,
                 year: query.year,
                 media_type: query.media_type,
-                overview: Some("Indexed via TMDb ID on fanart.tv".into()),
-                poster_url: None,
-                score: None,
-            }]);
-        }
-        if let Some(imdb_id) = query.external_ids.get("imdb") {
-            return Ok(vec![SearchResultItem {
-                id: imdb_id.clone(),
-                title: query.title,
-                original_title: None,
-                year: query.year,
-                media_type: query.media_type,
-                overview: Some("Indexed via IMDb ID on fanart.tv".into()),
+                overview: Some("Artwork indexed by the existing external identifier".into()),
                 poster_url: None,
                 score: None,
             }]);
         }
         // Direct title search is not supported by fanart.tv API
-        Ok(Vec::new())
+        Err(PluginError::new(
+            "external_id_required",
+            "An external media identifier is required",
+        ))
     }
 
     async fn details(
@@ -498,6 +496,18 @@ pub fn handle_fanart_extension_request(
 
     let result_json = match req.operation.as_str() {
         "manifest" => serde_json::to_value(plugin.manifest()).unwrap_or_default(),
+        "metadata.search" | "search" => {
+            let Ok(query) = serde_json::from_value::<SearchQuery>(req.input) else {
+                return media_extension_sdk::ExtensionResponse {
+                    api_version: 1,
+                    result: serde_json::json!({"error":"invalid_search_input"}),
+                };
+            };
+            match block_on_guest(plugin.search(query, &config)) {
+                Ok(items) => serde_json::to_value(items).unwrap_or_default(),
+                Err(error) => serde_json::json!({"error":error.code}),
+            }
+        }
         "metadata.details" | "details" => {
             let Ok(d) = serde_json::from_value::<DetailsRequest>(req.input) else {
                 return media_extension_sdk::ExtensionResponse {

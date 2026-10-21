@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('tmdb', 'imdb', 'fanart')][string]$Plugin = 'tmdb',
+    [ValidateSet('tmdb', 'imdb', 'fanart', 'avatar')][string]$Plugin = 'tmdb',
     [Parameter(Mandatory)][string]$KeyPath,
     [string]$PublisherId = 'local',
     [string]$CorePath = (Join-Path $PSScriptRoot '../../Aether'),
@@ -32,7 +32,7 @@ try {
         apiVersion = 1; id = $source.id; name = $source.name; version = $source.version
         description = $source.description; author = $source.author; license = $source.license
         repository = 'https://github.com/maelmoreau21/Aether-Plugins'
-        permissions = @('metadata.read', 'metadata.write'); category = $source.category; targetAbi = $source.targetAbi
+        permissions = $(if ($Plugin -eq 'avatar') { @('avatars') } else { @('metadata.read', 'metadata.write', 'images') }); category = $source.category; targetAbi = $source.targetAbi
         httpHosts = @($source.httpHosts | Where-Object { $_ -is [string] -and $_ })
         minServerVersion = $source.minServerVersion; maxServerVersion = $source.maxServerVersion
         checksum = (Get-FileHash -LiteralPath $wasmPath -Algorithm SHA256).Hash.ToLowerInvariant()

@@ -25,10 +25,20 @@ Les fournisseurs sont des extensions séparées : aucune intégration TMDb/IMDb/
 n'est compilée dans le Core. Leurs manifestes déclarent `httpHosts`, domaines HTTPS
 autorisés couverts par la signature du paquet et affichés avant activation. La
 configuration et l'authentification fournisseur restent dans chaque extension.
-`Build-LocalPackage.ps1` copie ces domaines et demande `metadata.read`/`metadata.write`.
+`Build-LocalPackage.ps1` copie ces domaines et demande `metadata.read`/`metadata.write`/`images`
+pour les fournisseurs, ou seulement `avatars` pour `-Plugin avatar`.
 Après mise à jour du Core, recréez et réinstallez les anciens paquets réseau pour
 déclarer ces droits ; ne modifiez jamais un paquet déjà signé. Aucun domaine n'est
 autorisé automatiquement d'après l'identifiant d'une extension.
+
+Le Core propose une recherche suivie du choix explicite du résultat, des détails
+et de leur application. L’année, le type film/série et les identifiants existants
+viennent du catalogue. fanart.tv nécessite un identifiant TMDb/IMDb pour les films
+ou TVDB pour les séries ; il ne recherche pas par titre. Les anciens paquets
+doivent être reconstruits et signés pour recevoir la permission `images`.
+Les packs d’avatars activés sont disponibles dans les paramètres du compte.
+Le Core transmet une variante explicite : le module Wasm ne dépend pas de
+l’horloge système pour générer l’avatar.
 
 ## 2. Préparer sa clé de signature
 
