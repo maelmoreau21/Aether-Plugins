@@ -19,6 +19,8 @@ pub struct PluginManifest {
     #[serde(default = "default_category")]
     pub category: String,
     pub provider: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub http_hosts: Vec<String>,
     pub description: String,
     pub author: String,
     pub license: String,

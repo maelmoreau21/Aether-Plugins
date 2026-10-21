@@ -21,6 +21,15 @@ Web/Core, SQLite, création interactive du premier administrateur, démarrage su
 `http://127.0.0.1:3000/app/login/`. Le serveur et son worker doivent provenir de la
 même compilation. Aucune extension n’est nécessaire pour utiliser les médias locaux.
 
+Les fournisseurs sont des extensions séparées : aucune intégration TMDb/IMDb/fanart.tv
+n'est compilée dans le Core. Leurs manifestes déclarent `httpHosts`, domaines HTTPS
+autorisés couverts par la signature du paquet et affichés avant activation. La
+configuration et l'authentification fournisseur restent dans chaque extension.
+`Build-LocalPackage.ps1` copie ces domaines et demande `metadata.read`/`metadata.write`.
+Après mise à jour du Core, recréez et réinstallez les anciens paquets réseau pour
+déclarer ces droits ; ne modifiez jamais un paquet déjà signé. Aucun domaine n'est
+autorisé automatiquement d'après l'identifiant d'une extension.
+
 ## 2. Préparer sa clé de signature
 
 Dans PowerShell, avec Rust/Cargo et les deux dépôts présents :

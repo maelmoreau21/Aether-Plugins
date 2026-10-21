@@ -172,6 +172,7 @@ impl MetadataProviderPlugin for ImdbPlugin {
             version: "0.1.0".into(),
             category: "Metadata".into(),
             provider: "imdb".into(),
+            http_hosts: vec!["v3.sg.media-imdb.com".into(), "imdb.com".into(), "www.imdb.com".into()],
             description: "Fournisseur de métadonnées IMDb (notes mondiales de référence, votes, casting et recherche instantanée)".into(),
             author: "Aether Team".into(),
             license: "MIT OR Apache-2.0".into(),

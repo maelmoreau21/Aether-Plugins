@@ -185,6 +185,7 @@ impl MetadataProviderPlugin for TmdbPlugin {
             version: "0.1.0".into(),
             category: "Metadata".into(),
             provider: "tmdb".into(),
+            http_hosts: vec!["api.themoviedb.org".into(), "image.tmdb.org".into()],
             description: "Fournisseur officiel TMDb pour films et séries (métadonnées complètes, casting, affiches et notes)".into(),
             author: "Aether Team".into(),
             license: "MIT OR Apache-2.0".into(),

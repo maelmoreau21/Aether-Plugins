@@ -170,6 +170,7 @@ impl MetadataProviderPlugin for AvatarPlugin {
             version: "0.1.0".into(),
             category: "Avatars".into(),
             provider: "aether-avatars".into(),
+            http_hosts: vec![],
             description: "Gestionnaire de packs d'avatars et photos de profil (sélection de packs, attribution aléatoire forcée et verrouillage des imports utilisateurs)".into(),
             author: "Aether Team".into(),
             license: "MIT OR Apache-2.0".into(),

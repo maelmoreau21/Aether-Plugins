@@ -195,6 +195,7 @@ impl MetadataProviderPlugin for FanartTvPlugin {
             version: "0.1.0".into(),
             category: "Artwork".into(),
             provider: "fanart.tv".into(),
+            http_hosts: vec!["webservice.fanart.tv".into(), "assets.fanart.tv".into()],
             description: "Fournisseur d'images haute définition (ClearLogos, Backdrops 4K/HD, ClearArt, Bannières, Disques)".into(),
             author: "Aether Team".into(),
             license: "MIT OR Apache-2.0".into(),
