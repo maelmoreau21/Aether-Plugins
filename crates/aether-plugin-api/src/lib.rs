@@ -64,6 +64,30 @@ pub struct ProviderConfig {
     pub extra: BTreeMap<String, String>,
 }
 
+impl ProviderConfig {
+    /// Read the per-installation configuration supplied through the private Wasm input.
+    /// Form schema keys use snake_case; the CLI contract also accepts camelCase.
+    pub fn from_extension_input(input: &serde_json::Value) -> Self {
+        let mut config = input
+            .get("config")
+            .cloned()
+            .unwrap_or_else(|| serde_json::json!({}));
+        if let Some(fields) = config.as_object_mut() {
+            for (form, wire) in [
+                ("api_key", "apiKey"),
+                ("user_key", "userKey"),
+                ("base_url", "baseUrl"),
+                ("timeout_secs", "timeoutSecs"),
+            ] {
+                if let Some(value) = fields.remove(form) {
+                    fields.entry(wire).or_insert(value);
+                }
+            }
+        }
+        serde_json::from_value(config).unwrap_or_default()
+    }
+}
+
 /// Versioned request envelope
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -261,5 +285,24 @@ pub async fn handle_request<P: MetadataProviderPlugin>(plugin: &P, raw_json: &st
             ));
             serde_json::to_string(&res).unwrap_or_else(|_| "{}".into())
         }
+    }
+}
+
+#[cfg(test)]
+mod extension_config_tests {
+    use super::*;
+
+    #[test]
+    fn accepts_form_keys_and_keeps_configuration_per_request() {
+        let config = ProviderConfig::from_extension_input(&serde_json::json!({"config": {
+            "api_key": "synthetic", "user_key": "user", "language": "fr-FR"
+        }}));
+        assert_eq!(config.api_key.as_deref(), Some("synthetic"));
+        assert_eq!(config.user_key.as_deref(), Some("user"));
+        assert_eq!(config.language.as_deref(), Some("fr-FR"));
+        assert_eq!(
+            ProviderConfig::from_extension_input(&serde_json::json!({})),
+            ProviderConfig::default()
+        );
     }
 }

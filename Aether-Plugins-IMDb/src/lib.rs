@@ -566,7 +566,7 @@ pub fn handle_imdb_extension_request(
     req: media_extension_sdk::ExtensionRequest,
 ) -> media_extension_sdk::ExtensionResponse {
     let plugin = ImdbPlugin::new();
-    let config = ProviderConfig::default();
+    let config = ProviderConfig::from_extension_input(&req.input);
 
     let result_json = match req.operation.as_str() {
         "manifest" => serde_json::to_value(plugin.manifest()).unwrap_or_default(),
@@ -617,7 +617,7 @@ pub fn handle_imdb_extension_request(
                 title,
                 year: None,
                 media_type: MediaType::Movie,
-                language: Some("fr-FR".into()),
+                language: config.language.clone().or_else(|| Some("fr-FR".into())),
                 external_ids: BTreeMap::new(),
             };
             match block_on_guest(plugin.search(query, &config)) {

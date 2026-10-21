@@ -1,160 +1,131 @@
-# Extensions Aether — Fournisseurs de métadonnées officiels
+# Aether-Plugins — installation locale
 
-Ce dépôt regroupe les premières extensions Rust de fournisseurs de métadonnées pour la plateforme multimédia **Aether** :
-- **TMDb (The Movie Database)** : métadonnées complètes, casting détaillé, synopsis, notes et affiches.
-- **IMDb (Internet Movie Database)** : recherche instantanée, notes de référence mondiales, distribution et posters.
-- **fanart.tv** : illustrations et images haute définition (ClearLogos, Backdrops 4K/HD, ClearArt, Bannières, Disques).
+Ce dépôt contient les sources Rust des fournisseurs TMDb, IMDb, fanart.tv et des
+avatars. Le serveur Aether reste dans le dépôt voisin `Aether`. Les dépendances
+locales supposent cette disposition :
 
----
-
-## 1. Architecture Core → Extensions
-
-Le système de métadonnées d'Aether suit une séparation stricte des responsabilités :
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                          Aether Core                            │
-│                                                                 │
-│  - Décide quand rechercher ou actualiser les métadonnées        │
-│  - Identifie les œuvres (titre, année, identifiants techniques) │
-│  - Gère l'ordre de priorité des fournisseurs                    │
-│  - Fusionne les données (titre, synopsis, notes, images)        │
-│  - Valide et assainit (limites de taille, anti-XSS)             │
-│  - Met en cache et persiste en base (inventory_works, etc.)     │
-│  - Respecte les règles de conservation des métadonnées          │
-└────────────────────────────────┬────────────────────────────────┘
-                                 │
-           API commune versionnée (JSON IPC / CLI / Subprocess)
-                                 │
-       ┌─────────────────────────┼─────────────────────────┐
-       ▼                         ▼                         ▼
-┌──────────────┐          ┌──────────────┐          ┌──────────────┐
-│  TMDb Plugin │          │  IMDb Plugin │          │fanart.tv Plg │
-└──────┬───────┘          └──────┬───────┘          └──────┬───────┘
-       │                         │                         │
-       ▼                         ▼                         ▼
-  api.themoviedb.org         imdb.com             webservice.fanart.tv
+```text
+GitHub/
+  Aether/
+  Aether-Plugins/
 ```
 
-### Règles architecturales non négociables
-1. **Initiative du Core** : Aether décide souverainement quand scanner, chercher ou rafraîchir.
-2. **Appel via API versionnée** : Aether appelle les extensions installées et activées via l'enveloppe commune `apiVersion: 1`.
-3. **Données structurées** : Chaque extension interroge son fournisseur externe via HTTPS et renvoie des données standardisées (`StructuredMetadata`).
-4. **Pas d'accès direct** : Les extensions **ne touchent jamais à la base de données SQLite/PostgreSQL** et **ne modifient jamais les fichiers médias**.
-5. **Indépendance et mise à jour à chaud** : Les extensions sont indépendantes du Core. Elles peuvent être installées, configurées ou mises à jour sans recompiler ni redémarrer Aether.
+Le serveur charge des **paquets JSON signés contenant un module WebAssembly**.
+Les exécutables natifs servent aux outils/tests ; les DLL Jellyfin, exécutables,
+manifestes seuls et dossiers de sources ne sont pas des paquets installables.
 
----
+## 1. Démarrer Aether
 
-## 2. API Commune Versionnée (`aether-plugin-api`)
+Suivre [le guide local Windows](../Aether/docs/INSTALLATION_LOCALE.md) : compilation
+Web/Core, SQLite, création interactive du premier administrateur, démarrage sur
+`http://127.0.0.1:3000/app/login/`. Le serveur et son worker doivent provenir de la
+même compilation. Aucune extension n’est nécessaire pour utiliser les médias locaux.
 
-Le crate commun `crates/aether-plugin-api` (v1) définit le contrat :
+## 2. Préparer sa clé de signature
 
-### Enveloppe de requête (`PluginRequest`)
-```json
-{
-  "apiVersion": 1,
-  "operation": "search | details | images | manifest",
-  "input": { ... },
-  "config": {
-    "apiKey": "...",
-    "language": "fr-FR",
-    "timeoutSecs": 10
-  }
-}
-```
-
-### Enveloppe de réponse (`PluginResponse<T>`)
-```json
-{
-  "apiVersion": 1,
-  "success": true,
-  "data": { ... },
-  "error": null
-}
-```
-
-### Modèle de métadonnées structurées (`StructuredMetadata`)
-- **Identifiants** : `provider`, `providerId`, `externalIds` (tmdb, imdb, tvdb)
-- **Titres & Résumé** : `title`, `originalTitle`, `tagline`, `synopsis`
-- **Chronologie & Format** : `year`, `releaseDate`, `runtimeMinutes`, `status`, `mpaa`
-- **Distribution** :
-  - `genres`: liste de genres textuels
-  - `directors`: réalisateurs
-  - `writers`: scénaristes
-  - `actors`: `ActorCredit { name, role, thumbUrl, order }`
-- **Notes** : `ProviderRating { provider, value, max, votes }`
-- **Affiches et Images** : `MediaImage { url, imageType, width, height, language, rating, isPrimary }`
-  - Types supportés : `Poster`, `Backdrop`, `Banner`, `Logo`, `ClearArt`, `Thumb`, `DiscArt`.
-
----
-
-## 3. Les Extensions
-
-### TMDb (`Aether-Plugins-TMDb`)
-- **ID** : `tmdb`
-- **Priorité par défaut** : 100
-- **Fonctionnalités** : Recherche films/séries, fiche complète avec crédits (acteurs, réalisateurs, scénaristes), affiches officielles et bannières.
-- **Authentification** : Clé API v3 ou jeton v4 Bearer (via `config.apiKey` ou variable d'environnement `TMDB_API_KEY`).
-
-### IMDb (`Aether-Plugins-IMDb`)
-- **ID** : `imdb`
-- **Priorité par défaut** : 80
-- **Fonctionnalités** : Recherche auto-complétée instantanée via endpoint dédié, parsing Schema.org JSON-LD (note de référence mondiale, nombre de votants, durée ISO, casting principal, classification d'âge).
-- **Authentification** : Fonctionne sans clé API via les endpoints publics IMDb ; supporte une clé API optionnelle pour les proxies/RapidAPI.
-
-### fanart.tv (`Aether-Plugins-fanart.tv`)
-- **ID** : `fanart-tv`
-- **Priorité par défaut** : 60
-- **Fonctionnalités** : Spécialiste des visuels haute fidélité (ClearLogos transparents, fonds d'écran 4K/HD, ClearArt, jaquettes de disques, bannières).
-- **Authentification** : Clé API projet requise (via `config.apiKey` ou `FANART_TV_API_KEY`), clé VIP optionnelle (`config.userKey`).
-
----
-
-## 4. Compilation et Tests
-
-Les extensions sont écrites en Rust édition 2024, ultra-légères, sans dépendances superflues, compilées avec LTO et symboles dénudés (`strip = true`).
+Dans PowerShell, avec Rust/Cargo et les deux dépôts présents :
 
 ```powershell
-# Vérification globale
-cargo check --all-targets
-
-# Lancement des tests unitaires et mocks
-cargo test
-
-# Vérification du formatage et clippy strict
-cargo fmt --check
-cargo clippy --all-targets -- -D warnings
-
-# Compilation release optimisée (binaires légers ~3.8 Mo)
-cargo build --release
+Set-Location C:\Users\Mael\Documents\GitHub\Aether
+cargo build --locked -p media-poc --bin media-extension-pack --bin media-extension-worker -j 1
+$signingDirectory = Join-Path $env:LOCALAPPDATA 'MediaExtensionSigning'
+New-Item -ItemType Directory -Force $signingDirectory | Out-Null
+$signingKey = Join-Path $signingDirectory 'local.pk8'
+.\target\debug\media-extension-pack.exe keygen $signingKey
 ```
 
-Les exécutables générés se trouvent dans `target/release/` :
-- `aether-plugin-tmdb.exe`
-- `aether-plugin-imdb.exe`
-- `aether-plugin-fanart.exe`
+`keygen` affiche uniquement la **clé publique Base64** : gardez-la pour l’interface.
+Le fichier `local.pk8` est privé, à conserver sous votre compte Windows et à ne
+jamais envoyer à Aether, inclure dans un paquet ou committer. L’outil refuse de
+l’écraser. Si cette clé existe déjà, réutilisez-la et sa clé publique conservée.
+Vous signez ici votre propre compilation avec l’identifiant d’éditeur `local`.
 
----
+## 3. Compiler et signer un paquet
 
-## 5. Utilisation en CLI / IPC
-
-Chaque extension peut être exécutée de manière autonome ou appelée par un processus superviseur :
-
-### Afficher le manifeste du plugin
 ```powershell
-./target/release/aether-plugin-tmdb.exe --manifest
+rustup target add wasm32-unknown-unknown
+Set-Location C:\Users\Mael\Documents\GitHub\Aether-Plugins
+.\scripts\Build-LocalPackage.ps1 -Plugin tmdb -KeyPath $signingKey -PublisherId local
 ```
 
-### Exécution IPC via STDIN / STDOUT (pour Aether Core)
+Le script compile le module Wasm optimisé pour la taille, extrait le manifeste,
+calcule son empreinte et appelle l’outil officiel de signature. Il crée
+`artifacts/tmdb.package.json`. Pour IMDb ou fanart.tv, remplacer `tmdb` par `imdb`
+ou `fanart`. Les clés des fournisseurs ne sont jamais demandées par le script et
+ne figurent pas dans le paquet. En cas de recompilation, fournir un nouveau
+`-OutputDirectory` : un paquet existant n’est pas écrasé.
+
+La signature valide aussi les limites du serveur, dont un module de 256 Kio au
+maximum. Une compilation réussie ne prouve pas qu’un fournisseur distant répond
+ni qu’un navigateur peut lire un média.
+
+## 4. Installer dans l’interface
+
+1. Administration → Extensions → Éditeurs approuvés : identifiant `local`, puis
+   clé publique Base64 de l’étape 2. Approuver uniquement la clé de sa propre
+   compilation ou celle d’un éditeur vérifiée par un canal de confiance.
+2. « Installer un paquet local » : choisir `artifacts/tmdb.package.json`, puis
+   « Vérifier et installer ». Le paquet est installé **désactivé**.
+3. « Gérer cette extension » → « Paramètres du plugin » : renseigner la clé
+   TMDb du fournisseur puis enregistrer.
+4. Cocher les bibliothèques autorisées et « Enregistrer et activer ».
+5. Rechercher une œuvre et l’exécuter pour obtenir une proposition conservée
+   dans l’historique.
+
+Le parcours manuel actuel lance `metadata.propose`. TMDb/IMDb implémentent cette
+opération ; fanart.tv expose des opérations images/détails qui demandent leur
+propre parcours Core. Le module Avatar expose des opérations d’avatars ; installer
+un module ne suffit pas à ajouter automatiquement ces écrans ou changer les photos
+des utilisateurs. Les mises à jour en place et les dépôts Jellyfin ne sont pas
+disponibles. Aucun téléchargement massif d’affiches ni scan
+n’est déclenché par l’installation.
+
+## Publier son catalogue de paquets
+
+Le Core propose les onglets **Installées**, **Catalogue** et **Dépôts**. Pour
+préparer un manifeste de dépôt à partir de paquets déjà signés :
+
 ```powershell
-'{"apiVersion": 1, "operation": "search", "input": {"title": "Inception", "year": 2010, "mediaType": "movie"}, "config": {}}' | ./target/release/aether-plugin-imdb.exe --run
+.\scripts\New-RepositoryManifest.ps1 -PackageDirectory .\artifacts\local-20261020 -PublicKeyPath .\artifacts\local-20261020\publisher-public.txt -BaseUrl https://exemple.org/packages/ -OutputPath .\artifacts\manifest.json
 ```
 
-### Recherche interactive en ligne de commande
+Hébergez ensuite explicitement les paquets à l’URL choisie et `manifest.json` sur
+votre serveur HTTPS. Le script ne publie rien et ne contient aucune clé privée.
+Les paquets de ce dossier doivent être signés par l’éditeur correspondant à la
+clé publique indiquée. Le fichier de sortie ne doit pas exister ; pour une
+actualisation, préparez une nouvelle sortie et vérifiez-la avant publication.
+
+Dans Aether → Extensions → Dépôts, ajoutez le nom et l’URL du manifeste, puis
+choisissez une version dans Catalogue. La clé de l’auteur doit être vérifiée et
+approuvée explicitement avant installation. L’activation ne nécessite pas de
+redémarrage. [Contrat, limites réseau et format](../Aether/docs/EXTENSION_REPOSITORIES.md).
+
+Aucun dépôt officiel distant n’est configuré tant qu’une URL réellement hébergée
+n’a pas été ajoutée. Les manifestes Jellyfin ne sont pas compatibles.
+
+## Les clés et leurs usages
+
+| Clé | Où la renseigner | Usage |
+| --- | --- | --- |
+| API Aether | Administration → Clés API, puis application cliente | Lire le catalogue autorisé |
+| API du fournisseur | Paramètres de l’extension installée | Appeler TMDb/fanart.tv |
+| Signature Ed25519 | Clé privée sur le PC ; clé publique dans Éditeurs approuvés | Vérifier l’auteur et l’intégrité du paquet |
+
+Un choix « sans expiration » sur une clé Aether ne supprime pas les quotas,
+restrictions ou conditions d’un fournisseur tiers. Une clé Aether ne remplace
+jamais une clé TMDb. Les secrets de configuration sont stockés dans la base
+applicative ; protéger l’accès au compte administrateur, à cette base et aux
+sauvegardes.
+
+## Développement et validation
+
 ```powershell
-# Recherche IMDb
-./target/release/aether-plugin-imdb.exe search --title "Interstellar" --year 2014
-
-# Recherche TMDb (nécessite clé API)
-./target/release/aether-plugin-tmdb.exe search --title "Dune" --year 2021 --api-key "VOTRE_CLE"
+cargo test -j 1
+cargo fmt --all --check
+cargo clippy --all-targets -j 1 -- -D warnings
 ```
+
+Le SDK officiel est `../Aether/crates/extension-sdk`; `aether-plugin-api` le
+réexporte et fournit le contrat des fournisseurs. Le broker du Core autorise
+uniquement les hôtes HTTPS prévus pour ces fournisseurs. Les tests locaux/mocks
+ne constituent pas une validation réelle des clés ou comptes externes.

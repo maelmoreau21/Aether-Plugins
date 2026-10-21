@@ -493,7 +493,7 @@ pub fn handle_fanart_extension_request(
     req: media_extension_sdk::ExtensionRequest,
 ) -> media_extension_sdk::ExtensionResponse {
     let plugin = FanartTvPlugin::new();
-    let config = ProviderConfig::default();
+    let config = ProviderConfig::from_extension_input(&req.input);
 
     let result_json = match req.operation.as_str() {
         "manifest" => serde_json::to_value(plugin.manifest()).unwrap_or_default(),
