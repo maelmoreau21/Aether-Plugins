@@ -172,6 +172,7 @@ impl MetadataProviderPlugin for AvatarPlugin {
     fn manifest(&self) -> PluginManifest {
         PluginManifest {
             api_version: aether_plugin_api::API_VERSION,
+            permissions: vec!["avatars".into()],
             id: "avatars".into(),
             name: "Aether Avatars".into(),
             version: "0.1.0".into(),
@@ -229,16 +230,7 @@ impl MetadataProviderPlugin for AvatarPlugin {
                     default_value: Some("false".into()),
                     options: vec!["false".into(), "true".into()],
                 },
-                ConfigField {
-                    key: "custom_pack_path".into(),
-                    label: "Dossier d'avatars personnalisés (optionnel)".into(),
-                    field_type: "text".into(),
-                    description: "Chemin d'accès vers un répertoire de fichiers PNG/SVG personnalisés par l'administrateur".into(),
-                    required: false,
-                    secret: false,
-                    default_value: None,
-                    options: vec![],
-                },
+
             ],
         }
     }

@@ -190,6 +190,7 @@ impl MetadataProviderPlugin for FanartTvPlugin {
     fn manifest(&self) -> PluginManifest {
         PluginManifest {
             api_version: aether_plugin_api::API_VERSION,
+            permissions: vec!["metadata.read".into(),"metadata.write".into(),"images".into()],
             id: "fanart-tv".into(),
             name: "fanart.tv".into(),
             version: "0.1.0".into(),

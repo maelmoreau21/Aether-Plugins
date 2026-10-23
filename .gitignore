@@ -2,3 +2,5 @@
 Cargo.lock
 /artifacts/
 *.pk8
+
+/templates/*/target/

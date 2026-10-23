@@ -1,0 +1,11 @@
+[package]
+name = "my-metadata-provider"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-only"
+[workspace]
+[lib]
+crate-type = ["cdylib", "rlib"]
+[dependencies]
+media-extension-sdk = { path = "../../../Aether/crates/extension-sdk" }
+serde_json = "1"

@@ -210,3 +210,37 @@ Le SDK officiel est `../Aether/crates/extension-sdk`; `aether-plugin-api` le
 réexporte et fournit le contrat des fournisseurs. Le broker du Core autorise
 uniquement les hôtes HTTPS prévus pour ces fournisseurs. Les tests locaux/mocks
 ne constituent pas une validation réelle des clés ou comptes externes.
+
+## Créateurs de plugins et collections d’avatars — 23 octobre
+
+L’approbation manuelle des dépôts/éditeurs n’est plus nécessaire dans Aether.
+Ajoutez un dépôt HTTPS, installez, configurez et activez. Les signatures et les
+empreintes restent vérifiées ; elles n’attestent pas que l’auteur est fiable.
+[Créer son propre plugin sans modifier Aether](CREATING_PLUGINS.md).
+
+La configuration Avatars inclut désormais un import de collections GitHub géré
+par Core : saisir un lien de dépôt, parcourir, sélectionner un dossier et un nom,
+puis importer. Le réglage de chemin disque `custom_pack_path`, inutilisable dans
+le sandbox Wasm, a été retiré du nouveau manifeste. Les PNG/JPEG/WebP sont
+normalisés et stockés hors médias ; les utilisateurs choisissent les images
+dans leur profil. Les générateurs SVG historiques restent disponibles.
+
+Les huit paquets de `repository/` sont régénérés depuis des manifestes UTF-8.
+Pour la signature de cette génération, la clé privée durable est toujours hors
+Git, dans `%LOCALAPPDATA%/MediaExtensionSigning/catalog-v1.pk8` ; seul son public
+correspondant est dans `repository/publisher-public.txt`. Le catalogue n’exige
+plus de migration de confiance lors d’un changement de clé. Aucun push n’est
+fait par les scripts. Les fichiers doivent être publiés pour changer le catalogue distant.
+
+## Stockage des installations
+
+Après installation dans Core : `data/plugins/<id>/package.json`, `manifest.json`
+et `module.wasm` (défaut ; `/data/plugins` dans Docker). Le Core relit le Wasm
+confiné et vérifie son SHA-256 avant exécution. Les paramètres privés et droits
+restent en base ; aucun secret API n’est copié dans le manifeste public.
+Les anciennes installations en base sont matérialisées au démarrage. Voir
+`Aether/docs/PLUGIN_SETTINGS_AND_COLLECTIONS.md` pour les chemins opérateur.
+
+Les collections peuvent aussi être envoyées depuis un ordinateur : plusieurs
+images PNG/JPEG/WebP, nom de collection, puis Envoyer au serveur dans les paramètres
+du plugin. Le téléchargement GitHub et l’upload stockent les images sur le serveur.

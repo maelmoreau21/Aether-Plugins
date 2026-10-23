@@ -156,13 +156,14 @@ impl MetadataProviderPlugin for MusicBrainzPlugin {
     fn manifest(&self) -> PluginManifest {
         PluginManifest {
             api_version: aether_plugin_api::API_VERSION,
+            permissions: vec!["metadata.read".into(),"metadata.write".into(),"images".into()],
             id: "musicbrainz".into(),
             name: "MusicBrainz".into(),
             version: "0.1.0".into(),
             category: "Metadata".into(),
             provider: "MusicBrainz".into(),
             http_hosts: vec!["musicbrainz.org".into(), "coverartarchive.org".into()],
-            description: "MÃƒÂ©tadonnÃƒÂ©es d'albums (artistes, dates, genres) et pochettes via MusicBrainz et Cover Art Archive".into(),
+            description: "Métadonnées d'albums (artistes, dates, genres) et pochettes via MusicBrainz et Cover Art Archive".into(),
             author: "Aether Team".into(),
             license: "AGPL-3.0-only".into(),
             target_abi: "1.0".into(),
@@ -179,9 +180,9 @@ impl MetadataProviderPlugin for MusicBrainzPlugin {
             default_priority: 50,
             config_schema: vec![ConfigField {
                 key: "base_url".into(),
-                label: "URL de base personnalisÃƒÂ©e".into(),
+                label: "URL de base personnalisée".into(),
                 field_type: "text".into(),
-                description: "Miroir MusicBrainz ou serveur de test (aucune clÃƒÂ© requise)".into(),
+                description: "Miroir MusicBrainz ou serveur de test (aucune clé requise)".into(),
                 required: false,
                 secret: false,
                 default_value: None,

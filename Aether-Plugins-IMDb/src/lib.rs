@@ -167,6 +167,7 @@ impl MetadataProviderPlugin for ImdbPlugin {
     fn manifest(&self) -> PluginManifest {
         PluginManifest {
             api_version: aether_plugin_api::API_VERSION,
+            permissions: vec!["metadata.read".into(),"metadata.write".into(),"images".into()],
             id: "imdb".into(),
             name: "IMDb (Internet Movie Database)".into(),
             version: "0.1.0".into(),

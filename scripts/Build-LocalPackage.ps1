@@ -21,19 +21,36 @@ $crate = "aether-plugin-$Plugin"
 $exeSuffix = if ($env:OS -eq 'Windows_NT') { '.exe' } else { '' }
 Push-Location $pluginRoot
 try {
-    & cargo build --release --lib -p $crate --target wasm32-unknown-unknown --config 'profile.release.opt-level=\"z\"' -j 1
-    if ($LASTEXITCODE -ne 0) { throw 'Compilation Wasm échouée. Vérifiez rustup target add wasm32-unknown-unknown.' }
+    $previousOptimization = $env:CARGO_PROFILE_RELEASE_OPT_LEVEL
+    try {
+        $env:CARGO_PROFILE_RELEASE_OPT_LEVEL = 'z'
+        & cargo build --release --lib -p $crate --target wasm32-unknown-unknown -j 1
+        if ($LASTEXITCODE -ne 0) { throw 'Compilation Wasm échouée. Vérifiez rustup target add wasm32-unknown-unknown.' }
+    } finally { $env:CARGO_PROFILE_RELEASE_OPT_LEVEL = $previousOptimization }
     & cargo build --bin $crate -p $crate -j 1
     if ($LASTEXITCODE -ne 0) { throw 'Compilation du manifeste échouée.' }
-    $manifestJson = & (Join-Path $pluginRoot "target/debug/$crate$exeSuffix") --manifest
-    if ($LASTEXITCODE -ne 0) { throw 'Lecture du manifeste échouée.' }
-    $source = ($manifestJson -join "`n") | ConvertFrom-Json
+    # Read the native process bytes as UTF-8, independently of the Windows console code page.
+    $start = [Diagnostics.ProcessStartInfo]::new()
+    $start.FileName = Join-Path $pluginRoot "target/debug/$crate$exeSuffix"
+    $start.ArgumentList.Add('--manifest')
+    $start.UseShellExecute = $false
+    $start.CreateNoWindow = $true
+    $start.RedirectStandardOutput = $true
+    $start.StandardOutputEncoding = [Text.UTF8Encoding]::new($false, $true)
+    $process = [Diagnostics.Process]::Start($start)
+    try {
+        $manifestJson = $process.StandardOutput.ReadToEnd()
+        $process.WaitForExit()
+        if ($process.ExitCode -ne 0) { throw 'Lecture du manifeste échouée.' }
+    } finally { $process.Dispose() }
+    $source = $manifestJson | ConvertFrom-Json
+    if (!$source.permissions -or @($source.permissions).Count -eq 0) { throw 'Le manifeste doit déclarer ses permissions.' }
     $wasmPath = Join-Path $pluginRoot "target/wasm32-unknown-unknown/release/$($crate.Replace('-', '_')).wasm"
     $manifest = [ordered]@{
         apiVersion = 1; id = $source.id; name = $source.name; version = $source.version
         description = $source.description; author = $source.author; license = $source.license
         repository = 'https://github.com/maelmoreau21/Aether-Plugins'
-        permissions = [string[]]$(if ($Plugin -eq 'avatar') { 'avatars' } else { 'metadata.read', 'metadata.write', 'images' }); category = $source.category; targetAbi = $source.targetAbi
+        permissions = [string[]]@($source.permissions); category = $source.category; targetAbi = $source.targetAbi
         httpHosts = @($source.httpHosts | Where-Object { $_ -is [string] -and $_ })
         minServerVersion = $source.minServerVersion; maxServerVersion = $source.maxServerVersion
         checksum = (Get-FileHash -LiteralPath $wasmPath -Algorithm SHA256).Hash.ToLowerInvariant()

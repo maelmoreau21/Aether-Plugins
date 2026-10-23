@@ -1,0 +1,23 @@
+{
+  "apiVersion": 1,
+  "id": "my-provider",
+  "name": "Mon fournisseur",
+  "version": "0.1.0",
+  "description": "Exemple de fournisseur indépendant",
+  "author": "Votre nom",
+  "license": "AGPL-3.0-only",
+  "repository": "https://github.com/your-name/your-plugin",
+  "permissions": [
+    "metadata.read"
+  ],
+  "category": "Métadonnées",
+  "targetAbi": "1.0",
+  "configSchema": [
+    {
+      "key": "prefix",
+      "label": "Préfixe",
+      "fieldType": "text",
+      "defaultValue": "Mon fournisseur"
+    }
+  ]
+}

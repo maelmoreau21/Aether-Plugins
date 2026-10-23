@@ -34,7 +34,7 @@ fn split_list(value: Option<String>) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// Extract the first four-digit year from values such as `2014` or `2011â€“2019`.
+/// Extract the first four-digit year from values such as `2014` or `2011–2019`.
 fn parse_year(value: &str) -> Option<u16> {
     let digits: String = value
         .chars()
@@ -170,14 +170,19 @@ impl MetadataProviderPlugin for OmdbPlugin {
     fn manifest(&self) -> PluginManifest {
         PluginManifest {
             api_version: aether_plugin_api::API_VERSION,
+            permissions: vec![
+                "metadata.read".into(),
+                "metadata.write".into(),
+                "images".into(),
+            ],
             id: "omdb".into(),
             name: "OMDb".into(),
             version: "0.1.0".into(),
             category: "Metadata".into(),
             provider: "OMDb".into(),
             http_hosts: vec!["www.omdbapi.com".into()],
-            description:
-                "MÃ©tadonnÃ©es films et sÃ©ries via l'Open Movie Database (clÃ© API requise)".into(),
+            description: "Métadonnées films et séries via l'Open Movie Database (clé API requise)"
+                .into(),
             author: "Aether Team".into(),
             license: "AGPL-3.0-only".into(),
             target_abi: "1.0".into(),
@@ -195,9 +200,9 @@ impl MetadataProviderPlugin for OmdbPlugin {
             config_schema: vec![
                 ConfigField {
                     key: "api_key".into(),
-                    label: "ClÃ© API OMDb".into(),
+                    label: "Clé API OMDb".into(),
                     field_type: "password".into(),
-                    description: "ClÃ© gratuite ou Patreon obtenue sur omdbapi.com".into(),
+                    description: "Clé gratuite ou Patreon obtenue sur omdbapi.com".into(),
                     required: true,
                     secret: true,
                     default_value: None,
@@ -205,7 +210,7 @@ impl MetadataProviderPlugin for OmdbPlugin {
                 },
                 ConfigField {
                     key: "base_url".into(),
-                    label: "URL de base personnalisÃ©e".into(),
+                    label: "URL de base personnalisée".into(),
                     field_type: "text".into(),
                     description: "URL alternative pour proxy ou serveur de test".into(),
                     required: false,

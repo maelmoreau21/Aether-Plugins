@@ -201,13 +201,18 @@ impl MetadataProviderPlugin for LrcLibPlugin {
     fn manifest(&self) -> PluginManifest {
         PluginManifest {
             api_version: aether_plugin_api::API_VERSION,
+            permissions: vec![
+                "metadata.read".into(),
+                "metadata.write".into(),
+                "images".into(),
+            ],
             id: "lrclib".into(),
             name: "LRCLIB".into(),
             version: "0.1.0".into(),
             category: "Lyrics".into(),
             provider: "LRCLIB".into(),
             http_hosts: vec!["lrclib.net".into()],
-            description: "Paroles simples et synchronisÃ©es (LRC) depuis lrclib.net, sans clÃ© API"
+            description: "Paroles simples et synchronisées (LRC) depuis lrclib.net, sans clé API"
                 .into(),
             author: "Aether Team".into(),
             license: "AGPL-3.0-only".into(),
@@ -225,9 +230,9 @@ impl MetadataProviderPlugin for LrcLibPlugin {
             default_priority: 50,
             config_schema: vec![ConfigField {
                 key: "base_url".into(),
-                label: "URL de base personnalisÃ©e".into(),
+                label: "URL de base personnalisée".into(),
                 field_type: "text".into(),
-                description: "Instance LRCLIB auto-hÃ©bergÃ©e (par dÃ©faut https://lrclib.net/api)"
+                description: "Instance LRCLIB auto-hébergée (par défaut https://lrclib.net/api)"
                     .into(),
                 required: false,
                 secret: false,
@@ -258,7 +263,7 @@ impl MetadataProviderPlugin for LrcLibPlugin {
                 year: None,
                 media_type: query.media_type,
                 overview: Some(match &l.album_name {
-                    Some(album) => format!("{} â€” {album}", l.artist_name),
+                    Some(album) => format!("{} — {album}", l.artist_name),
                     None => l.artist_name,
                 }),
                 poster_url: None,

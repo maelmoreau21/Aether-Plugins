@@ -136,7 +136,7 @@ async fn trait_search_and_details_use_ids() {
     assert_eq!(items[0].id, "3396226");
     assert_eq!(
         items[0].overview.as_deref(),
-        Some("Borislav Slavov â€” Baldur's Gate 3")
+        Some("Borislav Slavov — Baldur's Gate 3")
     );
     let d = plugin
         .details(

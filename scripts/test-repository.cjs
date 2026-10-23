@@ -24,6 +24,7 @@ for(const entry of catalogue.extensions){
   const signed=Buffer.from(JSON.stringify(['media-extension-package-v1',pkg.manifest,pkg.publisherId,pkg.sha256]));
   assert(crypto.verify(null,signed,key,Buffer.from(pkg.signature,'base64')),`Signature invalide : ${identity}`);
   assert(Array.isArray(pkg.manifest.permissions));
+  assert(!/[├┬�]|Ã[©¨ª«¢¤®¯´¶¹»¼§ƒ]|Â[©®°·]/u.test(JSON.stringify(pkg.manifest)), `Texte mal encodé : ${identity}`);
   console.log(`${identity}: signature, SHA-256, URL et limites valides (${raw.length} octets)`);
 }
 assert.equal(fs.readdirSync(path.join(root,'packages')).filter(name=>name.endsWith('.package.json')).length,catalogue.extensions.length);

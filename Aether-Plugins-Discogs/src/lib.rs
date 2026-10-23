@@ -160,13 +160,14 @@ impl MetadataProviderPlugin for DiscogsPlugin {
     fn manifest(&self) -> PluginManifest {
         PluginManifest {
             api_version: aether_plugin_api::API_VERSION,
+            permissions: vec!["metadata.read".into(),"metadata.write".into(),"images".into()],
             id: "discogs".into(),
             name: "Discogs".into(),
             version: "0.1.0".into(),
             category: "Metadata".into(),
             provider: "Discogs".into(),
             http_hosts: vec!["api.discogs.com".into()],
-            description: "MÃ©tadonnÃ©es d'albums (artistes, genres, styles, notes) et pochettes via Discogs".into(),
+            description: "MǸtadonnǸes d'albums (artistes, genres, styles, notes) et pochettes via Discogs".into(),
             author: "Aether Team".into(),
             license: "AGPL-3.0-only".into(),
             target_abi: "1.0".into(),
@@ -186,7 +187,7 @@ impl MetadataProviderPlugin for DiscogsPlugin {
                     key: "api_key".into(),
                     label: "Jeton personnel Discogs".into(),
                     field_type: "password".into(),
-                    description: "Jeton gÃ©nÃ©rÃ© dans Discogs > Settings > Developers (obligatoire pour la recherche et les images)".into(),
+                    description: "Jeton gǸnǸrǸ dans Discogs > Settings > Developers (obligatoire pour la recherche et les images)".into(),
                     required: true,
                     secret: true,
                     default_value: None,
@@ -194,7 +195,7 @@ impl MetadataProviderPlugin for DiscogsPlugin {
                 },
                 ConfigField {
                     key: "base_url".into(),
-                    label: "URL de base personnalisÃ©e".into(),
+                    label: "URL de base personnalisǸe".into(),
                     field_type: "text".into(),
                     description: "URL alternative pour proxy ou serveur de test".into(),
                     required: false,
