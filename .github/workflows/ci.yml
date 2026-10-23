@@ -5,11 +5,45 @@ on:
     branches: [ "main", "develop" ]
   pull_request:
     branches: [ "main", "develop" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  workflows:
+    name: Validation des workflows
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker://rhysd/actionlint:1.7.12
+
+  security-audit:
+    name: Audit de sécurité (cargo audit)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Aether (for shared SDK)
+        uses: actions/checkout@v4
+        with:
+          repository: maelmoreau21/Aether
+          ref: develop
+          path: Aether
+
+      - name: Checkout Aether-Plugins
+        uses: actions/checkout@v4
+        with:
+          path: Aether-Plugins
+
+      - name: Installer cargo-audit
+        uses: taiki-e/install-action@cargo-audit
+
+      - name: Audit des dépendances RustSec
+        working-directory: Aether-Plugins
+        run: cargo audit
+
   test-and-build:
     name: Lint, Test and Wasm Build
     runs-on: ubuntu-latest
@@ -54,6 +88,14 @@ jobs:
       - name: Build WebAssembly Modules
         working-directory: Aether-Plugins
         run: cargo build --workspace --lib --target wasm32-unknown-unknown --release
+
+      - name: Validate WebAssembly Modules (Size, ABI & Smoke tests)
+        working-directory: Aether-Plugins
+        run: node scripts/test-wasm.cjs
+
+      - name: Verify repository manifest consistency
+        working-directory: Aether-Plugins
+        run: node scripts/test-manifests.cjs
 
       - name: Verify signed repository packages
         working-directory: Aether-Plugins

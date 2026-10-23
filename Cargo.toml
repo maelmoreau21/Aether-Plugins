@@ -1,4 +1,4 @@
-﻿[workspace]
+[workspace]
 resolver = "2"
 members = [
     "crates/aether-plugin-api",
@@ -33,7 +33,7 @@ hyper-util = { version = "0.1", features = ["tokio"] }
 http-body-util = "0.1"
 
 [profile.release]
-opt-level = 3
+opt-level = "z"
 lto = "thin"
 codegen-units = 1
 panic = "abort"
