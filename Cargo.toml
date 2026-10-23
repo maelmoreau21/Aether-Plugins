@@ -1,4 +1,4 @@
-[workspace]
+﻿[workspace]
 resolver = "2"
 members = [
     "crates/aether-plugin-api",
@@ -6,6 +6,10 @@ members = [
     "Aether-Plugins-IMDb",
     "Aether-Plugins-fanart.tv",
     "Aether-Plugins-Avatar",
+    "Aether-Plugins-OMDb",
+    "Aether-Plugins-MusicBrainz",
+    "Aether-Plugins-Discogs",
+    "Aether-Plugins-LrcLib",
 ]
 
 [workspace.package]

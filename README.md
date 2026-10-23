@@ -8,7 +8,7 @@ https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/ma
 
 Les fichiers `repository/manifest.json`, `repository/packages/*.package.json` et
 `repository/publisher-public.txt` forment le catalogue public : TMDb, IMDb,
-fanart.tv et avatars. Ce lien devient disponible après publication de ces fichiers
+fanart.tv, OMDb, MusicBrainz, Discogs, LRCLIB et avatars. Ce lien devient disponible après publication de ces fichiers
 sur la branche `main` de ce dépôt. Les modifications locales ne le publient pas.
 Aether préconfigure cette URL une seule fois. L’administrateur peut retirer le
 dépôt ; il ne réapparaît pas au redémarrage et les plugins installés sont conservés.
@@ -77,7 +77,7 @@ silencieuse. Une rotation de clé exige un nouvel identifiant d’éditeur.
 
 ## Guide local détaillé
 
-Ce dépôt contient les sources Rust des fournisseurs TMDb, IMDb, fanart.tv et des
+Ce dépôt contient les sources Rust des fournisseurs TMDb, IMDb, fanart.tv, OMDb, MusicBrainz, Discogs, LRCLIB et des
 avatars. Le serveur Aether reste dans le dépôt voisin `Aether`. Les dépendances
 locales supposent cette disposition :
 
@@ -146,8 +146,7 @@ Set-Location C:\Users\Mael\Documents\GitHub\Aether-Plugins
 
 Le script compile le module Wasm optimisé pour la taille, extrait le manifeste,
 calcule son empreinte et appelle l’outil officiel de signature. Il crée
-`artifacts/tmdb.package.json`. Pour IMDb ou fanart.tv, remplacer `tmdb` par `imdb`
-ou `fanart`. Les clés des fournisseurs ne sont jamais demandées par le script et
+`artifacts/tmdb.package.json`. Pour IMDb ou fanart.tv, remplacer `tmdb` par `imdb`, `fanart`, `omdb`, `musicbrainz`, `discogs`, `lrclib` ou `avatar`. Les clés des fournisseurs ne sont jamais demandées par le script et
 ne figurent pas dans le paquet. En cas de recompilation, fournir un nouveau
 `-OutputDirectory` : un paquet existant n’est pas écrasé.
 
@@ -190,7 +189,7 @@ n’a pas été ajoutée. Les manifestes Jellyfin ne sont pas compatibles.
 | Clé | Où la renseigner | Usage |
 | --- | --- | --- |
 | API Aether | Administration → Clés API, puis application cliente | Lire le catalogue autorisé |
-| API du fournisseur | Paramètres de l’extension installée | Appeler TMDb/fanart.tv |
+| API du fournisseur | Paramètres de l’extension installée | Appeler TMDb, OMDb, Discogs, fanart.tv |
 | Signature Ed25519 | Clé privée sur le PC ; clé publique dans Éditeurs approuvés | Vérifier l’auteur et l’intégrité du paquet |
 
 Un choix « sans expiration » sur une clé Aether ne supprime pas les quotas,

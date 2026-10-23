@@ -21,7 +21,7 @@ $crate = "aether-plugin-$Plugin"
 $exeSuffix = if ($env:OS -eq 'Windows_NT') { '.exe' } else { '' }
 Push-Location $pluginRoot
 try {
-    & cargo build --release --lib -p $crate --target wasm32-unknown-unknown --config 'profile.release.opt-level="z"' -j 1
+    & cargo build --release --lib -p $crate --target wasm32-unknown-unknown --config 'profile.release.opt-level=\"z\"' -j 1
     if ($LASTEXITCODE -ne 0) { throw 'Compilation Wasm échouée. Vérifiez rustup target add wasm32-unknown-unknown.' }
     & cargo build --bin $crate -p $crate -j 1
     if ($LASTEXITCODE -ne 0) { throw 'Compilation du manifeste échouée.' }

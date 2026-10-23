@@ -1,0 +1,6 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 240" width="800" height="240">
+  <rect width="800" height="240" fill="#141414"/>
+  <rect x="40" y="40" width="12" height="160" rx="6" fill="#ba478f"/>
+  <text x="80" y="135" font-family="'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-weight="700" font-size="72" fill="#ffffff">MusicBrainz</text>
+  <text x="82" y="180" font-family="'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="26" fill="#ba478f">Metadata</text>
+</svg>

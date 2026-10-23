@@ -1,334 +1,511 @@
 {
-  "apiVersion": 1,
-  "extensions": [
-    {
-      "manifest": {
-        "apiVersion": 1,
-        "id": "avatars",
-        "name": "Aether Avatars",
-        "version": "0.1.0",
-        "description": "Gestionnaire de packs d'avatars et photos de profil (sélection de packs, attribution aléatoire forcée et verrouillage des imports utilisateurs)",
-        "author": "Aether Team",
-        "license": "MIT OR Apache-2.0",
-        "repository": "https://github.com/maelmoreau21/Aether-Plugins",
-        "permissions": [
-          "avatars"
-        ],
-        "category": "Avatars",
-        "targetAbi": "1.0",
-        "minServerVersion": "0.1.0",
-        "maxServerVersion": "1.0.0",
-        "checksum": "e4cca89253b12a85f6ee3940535d0eefd3338234b3e3e9ee83d11ebf8473fc55",
-        "banner": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 800 240\" width=\"800\" height=\"240\">\n  <defs>\n    <linearGradient id=\"avatarGrad\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\">\n      <stop offset=\"0%\" stop-color=\"#4f46e5\"/>\n      <stop offset=\"100%\" stop-color=\"#7c3aed\"/>\n    </linearGradient>\n  </defs>\n  <rect width=\"800\" height=\"240\" fill=\"#0f172a\"/>\n  <!-- Hyper simple Avatar icon & title -->\n  <g transform=\"translate(245, 65)\">\n    <!-- Avatar circle -->\n    <circle cx=\"55\" cy=\"55\" r=\"50\" fill=\"url(#avatarGrad)\"/>\n    <!-- Head -->\n    <circle cx=\"55\" cy=\"42\" r=\"18\" fill=\"#ffffff\"/>\n    <!-- Shoulders -->\n    <path d=\"M 27,90 C 27,70 40,64 55,64 C 70,64 83,70 83,90 Z\" fill=\"#ffffff\"/>\n    <!-- Text -->\n    <text x=\"135\" y=\"72\" font-family=\"system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif\" font-weight=\"800\" font-size=\"64\" fill=\"#ffffff\" letter-spacing=\"1\">Avatars</text>\n  </g>\n</svg>\n",
-        "configSchema": [
-          {
-            "key": "pack_name",
-            "label": "Pack d'avatars actif",
-            "description": "Pack utilisé pour les attributions d'avatars aux utilisateurs",
-            "fieldType": "select",
-            "defaultValue": "personas",
-            "required": true,
-            "secret": false,
-            "options": [
-              {
-                "label": "personas",
-                "value": "personas"
-              },
-              {
-                "label": "geometric",
-                "value": "geometric"
-              },
-              {
-                "label": "retro",
-                "value": "retro"
-              },
-              {
-                "label": "botts",
-                "value": "botts"
-              },
-              {
-                "label": "all",
-                "value": "all"
-              }
-            ]
-          },
-          {
-            "key": "force_random_on_creation",
-            "label": "Attribution aléatoire obligatoire",
-            "description": "Attribuer automatiquement un avatar aléatoire lors de la création d'un utilisateur sans photo",
-            "fieldType": "boolean",
-            "defaultValue": "true",
-            "required": false,
-            "secret": false,
-            "options": [
-              {
-                "label": "true",
-                "value": "true"
-              },
-              {
-                "label": "false",
-                "value": "false"
-              }
-            ]
-          },
-          {
-            "key": "disallow_custom_avatars",
-            "label": "Verrouiller les imports utilisateurs",
-            "description": "Interdire aux utilisateurs d'importer leurs propres images (seuls les avatars du serveur sont autorisés)",
-            "fieldType": "boolean",
-            "defaultValue": "false",
-            "required": false,
-            "secret": false,
-            "options": [
-              {
-                "label": "false",
-                "value": "false"
-              },
-              {
-                "label": "true",
-                "value": "true"
-              }
-            ]
-          },
-          {
-            "key": "custom_pack_path",
-            "label": "Dossier d'avatars personnalisés (optionnel)",
-            "description": "Chemin d'accès vers un répertoire de fichiers PNG/SVG personnalisés par l'administrateur",
-            "fieldType": "text",
-            "required": false,
-            "secret": false
-          }
-        ]
-      },
-      "publisherId": "maelmoreau21",
-      "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
-      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/avatar-0.1.0.package.json",
-      "packageSha256": "f5870041467477a6cc9ac595bb901445d902920d03f68f308b2f74055bc17eb9"
-    },
-    {
-      "manifest": {
-        "apiVersion": 1,
-        "id": "fanart-tv",
-        "name": "fanart.tv",
-        "version": "0.1.0",
-        "description": "Fournisseur d'images haute définition (ClearLogos, Backdrops 4K/HD, ClearArt, Bannières, Disques)",
-        "author": "Aether Team",
-        "license": "MIT OR Apache-2.0",
-        "repository": "https://github.com/maelmoreau21/Aether-Plugins",
-        "permissions": [
-          "metadata.read",
-          "metadata.write",
-          "images"
-        ],
-        "httpHosts": [
-          "webservice.fanart.tv",
-          "assets.fanart.tv"
-        ],
-        "category": "Artwork",
-        "targetAbi": "1.0",
-        "minServerVersion": "0.1.0",
-        "maxServerVersion": "1.0.0",
-        "checksum": "55452a5f9e70c43dded4e58e579f94d5d4cb6e3e45742fab2eea31a144eecec6",
-        "banner": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 800 240\" width=\"800\" height=\"240\">\n  <rect width=\"800\" height=\"240\" fill=\"#141414\"/>\n  <!-- Official fanart.tv Logo -->\n  <g transform=\"translate(210, 80)\">\n    <text x=\"0\" y=\"68\" font-family=\"'Segoe UI', Roboto, Helvetica, Arial, sans-serif\" font-weight=\"700\" font-size=\"76\" fill=\"#ffffff\" letter-spacing=\"-1\">fanart</text>\n    <rect x=\"250\" y=\"6\" width=\"130\" height=\"76\" rx=\"14\" fill=\"#fa9b1d\"/>\n    <text x=\"315\" y=\"62\" font-family=\"'Segoe UI', Roboto, Helvetica, Arial, sans-serif\" font-weight=\"800\" font-size=\"52\" fill=\"#ffffff\" text-anchor=\"middle\">.tv</text>\n  </g>\n</svg>\n",
-        "configSchema": [
-          {
-            "key": "api_key",
-            "label": "Clé API Projet (client key)",
-            "description": "Clé API fanart.tv pour votre application (obtenue sur fanart.tv)",
-            "fieldType": "password",
-            "required": true,
-            "secret": true
-          },
-          {
-            "key": "user_key",
-            "label": "Clé Utilisateur VIP (optionnelle)",
-            "description": "Clé personnelle VIP pour un accès prioritaire aux dernières contributions",
-            "fieldType": "password",
-            "required": false,
-            "secret": true
-          },
-          {
-            "key": "base_url",
-            "label": "URL de base personnalisée",
-            "description": "URL alternative pour proxy ou serveur de test mock",
-            "fieldType": "text",
-            "required": false,
-            "secret": false
-          }
-        ]
-      },
-      "publisherId": "maelmoreau21",
-      "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
-      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/fanart-0.1.0.package.json",
-      "packageSha256": "fb7406c9d37280339f18f3fdc110474969cce6fc6ca9b74126088781c2d42486"
-    },
-    {
-      "manifest": {
-        "apiVersion": 1,
-        "id": "imdb",
-        "name": "IMDb (Internet Movie Database)",
-        "version": "0.1.0",
-        "description": "Fournisseur de métadonnées IMDb (notes mondiales de référence, votes, casting et recherche instantanée)",
-        "author": "Aether Team",
-        "license": "MIT OR Apache-2.0",
-        "repository": "https://github.com/maelmoreau21/Aether-Plugins",
-        "permissions": [
-          "metadata.read",
-          "metadata.write",
-          "images"
-        ],
-        "httpHosts": [
-          "v3.sg.media-imdb.com",
-          "imdb.com",
-          "www.imdb.com"
-        ],
-        "category": "Metadata",
-        "targetAbi": "1.0",
-        "minServerVersion": "0.1.0",
-        "maxServerVersion": "1.0.0",
-        "checksum": "81449c4b12d66efc810bb50f28730d1103732b50650bb5b16421d5fbd89541b7",
-        "banner": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 800 240\" width=\"800\" height=\"240\">\n  <rect width=\"800\" height=\"240\" fill=\"#0f0f0f\"/>\n  <!-- Official IMDb Yellow Badge -->\n  <g transform=\"translate(260, 50)\">\n    <rect width=\"280\" height=\"140\" rx=\"16\" fill=\"#f5c518\"/>\n    <text x=\"140\" y=\"102\" font-family=\"Impact, 'Arial Black', sans-serif\" font-weight=\"900\" font-size=\"88\" fill=\"#000000\" text-anchor=\"middle\" letter-spacing=\"-2\">IMDb</text>\n  </g>\n</svg>\n",
-        "configSchema": [
-          {
-            "key": "api_key",
-            "label": "Clé API (optionnelle)",
-            "description": "Clé API optionnelle si vous utilisez un proxy IMDb / RapidAPI",
-            "fieldType": "password",
-            "required": false,
-            "secret": true
-          },
-          {
-            "key": "language",
-            "label": "Langue préférée",
-            "description": "Code langue pour l'en-tête Accept-Language (ex. fr-FR, en-US)",
-            "fieldType": "select",
-            "defaultValue": "fr-FR",
-            "required": false,
-            "secret": false,
-            "options": [
-              {
-                "label": "fr-FR",
-                "value": "fr-FR"
-              },
-              {
-                "label": "en-US",
-                "value": "en-US"
-              },
-              {
-                "label": "es-ES",
-                "value": "es-ES"
-              },
-              {
-                "label": "de-DE",
-                "value": "de-DE"
-              }
-            ]
-          },
-          {
-            "key": "base_url",
-            "label": "URL de base personnalisée",
-            "description": "URL de base alternative pour proxy ou serveur de test mock",
-            "fieldType": "text",
-            "required": false,
-            "secret": false
-          }
-        ]
-      },
-      "publisherId": "maelmoreau21",
-      "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
-      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/imdb-0.1.0.package.json",
-      "packageSha256": "205ea72ec278b5a07749809a859109230754c8eaf4664e722bb730a797ee6e50"
-    },
-    {
-      "manifest": {
-        "apiVersion": 1,
-        "id": "tmdb",
-        "name": "TMDb (The Movie Database)",
-        "version": "0.1.0",
-        "description": "Fournisseur officiel TMDb pour films et séries (métadonnées complètes, casting, affiches et notes)",
-        "author": "Aether Team",
-        "license": "MIT OR Apache-2.0",
-        "repository": "https://github.com/maelmoreau21/Aether-Plugins",
-        "permissions": [
-          "metadata.read",
-          "metadata.write",
-          "images"
-        ],
-        "httpHosts": [
-          "api.themoviedb.org",
-          "image.tmdb.org"
-        ],
-        "category": "Metadata",
-        "targetAbi": "1.0",
-        "minServerVersion": "0.1.0",
-        "maxServerVersion": "1.0.0",
-        "checksum": "1cbabcdde884da65f86f28909fb012d7a746f25e079a65cf3020b84d61efc546",
-        "banner": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 800 240\" width=\"800\" height=\"240\">\n  <defs>\n    <linearGradient id=\"tmdbLogoGrad\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"0%\">\n      <stop offset=\"0%\" stop-color=\"#90cea1\"/>\n      <stop offset=\"100%\" stop-color=\"#01b4e4\"/>\n    </linearGradient>\n  </defs>\n  <rect width=\"800\" height=\"240\" fill=\"#0d253f\"/>\n  <!-- Official TMDB Logo -->\n  <g transform=\"translate(200, 60)\">\n    <text x=\"200\" y=\"88\" font-family=\"'Source Sans Pro', 'Helvetica Neue', Arial, sans-serif\" font-weight=\"900\" font-size=\"92\" fill=\"url(#tmdbLogoGrad)\" text-anchor=\"middle\" letter-spacing=\"4\">TMDB</text>\n    <rect x=\"50\" y=\"112\" width=\"300\" height=\"10\" rx=\"5\" fill=\"url(#tmdbLogoGrad)\"/>\n  </g>\n</svg>\n",
-        "configSchema": [
-          {
-            "key": "api_key",
-            "label": "Clé API TMDb",
-            "description": "Clé API TMDb v3 ou jeton d'accès v4 Bearer (obtenue sur themoviedb.org)",
-            "fieldType": "password",
-            "required": true,
-            "secret": true
-          },
-          {
-            "key": "language",
-            "label": "Langue par défaut",
-            "description": "Langue des titres et descriptions récupérés",
-            "fieldType": "select",
-            "defaultValue": "fr-FR",
-            "required": false,
-            "secret": false,
-            "options": [
-              {
-                "label": "fr-FR",
-                "value": "fr-FR"
-              },
-              {
-                "label": "en-US",
-                "value": "en-US"
-              },
-              {
-                "label": "es-ES",
-                "value": "es-ES"
-              },
-              {
-                "label": "de-DE",
-                "value": "de-DE"
-              },
-              {
-                "label": "ja-JP",
-                "value": "ja-JP"
-              }
-            ]
-          },
-          {
-            "key": "include_adult",
-            "label": "Contenus adultes",
-            "description": "Inclure les films et séries réservés aux adultes dans la recherche",
-            "fieldType": "boolean",
-            "defaultValue": "false",
-            "required": false,
-            "secret": false,
-            "options": [
-              {
-                "label": "false",
-                "value": "false"
-              },
-              {
-                "label": "true",
-                "value": "true"
-              }
-            ]
-          }
-        ]
-      },
-      "publisherId": "maelmoreau21",
-      "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
-      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/tmdb-0.1.0.package.json",
-      "packageSha256": "6ca50e6d86e246bff2eb64b5c3edc7805f45f5c7641d8c69133402fa18cb6017"
-    }
-  ]
+    "apiVersion":  1,
+    "extensions":  [
+                       {
+                           "manifest":  {
+                                            "apiVersion":  1,
+                                            "id":  "avatars",
+                                            "name":  "Aether Avatars",
+                                            "version":  "0.1.0",
+                                            "description":  "Gestionnaire de packs d\u0027avatars et photos de profil (s├®lection de packs, attribution al├®atoire forc├®e et verrouillage des imports utilisateurs)",
+                                            "author":  "Aether Team",
+                                            "license":  "MIT OR Apache-2.0",
+                                            "repository":  "https://github.com/maelmoreau21/Aether-Plugins",
+                                            "permissions":  [
+                                                                "avatars"
+                                                            ],
+                                            "category":  "Avatars",
+                                            "targetAbi":  "1.0",
+                                            "minServerVersion":  "0.1.0",
+                                            "maxServerVersion":  "1.0.0",
+                                            "checksum":  "0226b797f1c4ea5787048558d723d885af0ec4af43308030b5170641cc4a0f1d",
+                                            "banner":  "\u003csvg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 800 240\" width=\"800\" height=\"240\"\u003e\n  \u003cdefs\u003e\n    \u003clinearGradient id=\"avatarGrad\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\"\u003e\n      \u003cstop offset=\"0%\" stop-color=\"#4f46e5\"/\u003e\n      \u003cstop offset=\"100%\" stop-color=\"#7c3aed\"/\u003e\n    \u003c/linearGradient\u003e\n  \u003c/defs\u003e\n  \u003crect width=\"800\" height=\"240\" fill=\"#0f172a\"/\u003e\n  \u003c!-- Hyper simple Avatar icon \u0026 title --\u003e\n  \u003cg transform=\"translate(245, 65)\"\u003e\n    \u003c!-- Avatar circle --\u003e\n    \u003ccircle cx=\"55\" cy=\"55\" r=\"50\" fill=\"url(#avatarGrad)\"/\u003e\n    \u003c!-- Head --\u003e\n    \u003ccircle cx=\"55\" cy=\"42\" r=\"18\" fill=\"#ffffff\"/\u003e\n    \u003c!-- Shoulders --\u003e\n    \u003cpath d=\"M 27,90 C 27,70 40,64 55,64 C 70,64 83,70 83,90 Z\" fill=\"#ffffff\"/\u003e\n    \u003c!-- Text --\u003e\n    \u003ctext x=\"135\" y=\"72\" font-family=\"system-ui, -apple-system, \u0027Segoe UI\u0027, Roboto, sans-serif\" font-weight=\"800\" font-size=\"64\" fill=\"#ffffff\" letter-spacing=\"1\"\u003eAvatars\u003c/text\u003e\n  \u003c/g\u003e\n\u003c/svg\u003e\n",
+                                            "configSchema":  [
+                                                                 {
+                                                                     "key":  "pack_name",
+                                                                     "label":  "Pack d\u0027avatars actif",
+                                                                     "description":  "Pack utilis├® pour les attributions d\u0027avatars aux utilisateurs",
+                                                                     "fieldType":  "select",
+                                                                     "defaultValue":  "personas",
+                                                                     "required":  true,
+                                                                     "secret":  false,
+                                                                     "options":  [
+                                                                                     {
+                                                                                         "label":  "personas",
+                                                                                         "value":  "personas"
+                                                                                     },
+                                                                                     {
+                                                                                         "label":  "geometric",
+                                                                                         "value":  "geometric"
+                                                                                     },
+                                                                                     {
+                                                                                         "label":  "retro",
+                                                                                         "value":  "retro"
+                                                                                     },
+                                                                                     {
+                                                                                         "label":  "botts",
+                                                                                         "value":  "botts"
+                                                                                     },
+                                                                                     {
+                                                                                         "label":  "all",
+                                                                                         "value":  "all"
+                                                                                     }
+                                                                                 ]
+                                                                 },
+                                                                 {
+                                                                     "key":  "force_random_on_creation",
+                                                                     "label":  "Attribution al├®atoire obligatoire",
+                                                                     "description":  "Attribuer automatiquement un avatar al├®atoire lors de la cr├®ation d\u0027un utilisateur sans photo",
+                                                                     "fieldType":  "boolean",
+                                                                     "defaultValue":  "true",
+                                                                     "required":  false,
+                                                                     "secret":  false,
+                                                                     "options":  [
+                                                                                     {
+                                                                                         "label":  "true",
+                                                                                         "value":  "true"
+                                                                                     },
+                                                                                     {
+                                                                                         "label":  "false",
+                                                                                         "value":  "false"
+                                                                                     }
+                                                                                 ]
+                                                                 },
+                                                                 {
+                                                                     "key":  "disallow_custom_avatars",
+                                                                     "label":  "Verrouiller les imports utilisateurs",
+                                                                     "description":  "Interdire aux utilisateurs d\u0027importer leurs propres images (seuls les avatars du serveur sont autoris├®s)",
+                                                                     "fieldType":  "boolean",
+                                                                     "defaultValue":  "false",
+                                                                     "required":  false,
+                                                                     "secret":  false,
+                                                                     "options":  [
+                                                                                     {
+                                                                                         "label":  "false",
+                                                                                         "value":  "false"
+                                                                                     },
+                                                                                     {
+                                                                                         "label":  "true",
+                                                                                         "value":  "true"
+                                                                                     }
+                                                                                 ]
+                                                                 },
+                                                                 {
+                                                                     "key":  "custom_pack_path",
+                                                                     "label":  "Dossier d\u0027avatars personnalis├®s (optionnel)",
+                                                                     "description":  "Chemin d\u0027acc├¿s vers un r├®pertoire de fichiers PNG/SVG personnalis├®s par l\u0027administrateur",
+                                                                     "fieldType":  "text",
+                                                                     "required":  false,
+                                                                     "secret":  false
+                                                                 }
+                                                             ]
+                                        },
+                           "publisherId":  "maelmoreau21",
+                           "publicKey":  "btbpzkm5U3P+F2F/zTBnjpssZF/8wX/XprVaH4kaxso=",
+                           "packageUrl":  "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/avatar-0.1.0.package.json",
+                           "packageSha256":  "257aff502ddf636eb90fd82ecfc226ba969a630abe12988ab505910e82477dab"
+                       },
+                       {
+                           "manifest":  {
+                                            "apiVersion":  1,
+                                            "id":  "discogs",
+                                            "name":  "Discogs",
+                                            "version":  "0.1.0",
+                                            "description":  "M├â┬®tadonn├â┬®es d\u0027albums (artistes, genres, styles, notes) et pochettes via Discogs",
+                                            "author":  "Aether Team",
+                                            "license":  "AGPL-3.0-only",
+                                            "repository":  "https://github.com/maelmoreau21/Aether-Plugins",
+                                            "permissions":  [
+                                                                "metadata.read",
+                                                                "metadata.write",
+                                                                "images"
+                                                            ],
+                                            "httpHosts":  [
+                                                              "api.discogs.com"
+                                                          ],
+                                            "category":  "Metadata",
+                                            "targetAbi":  "1.0",
+                                            "minServerVersion":  "0.1.0",
+                                            "maxServerVersion":  "1.0.0",
+                                            "checksum":  "3d87f27f1e274628400548ac2ed187d1e7b994fcfd56ee36d4175407947f78a6",
+                                            "banner":  "´╗┐\u003csvg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 800 240\" width=\"800\" height=\"240\"\u003e\n  \u003crect width=\"800\" height=\"240\" fill=\"#141414\"/\u003e\n  \u003crect x=\"40\" y=\"40\" width=\"12\" height=\"160\" rx=\"6\" fill=\"#ff9800\"/\u003e\n  \u003ctext x=\"80\" y=\"135\" font-family=\"\u0027Segoe UI\u0027, Roboto, Helvetica, Arial, sans-serif\" font-weight=\"700\" font-size=\"72\" fill=\"#ffffff\"\u003eDiscogs\u003c/text\u003e\n  \u003ctext x=\"82\" y=\"180\" font-family=\"\u0027Segoe UI\u0027, Roboto, Helvetica, Arial, sans-serif\" font-size=\"26\" fill=\"#ff9800\"\u003eMetadata\u003c/text\u003e\n\u003c/svg\u003e\r\n",
+                                            "configSchema":  [
+                                                                 {
+                                                                     "key":  "api_key",
+                                                                     "label":  "Jeton personnel Discogs",
+                                                                     "description":  "Jeton g├â┬®n├â┬®r├â┬® dans Discogs \u003e Settings \u003e Developers (obligatoire pour la recherche et les images)",
+                                                                     "fieldType":  "password",
+                                                                     "required":  true,
+                                                                     "secret":  true
+                                                                 },
+                                                                 {
+                                                                     "key":  "base_url",
+                                                                     "label":  "URL de base personnalis├â┬®e",
+                                                                     "description":  "URL alternative pour proxy ou serveur de test",
+                                                                     "fieldType":  "text",
+                                                                     "required":  false,
+                                                                     "secret":  false
+                                                                 }
+                                                             ]
+                                        },
+                           "publisherId":  "maelmoreau21",
+                           "publicKey":  "btbpzkm5U3P+F2F/zTBnjpssZF/8wX/XprVaH4kaxso=",
+                           "packageUrl":  "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/discogs-0.1.0.package.json",
+                           "packageSha256":  "3b594068392b805e4306c8becfd6fa810bec5bf24e519c9261367a6f3319ba85"
+                       },
+                       {
+                           "manifest":  {
+                                            "apiVersion":  1,
+                                            "id":  "fanart-tv",
+                                            "name":  "fanart.tv",
+                                            "version":  "0.1.0",
+                                            "description":  "Fournisseur d\u0027images haute d├®finition (ClearLogos, Backdrops 4K/HD, ClearArt, Banni├¿res, Disques)",
+                                            "author":  "Aether Team",
+                                            "license":  "MIT OR Apache-2.0",
+                                            "repository":  "https://github.com/maelmoreau21/Aether-Plugins",
+                                            "permissions":  [
+                                                                "metadata.read",
+                                                                "metadata.write",
+                                                                "images"
+                                                            ],
+                                            "httpHosts":  [
+                                                              "webservice.fanart.tv",
+                                                              "assets.fanart.tv"
+                                                          ],
+                                            "category":  "Artwork",
+                                            "targetAbi":  "1.0",
+                                            "minServerVersion":  "0.1.0",
+                                            "maxServerVersion":  "1.0.0",
+                                            "checksum":  "d769cebe60e8c9e91ca950c4b7ead3cedd6e3485d8f48b47f49fefbc8f149ed7",
+                                            "banner":  "\u003csvg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 800 240\" width=\"800\" height=\"240\"\u003e\n  \u003crect width=\"800\" height=\"240\" fill=\"#141414\"/\u003e\n  \u003c!-- Official fanart.tv Logo --\u003e\n  \u003cg transform=\"translate(210, 80)\"\u003e\n    \u003ctext x=\"0\" y=\"68\" font-family=\"\u0027Segoe UI\u0027, Roboto, Helvetica, Arial, sans-serif\" font-weight=\"700\" font-size=\"76\" fill=\"#ffffff\" letter-spacing=\"-1\"\u003efanart\u003c/text\u003e\n    \u003crect x=\"250\" y=\"6\" width=\"130\" height=\"76\" rx=\"14\" fill=\"#fa9b1d\"/\u003e\n    \u003ctext x=\"315\" y=\"62\" font-family=\"\u0027Segoe UI\u0027, Roboto, Helvetica, Arial, sans-serif\" font-weight=\"800\" font-size=\"52\" fill=\"#ffffff\" text-anchor=\"middle\"\u003e.tv\u003c/text\u003e\n  \u003c/g\u003e\n\u003c/svg\u003e\n",
+                                            "configSchema":  [
+                                                                 {
+                                                                     "key":  "api_key",
+                                                                     "label":  "Cl├® API Projet (client key)",
+                                                                     "description":  "Cl├® API fanart.tv pour votre application (obtenue sur fanart.tv)",
+                                                                     "fieldType":  "password",
+                                                                     "required":  true,
+                                                                     "secret":  true
+                                                                 },
+                                                                 {
+                                                                     "key":  "user_key",
+                                                                     "label":  "Cl├® Utilisateur VIP (optionnelle)",
+                                                                     "description":  "Cl├® personnelle VIP pour un acc├¿s prioritaire aux derni├¿res contributions",
+                                                                     "fieldType":  "password",
+                                                                     "required":  false,
+                                                                     "secret":  true
+                                                                 },
+                                                                 {
+                                                                     "key":  "base_url",
+                                                                     "label":  "URL de base personnalis├®e",
+                                                                     "description":  "URL alternative pour proxy ou serveur de test mock",
+                                                                     "fieldType":  "text",
+                                                                     "required":  false,
+                                                                     "secret":  false
+                                                                 }
+                                                             ]
+                                        },
+                           "publisherId":  "maelmoreau21",
+                           "publicKey":  "btbpzkm5U3P+F2F/zTBnjpssZF/8wX/XprVaH4kaxso=",
+                           "packageUrl":  "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/fanart-0.1.0.package.json",
+                           "packageSha256":  "01c35988f2219c728033f9b3b4da0199f8297a40a006118af4136347038f294e"
+                       },
+                       {
+                           "manifest":  {
+                                            "apiVersion":  1,
+                                            "id":  "imdb",
+                                            "name":  "IMDb (Internet Movie Database)",
+                                            "version":  "0.1.0",
+                                            "description":  "Fournisseur de m├®tadonn├®es IMDb (notes mondiales de r├®f├®rence, votes, casting et recherche instantan├®e)",
+                                            "author":  "Aether Team",
+                                            "license":  "MIT OR Apache-2.0",
+                                            "repository":  "https://github.com/maelmoreau21/Aether-Plugins",
+                                            "permissions":  [
+                                                                "metadata.read",
+                                                                "metadata.write",
+                                                                "images"
+                                                            ],
+                                            "httpHosts":  [
+                                                              "v3.sg.media-imdb.com",
+                                                              "imdb.com",
+                                                              "www.imdb.com"
+                                                          ],
+                                            "category":  "Metadata",
+                                            "targetAbi":  "1.0",
+                                            "minServerVersion":  "0.1.0",
+                                            "maxServerVersion":  "1.0.0",
+                                            "checksum":  "816f698236f3574551dbe2181749384fcc257d0154e0e007321d510b1f3f421e",
+                                            "banner":  "\u003csvg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 800 240\" width=\"800\" height=\"240\"\u003e\n  \u003crect width=\"800\" height=\"240\" fill=\"#0f0f0f\"/\u003e\n  \u003c!-- Official IMDb Yellow Badge --\u003e\n  \u003cg transform=\"translate(260, 50)\"\u003e\n    \u003crect width=\"280\" height=\"140\" rx=\"16\" fill=\"#f5c518\"/\u003e\n    \u003ctext x=\"140\" y=\"102\" font-family=\"Impact, \u0027Arial Black\u0027, sans-serif\" font-weight=\"900\" font-size=\"88\" fill=\"#000000\" text-anchor=\"middle\" letter-spacing=\"-2\"\u003eIMDb\u003c/text\u003e\n  \u003c/g\u003e\n\u003c/svg\u003e\n",
+                                            "configSchema":  [
+                                                                 {
+                                                                     "key":  "api_key",
+                                                                     "label":  "Cl├® API (optionnelle)",
+                                                                     "description":  "Cl├® API optionnelle si vous utilisez un proxy IMDb / RapidAPI",
+                                                                     "fieldType":  "password",
+                                                                     "required":  false,
+                                                                     "secret":  true
+                                                                 },
+                                                                 {
+                                                                     "key":  "language",
+                                                                     "label":  "Langue pr├®f├®r├®e",
+                                                                     "description":  "Code langue pour l\u0027en-t├¬te Accept-Language (ex. fr-FR, en-US)",
+                                                                     "fieldType":  "select",
+                                                                     "defaultValue":  "fr-FR",
+                                                                     "required":  false,
+                                                                     "secret":  false,
+                                                                     "options":  [
+                                                                                     {
+                                                                                         "label":  "fr-FR",
+                                                                                         "value":  "fr-FR"
+                                                                                     },
+                                                                                     {
+                                                                                         "label":  "en-US",
+                                                                                         "value":  "en-US"
+                                                                                     },
+                                                                                     {
+                                                                                         "label":  "es-ES",
+                                                                                         "value":  "es-ES"
+                                                                                     },
+                                                                                     {
+                                                                                         "label":  "de-DE",
+                                                                                         "value":  "de-DE"
+                                                                                     }
+                                                                                 ]
+                                                                 },
+                                                                 {
+                                                                     "key":  "base_url",
+                                                                     "label":  "URL de base personnalis├®e",
+                                                                     "description":  "URL de base alternative pour proxy ou serveur de test mock",
+                                                                     "fieldType":  "text",
+                                                                     "required":  false,
+                                                                     "secret":  false
+                                                                 }
+                                                             ]
+                                        },
+                           "publisherId":  "maelmoreau21",
+                           "publicKey":  "btbpzkm5U3P+F2F/zTBnjpssZF/8wX/XprVaH4kaxso=",
+                           "packageUrl":  "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/imdb-0.1.0.package.json",
+                           "packageSha256":  "98f98bf4e4522246e4dd5dccadd16e0c11b7ef9c4b85c53d96b20043c56ea13e"
+                       },
+                       {
+                           "manifest":  {
+                                            "apiVersion":  1,
+                                            "id":  "lrclib",
+                                            "name":  "LRCLIB",
+                                            "version":  "0.1.0",
+                                            "description":  "Paroles simples et synchronis├â┬®es (LRC) depuis lrclib.net, sans cl├â┬® API",
+                                            "author":  "Aether Team",
+                                            "license":  "AGPL-3.0-only",
+                                            "repository":  "https://github.com/maelmoreau21/Aether-Plugins",
+                                            "permissions":  [
+                                                                "metadata.read",
+                                                                "metadata.write",
+                                                                "images"
+                                                            ],
+                                            "httpHosts":  [
+                                                              "lrclib.net"
+                                                          ],
+                                            "category":  "Lyrics",
+                                            "targetAbi":  "1.0",
+                                            "minServerVersion":  "0.1.0",
+                                            "maxServerVersion":  "1.0.0",
+                                            "checksum":  "c64496a72d923d11cb3c7044cccf7a86e10a1069a38b0f2ab78165406d182cae",
+                                            "banner":  "´╗┐\u003csvg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 800 240\" width=\"800\" height=\"240\"\u003e\n  \u003crect width=\"800\" height=\"240\" fill=\"#141414\"/\u003e\n  \u003crect x=\"40\" y=\"40\" width=\"12\" height=\"160\" rx=\"6\" fill=\"#4caf93\"/\u003e\n  \u003ctext x=\"80\" y=\"135\" font-family=\"\u0027Segoe UI\u0027, Roboto, Helvetica, Arial, sans-serif\" font-weight=\"700\" font-size=\"72\" fill=\"#ffffff\"\u003eLRCLIB\u003c/text\u003e\n  \u003ctext x=\"82\" y=\"180\" font-family=\"\u0027Segoe UI\u0027, Roboto, Helvetica, Arial, sans-serif\" font-size=\"26\" fill=\"#4caf93\"\u003eLyrics\u003c/text\u003e\n\u003c/svg\u003e\r\n",
+                                            "configSchema":  [
+                                                                 {
+                                                                     "key":  "base_url",
+                                                                     "label":  "URL de base personnalis├â┬®e",
+                                                                     "description":  "Instance LRCLIB auto-h├â┬®berg├â┬®e (par d├â┬®faut https://lrclib.net/api)",
+                                                                     "fieldType":  "text",
+                                                                     "required":  false,
+                                                                     "secret":  false
+                                                                 }
+                                                             ]
+                                        },
+                           "publisherId":  "maelmoreau21",
+                           "publicKey":  "btbpzkm5U3P+F2F/zTBnjpssZF/8wX/XprVaH4kaxso=",
+                           "packageUrl":  "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/lrclib-0.1.0.package.json",
+                           "packageSha256":  "a93a6822169bc4b957eab83f0eb0d86f87c44a78676332f869649cc6b001a004"
+                       },
+                       {
+                           "manifest":  {
+                                            "apiVersion":  1,
+                                            "id":  "musicbrainz",
+                                            "name":  "MusicBrainz",
+                                            "version":  "0.1.0",
+                                            "description":  "M├âãÆ├é┬®tadonn├âãÆ├é┬®es d\u0027albums (artistes, dates, genres) et pochettes via MusicBrainz et Cover Art Archive",
+                                            "author":  "Aether Team",
+                                            "license":  "AGPL-3.0-only",
+                                            "repository":  "https://github.com/maelmoreau21/Aether-Plugins",
+                                            "permissions":  [
+                                                                "metadata.read",
+                                                                "metadata.write",
+                                                                "images"
+                                                            ],
+                                            "httpHosts":  [
+                                                              "musicbrainz.org",
+                                                              "coverartarchive.org"
+                                                          ],
+                                            "category":  "Metadata",
+                                            "targetAbi":  "1.0",
+                                            "minServerVersion":  "0.1.0",
+                                            "maxServerVersion":  "1.0.0",
+                                            "checksum":  "dc217385312d102a4485398e527feeaf7594ffb8abe768d55ce5e34afc28bf6b",
+                                            "banner":  "´╗┐\u003csvg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 800 240\" width=\"800\" height=\"240\"\u003e\n  \u003crect width=\"800\" height=\"240\" fill=\"#141414\"/\u003e\n  \u003crect x=\"40\" y=\"40\" width=\"12\" height=\"160\" rx=\"6\" fill=\"#ba478f\"/\u003e\n  \u003ctext x=\"80\" y=\"135\" font-family=\"\u0027Segoe UI\u0027, Roboto, Helvetica, Arial, sans-serif\" font-weight=\"700\" font-size=\"72\" fill=\"#ffffff\"\u003eMusicBrainz\u003c/text\u003e\n  \u003ctext x=\"82\" y=\"180\" font-family=\"\u0027Segoe UI\u0027, Roboto, Helvetica, Arial, sans-serif\" font-size=\"26\" fill=\"#ba478f\"\u003eMetadata\u003c/text\u003e\n\u003c/svg\u003e\r\n",
+                                            "configSchema":  [
+                                                                 {
+                                                                     "key":  "base_url",
+                                                                     "label":  "URL de base personnalis├âãÆ├é┬®e",
+                                                                     "description":  "Miroir MusicBrainz ou serveur de test (aucune cl├âãÆ├é┬® requise)",
+                                                                     "fieldType":  "text",
+                                                                     "required":  false,
+                                                                     "secret":  false
+                                                                 }
+                                                             ]
+                                        },
+                           "publisherId":  "maelmoreau21",
+                           "publicKey":  "btbpzkm5U3P+F2F/zTBnjpssZF/8wX/XprVaH4kaxso=",
+                           "packageUrl":  "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/musicbrainz-0.1.0.package.json",
+                           "packageSha256":  "5d049b00ef33974c499e8fec6096ea6fd57a7bb4fd9a0f7cfab128e89b4c9753"
+                       },
+                       {
+                           "manifest":  {
+                                            "apiVersion":  1,
+                                            "id":  "omdb",
+                                            "name":  "OMDb",
+                                            "version":  "0.1.0",
+                                            "description":  "M├â┬®tadonn├â┬®es films et s├â┬®ries via l\u0027Open Movie Database (cl├â┬® API requise)",
+                                            "author":  "Aether Team",
+                                            "license":  "AGPL-3.0-only",
+                                            "repository":  "https://github.com/maelmoreau21/Aether-Plugins",
+                                            "permissions":  [
+                                                                "metadata.read",
+                                                                "metadata.write",
+                                                                "images"
+                                                            ],
+                                            "httpHosts":  [
+                                                              "www.omdbapi.com"
+                                                          ],
+                                            "category":  "Metadata",
+                                            "targetAbi":  "1.0",
+                                            "minServerVersion":  "0.1.0",
+                                            "maxServerVersion":  "1.0.0",
+                                            "checksum":  "de662eab610f6c554e0965e31f3fac6d1f3da8e893f4405651f43a6887d4117d",
+                                            "banner":  "´╗┐\u003csvg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 800 240\" width=\"800\" height=\"240\"\u003e\n  \u003crect width=\"800\" height=\"240\" fill=\"#141414\"/\u003e\n  \u003crect x=\"40\" y=\"40\" width=\"12\" height=\"160\" rx=\"6\" fill=\"#f5c518\"/\u003e\n  \u003ctext x=\"80\" y=\"135\" font-family=\"\u0027Segoe UI\u0027, Roboto, Helvetica, Arial, sans-serif\" font-weight=\"700\" font-size=\"72\" fill=\"#ffffff\"\u003eOMDb\u003c/text\u003e\n  \u003ctext x=\"82\" y=\"180\" font-family=\"\u0027Segoe UI\u0027, Roboto, Helvetica, Arial, sans-serif\" font-size=\"26\" fill=\"#f5c518\"\u003eMetadata\u003c/text\u003e\n\u003c/svg\u003e\r\n",
+                                            "configSchema":  [
+                                                                 {
+                                                                     "key":  "api_key",
+                                                                     "label":  "Cl├â┬® API OMDb",
+                                                                     "description":  "Cl├â┬® gratuite ou Patreon obtenue sur omdbapi.com",
+                                                                     "fieldType":  "password",
+                                                                     "required":  true,
+                                                                     "secret":  true
+                                                                 },
+                                                                 {
+                                                                     "key":  "base_url",
+                                                                     "label":  "URL de base personnalis├â┬®e",
+                                                                     "description":  "URL alternative pour proxy ou serveur de test",
+                                                                     "fieldType":  "text",
+                                                                     "required":  false,
+                                                                     "secret":  false
+                                                                 }
+                                                             ]
+                                        },
+                           "publisherId":  "maelmoreau21",
+                           "publicKey":  "btbpzkm5U3P+F2F/zTBnjpssZF/8wX/XprVaH4kaxso=",
+                           "packageUrl":  "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/omdb-0.1.0.package.json",
+                           "packageSha256":  "239e69e75f877053d9bd190f32d46f99a574fc8fbd65739ef858460f28a2f0da"
+                       },
+                       {
+                           "manifest":  {
+                                            "apiVersion":  1,
+                                            "id":  "tmdb",
+                                            "name":  "TMDb (The Movie Database)",
+                                            "version":  "0.1.0",
+                                            "description":  "Fournisseur officiel TMDb pour films et s├®ries (m├®tadonn├®es compl├¿tes, casting, affiches et notes)",
+                                            "author":  "Aether Team",
+                                            "license":  "MIT OR Apache-2.0",
+                                            "repository":  "https://github.com/maelmoreau21/Aether-Plugins",
+                                            "permissions":  [
+                                                                "metadata.read",
+                                                                "metadata.write",
+                                                                "images"
+                                                            ],
+                                            "httpHosts":  [
+                                                              "api.themoviedb.org",
+                                                              "image.tmdb.org"
+                                                          ],
+                                            "category":  "Metadata",
+                                            "targetAbi":  "1.0",
+                                            "minServerVersion":  "0.1.0",
+                                            "maxServerVersion":  "1.0.0",
+                                            "checksum":  "b89fb48d79757e8cc47f5488ed938e67daecd7849beaee092e4d926bdb9e3164",
+                                            "banner":  "\u003csvg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 800 240\" width=\"800\" height=\"240\"\u003e\n  \u003cdefs\u003e\n    \u003clinearGradient id=\"tmdbLogoGrad\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"0%\"\u003e\n      \u003cstop offset=\"0%\" stop-color=\"#90cea1\"/\u003e\n      \u003cstop offset=\"100%\" stop-color=\"#01b4e4\"/\u003e\n    \u003c/linearGradient\u003e\n  \u003c/defs\u003e\n  \u003crect width=\"800\" height=\"240\" fill=\"#0d253f\"/\u003e\n  \u003c!-- Official TMDB Logo --\u003e\n  \u003cg transform=\"translate(200, 60)\"\u003e\n    \u003ctext x=\"200\" y=\"88\" font-family=\"\u0027Source Sans Pro\u0027, \u0027Helvetica Neue\u0027, Arial, sans-serif\" font-weight=\"900\" font-size=\"92\" fill=\"url(#tmdbLogoGrad)\" text-anchor=\"middle\" letter-spacing=\"4\"\u003eTMDB\u003c/text\u003e\n    \u003crect x=\"50\" y=\"112\" width=\"300\" height=\"10\" rx=\"5\" fill=\"url(#tmdbLogoGrad)\"/\u003e\n  \u003c/g\u003e\n\u003c/svg\u003e\n",
+                                            "configSchema":  [
+                                                                 {
+                                                                     "key":  "api_key",
+                                                                     "label":  "Cl├® API TMDb",
+                                                                     "description":  "Cl├® API TMDb v3 ou jeton d\u0027acc├¿s v4 Bearer (obtenue sur themoviedb.org)",
+                                                                     "fieldType":  "password",
+                                                                     "required":  true,
+                                                                     "secret":  true
+                                                                 },
+                                                                 {
+                                                                     "key":  "language",
+                                                                     "label":  "Langue par d├®faut",
+                                                                     "description":  "Langue des titres et descriptions r├®cup├®r├®s",
+                                                                     "fieldType":  "select",
+                                                                     "defaultValue":  "fr-FR",
+                                                                     "required":  false,
+                                                                     "secret":  false,
+                                                                     "options":  [
+                                                                                     {
+                                                                                         "label":  "fr-FR",
+                                                                                         "value":  "fr-FR"
+                                                                                     },
+                                                                                     {
+                                                                                         "label":  "en-US",
+                                                                                         "value":  "en-US"
+                                                                                     },
+                                                                                     {
+                                                                                         "label":  "es-ES",
+                                                                                         "value":  "es-ES"
+                                                                                     },
+                                                                                     {
+                                                                                         "label":  "de-DE",
+                                                                                         "value":  "de-DE"
+                                                                                     },
+                                                                                     {
+                                                                                         "label":  "ja-JP",
+                                                                                         "value":  "ja-JP"
+                                                                                     }
+                                                                                 ]
+                                                                 },
+                                                                 {
+                                                                     "key":  "include_adult",
+                                                                     "label":  "Contenus adultes",
+                                                                     "description":  "Inclure les films et s├®ries r├®serv├®s aux adultes dans la recherche",
+                                                                     "fieldType":  "boolean",
+                                                                     "defaultValue":  "false",
+                                                                     "required":  false,
+                                                                     "secret":  false,
+                                                                     "options":  [
+                                                                                     {
+                                                                                         "label":  "false",
+                                                                                         "value":  "false"
+                                                                                     },
+                                                                                     {
+                                                                                         "label":  "true",
+                                                                                         "value":  "true"
+                                                                                     }
+                                                                                 ]
+                                                                 }
+                                                             ]
+                                        },
+                           "publisherId":  "maelmoreau21",
+                           "publicKey":  "btbpzkm5U3P+F2F/zTBnjpssZF/8wX/XprVaH4kaxso=",
+                           "packageUrl":  "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/tmdb-0.1.0.package.json",
+                           "packageSha256":  "68fe57a842f77822ed88ef879dd2e1d02aebbb17025d96166deb8bdb4f3739a0"
+                       }
+                   ]
 }
