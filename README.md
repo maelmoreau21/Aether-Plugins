@@ -1,4 +1,81 @@
-# Aether-Plugins — installation locale
+# Aether-Plugins — catalogue installable
+
+## Le lien à ajouter dans Aether
+
+```text
+https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/manifest.json
+```
+
+Les fichiers `repository/manifest.json`, `repository/packages/*.package.json` et
+`repository/publisher-public.txt` forment le catalogue public : TMDb, IMDb,
+fanart.tv et avatars. Ce lien devient disponible après publication de ces fichiers
+sur la branche `main` de ce dépôt. Les modifications locales ne le publient pas.
+Aether préconfigure cette URL une seule fois. L’administrateur peut retirer le
+dépôt ; il ne réapparaît pas au redémarrage et les plugins installés sont conservés.
+
+Dans Administration → Extensions → Catalogue, **Actualiser les dépôts**, vérifier
+puis approuver la clé publique de l’éditeur `maelmoreau21`, et installer les plugins
+souhaités. Chaque installation reste **désactivée**. Dans Installées → Configurer
+et gérer : enregistrer les paramètres fournisseur, choisir les bibliothèques,
+puis activer. Une clé fournisseur reste propre à chaque serveur ; aucune clé
+TMDb/fanart.tv ou clé privée de signature n’est présente dans le catalogue.
+
+Pour vérifier les fichiers sans réseau ni clé privée :
+
+```powershell
+node scripts/test-repository.cjs
+```
+
+Cette vérification est également dans la CI. Elle contrôle signatures Ed25519,
+SHA-256 des paquets et des modules, concordance des manifestes, URL et tailles.
+La clé publique publiée peut être comparée avec la copie locale conservée par
+l’auteur. Aucune confiance éditeur ni autorisation de bibliothèque n’est implicite.
+
+## Mettre à jour le catalogue
+
+Conserver la clé privée de signature hors du dépôt. La compilation/signature
+utilise les outils du Core voisin. Exemple de préparation initiale d’une **nouvelle**
+clé (ne pas recréer la clé si elle existe déjà) :
+
+```powershell
+$signingDirectory = Join-Path $env:LOCALAPPDATA 'MediaExtensionSigning'
+New-Item -ItemType Directory -Force $signingDirectory | Out-Null
+$signingKey = Join-Path $signingDirectory 'catalog-v1.pk8'
+$publicKeyPath = Join-Path $signingDirectory 'catalog-v1.public.txt'
+# Seulement si cette clé n’existe pas : keygen refuse tout écrasement.
+$publicKey = & ..\Aether\target\debug\media-extension-pack.exe keygen $signingKey
+if ($LASTEXITCODE -ne 0) { throw 'Création de clé échouée.' }
+[IO.File]::WriteAllText($publicKeyPath, ($publicKey -join '').Trim(), [Text.UTF8Encoding]::new($false))
+```
+
+La clé `catalog-v1.pk8` de la préparation locale du 23 octobre est conservée dans
+ce dossier privé. Sauvegardez-la ; les fichiers `repository/` ne permettent pas
+de signer une prochaine version. Aucun secret n’a été configuré dans GitHub.
+
+Avec la paire déjà créée :
+
+```powershell
+.\scripts\Build-Repository.ps1 -KeyPath $signingKey -PublicKeyPath $publicKeyPath
+```
+
+Le script détecte les crates `aether-plugin-*` qui exposent un exécutable de
+manifeste et compile leurs modules Wasm. Il produit tous les paquets signés et
+leur manifeste commun dans un **nouveau** dossier `artifacts/repository-DATE`.
+Les paquets ont un nom versionné (par exemple `tmdb-0.1.0.package.json`) ;
+conserver les anciennes versions si elles restent référencées dans un catalogue.
+Le générateur vérifie aussi les signatures à la fin. Le générateur individuel accepte aussi les nouveaux noms de plugins ; les
+permissions par défaut des nouveaux fournisseurs sont celles des fournisseurs
+actuels. Un nouveau type d’extension doit déclarer les droits métier appropriés
+avant publication. Les fichiers existants ne sont pas écrasés. Après contrôle,
+remplacer explicitement les paquets, le manifeste et la clé publique dans
+`repository/`, puis lancer `node scripts/test-repository.cjs`. Ne publier ni
+`*.pk8` ni les dossiers de compilation. Le script ne pousse rien sur GitHub.
+
+Pour mettre à jour une installation existante, le Core demande encore une
+désinstallation/réinstallation et de nouveaux consentements : pas de mise à jour
+silencieuse. Une rotation de clé exige un nouvel identifiant d’éditeur.
+
+## Guide local détaillé
 
 Ce dépôt contient les sources Rust des fournisseurs TMDb, IMDb, fanart.tv et des
 avatars. Le serveur Aether reste dans le dépôt voisin `Aether`. Les dépendances
@@ -80,24 +157,10 @@ ni qu’un navigateur peut lire un média.
 
 ## 4. Installer dans l’interface
 
-1. Administration → Extensions → Éditeurs approuvés : identifiant `local`, puis
-   clé publique Base64 de l’étape 2. Approuver uniquement la clé de sa propre
-   compilation ou celle d’un éditeur vérifiée par un canal de confiance.
-2. « Installer un paquet local » : choisir `artifacts/tmdb.package.json`, puis
-   « Vérifier et installer ». Le paquet est installé **désactivé**.
-3. « Gérer cette extension » → « Paramètres du plugin » : renseigner la clé
-   TMDb du fournisseur puis enregistrer.
-4. Cocher les bibliothèques autorisées et « Enregistrer et activer ».
-5. Rechercher une œuvre et l’exécuter pour obtenir une proposition conservée
-   dans l’historique.
-
-Le parcours manuel actuel lance `metadata.propose`. TMDb/IMDb implémentent cette
-opération ; fanart.tv expose des opérations images/détails qui demandent leur
-propre parcours Core. Le module Avatar expose des opérations d’avatars ; installer
-un module ne suffit pas à ajouter automatiquement ces écrans ou changer les photos
-des utilisateurs. Les mises à jour en place et les dépôts Jellyfin ne sont pas
-disponibles. Aucun téléchargement massif d’affiches ni scan
-n’est déclenché par l’installation.
+Utiliser le catalogue décrit au début du document. Pour un paquet préparé
+localement mais non publié, l’import côté serveur reste documenté dans
+`Aether/docs/EXTENSIONS_API.md` (`MEDIA_EXTENSION_IMPORT_DIR`). L’interface normale
+se concentre sur le catalogue, les dépôts et la configuration des installations.
 
 ## Publier son catalogue de paquets
 

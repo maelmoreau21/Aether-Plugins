@@ -1,0 +1,11 @@
+﻿name: Fonctionnalité
+description: Proposer un plugin ou une amélioration
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: need
+    attributes: {label: Besoin et cas d'usage}
+    validations: {required: true}
+  - type: textarea
+    id: api
+    attributes: {label: Source de données / API envisagée et conditions d'utilisation}

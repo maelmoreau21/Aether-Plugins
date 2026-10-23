@@ -55,6 +55,10 @@ jobs:
         working-directory: Aether-Plugins
         run: cargo build --workspace --lib --target wasm32-unknown-unknown --release
 
+      - name: Verify signed repository packages
+        working-directory: Aether-Plugins
+        run: node scripts/test-repository.cjs
+
       - name: Upload Wasm Artifacts
         uses: actions/upload-artifact@v4
         with:

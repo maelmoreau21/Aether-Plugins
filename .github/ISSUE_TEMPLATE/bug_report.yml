@@ -1,0 +1,16 @@
+﻿name: Bug
+description: Signaler un dysfonctionnement d'un plugin
+labels: ["bug"]
+body:
+  - type: input
+    id: plugin
+    attributes: {label: Plugin et version}
+    validations: {required: true}
+  - type: textarea
+    id: desc
+    attributes: {label: Description et étapes de reproduction}
+    validations: {required: true}
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs (sans clé API ni jeton)

@@ -1,10 +1,11 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('tmdb', 'imdb', 'fanart', 'avatar')][string]$Plugin = 'tmdb',
+    [ValidatePattern('^[a-z0-9-]+$')][string]$Plugin = 'tmdb',
     [Parameter(Mandatory)][string]$KeyPath,
     [string]$PublisherId = 'local',
     [string]$CorePath = (Join-Path $PSScriptRoot '../../Aether'),
-    [string]$OutputDirectory = (Join-Path $PSScriptRoot '../artifacts')
+    [string]$OutputDirectory = (Join-Path $PSScriptRoot '../artifacts'),
+    [switch]$SkipCoreBuild
 )
 $ErrorActionPreference = 'Stop'
 $pluginRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
@@ -32,7 +33,7 @@ try {
         apiVersion = 1; id = $source.id; name = $source.name; version = $source.version
         description = $source.description; author = $source.author; license = $source.license
         repository = 'https://github.com/maelmoreau21/Aether-Plugins'
-        permissions = $(if ($Plugin -eq 'avatar') { @('avatars') } else { @('metadata.read', 'metadata.write', 'images') }); category = $source.category; targetAbi = $source.targetAbi
+        permissions = [string[]]$(if ($Plugin -eq 'avatar') { 'avatars' } else { 'metadata.read', 'metadata.write', 'images' }); category = $source.category; targetAbi = $source.targetAbi
         httpHosts = @($source.httpHosts | Where-Object { $_ -is [string] -and $_ })
         minServerVersion = $source.minServerVersion; maxServerVersion = $source.maxServerVersion
         checksum = (Get-FileHash -LiteralPath $wasmPath -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -42,8 +43,10 @@ try {
     [IO.File]::WriteAllText($manifestPath, ($manifest | ConvertTo-Json -Depth 20), [Text.UTF8Encoding]::new($false))
     Push-Location $coreRoot
     try {
-        & cargo build --locked -p media-poc --bin media-extension-pack --bin media-extension-worker -j 1
-        if ($LASTEXITCODE -ne 0) { throw 'Compilation des outils Core échouée.' }
+        if (!$SkipCoreBuild) {
+            & cargo build --locked -p media-poc --bin media-extension-pack --bin media-extension-worker -j 1
+            if ($LASTEXITCODE -ne 0) { throw 'Compilation des outils Core échouée.' }
+        }
         & (Join-Path $coreRoot "target/debug/media-extension-pack$exeSuffix") pack $manifestPath $wasmPath $privateKey $PublisherId $packagePath
         if ($LASTEXITCODE -ne 0) { throw 'Validation/signature du paquet échouée (taille maximale du module : 256 Kio).' }
     } finally { Pop-Location }
