@@ -80,6 +80,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "aether-plugin-intro-skipper"
+version = "0.1.0"
+dependencies = [
+ "aether-plugin-api",
+ "async-trait",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "media-extension-sdk",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "aether-plugin-lrclib"
 version = "0.1.0"
 dependencies = [

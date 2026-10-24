@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 240" width="800" height="240">
+  <defs>
+    <linearGradient id="skipGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06b6d4"/>
+      <stop offset="50%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="240" fill="#0b0f19"/>
+  <!-- Decorative waveform bars in background -->
+  <g opacity="0.12" fill="#38bdf8">
+    <rect x="50" y="80" width="8" height="80" rx="4"/>
+    <rect x="70" y="60" width="8" height="120" rx="4"/>
+    <rect x="90" y="90" width="8" height="60" rx="4"/>
+    <rect x="110" y="45" width="8" height="150" rx="4"/>
+    <rect x="130" y="75" width="8" height="90" rx="4"/>
+    <rect x="670" y="70" width="8" height="100" rx="4"/>
+    <rect x="690" y="50" width="8" height="140" rx="4"/>
+    <rect x="710" y="85" width="8" height="70" rx="4"/>
+    <rect x="730" y="60" width="8" height="120" rx="4"/>
+  </g>
+  <!-- Central branding group -->
+  <g transform="translate(140, 60)">
+    <!-- Fast-forward / Skip icon with gradient circle -->
+    <circle cx="60" cy="60" r="55" fill="url(#skipGrad)"/>
+    <!-- Double forward arrow with vertical bar -->
+    <path d="M 40,40 L 60,60 L 40,80 Z" fill="#ffffff"/>
+    <path d="M 60,40 L 80,60 L 60,80 Z" fill="#ffffff"/>
+    <rect x="83" y="40" width="5" height="40" rx="2" fill="#ffffff"/>
+    <!-- Brand Title and subtitle -->
+    <text x="145" y="65" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-weight="800" font-size="52" fill="#ffffff" letter-spacing="1">Intro Skipper</text>
+    <text x="148" y="95" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-weight="500" font-size="18" fill="#94a3b8" letter-spacing="2">DÉTECTION AUDIO &amp; CHAPITRES</text>
+  </g>
+</svg>
