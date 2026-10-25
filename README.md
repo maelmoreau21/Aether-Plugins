@@ -1,3 +1,13 @@
+## Correctifs catalogue du 25 octobre 2026
+
+IntroSkipper est présent dans les sources mais absent des huit paquets signés
+actuels. Les exécutions automatiques de release incluent désormais les plugins
+absents du catalogue, même sans changement récent de leur code. La clé de
+signature production reste obligatoire. Les jobs de publication s'exécutent
+séquentiellement, repartent de main et incorporent les bannières SVG locales
+avant signature. Aucun push, release ou paquet de remplacement non signé n'est
+créé par la correction locale.
+
 # Aether-Plugins — catalogue installable
 
 ## Le lien à ajouter dans Aether

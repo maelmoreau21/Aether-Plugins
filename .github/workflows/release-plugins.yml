@@ -96,6 +96,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
     environment: production
     steps:
@@ -119,6 +120,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: Aether-Plugins
+          ref: main
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -181,8 +183,12 @@ jobs:
           # Construire manifest complet
           python3 -c "
           import json
+          from pathlib import Path
           with open('target/$SHORT.raw.manifest.json', 'r', encoding='utf-8') as f:
               m = json.load(f)
+          banner = m.get('banner')
+          if banner and banner.startswith('assets/'):
+              m['banner'] = Path('${{ matrix.dir }}', banner).read_text(encoding='utf-8')
           m['apiVersion'] = 1
           m['version'] = '${{ matrix.next_version }}'
           m['checksum'] = '$WASM_HASH'
