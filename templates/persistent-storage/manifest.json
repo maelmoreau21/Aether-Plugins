@@ -1,0 +1,11 @@
+{
+  "apiVersion": 1,
+  "id": "synthetic.storage",
+  "name": "Synthetic persistent storage",
+  "version": "0.1.0",
+  "description": "Local synthetic persistent counter; no network or media writes.",
+  "author": "Test fixture",
+  "license": "MIT",
+  "repository": "https://example.invalid/synthetic-storage",
+  "permissions": ["metadata.read", "storage.private"]
+}

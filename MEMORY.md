@@ -5,6 +5,12 @@
 
 # Etat et validations des plugins
 
+## 25 octobre 2026 — Exemple synthétique de stockage persistant
+
+- `templates/persistent-storage` hors catalogue : guest Rust/Wasm avec compteur durable via le SDK officiel, permission `storage.private` et CAS. Aucun SQL, chemin ou connexion DB dans le plugin ; imports `media_host_storage_v1` et `media_host_objects_v1` reconnus par le contrôle Wasm.
+- Compilation Wasm Release réelle : module131331 octets. Dans Aether, intégration HTTP signée/activation et deux invocations via de vrais workers réussies ; compteur1 puis2. Documentation `CREATING_PLUGINS.md` et contrat `Aether/docs/EXTENSION_STORAGE.md`.
+- Aucun paquet du catalogue reconstruit/signé/publié, aucun push. L'exemple n'est pas une nouvelle extension produit et reste hors workspace/catalogue officiels.
+
 ## 25 octobre 2026 - Modules Wasm sous la limite de 256 Kio
 
 - Ajout de Binaryen 132.0.0 verrouille par package-lock.json, optimisation -Oz apres compilation et avant validation, empreintes et signature. Meme parcours dans CI, release et Build-LocalPackage.ps1. Pas de changement du runtime ni de la limite de 262144 octets ; les paquets signes existants sont conserves.

@@ -1,0 +1,19 @@
+[package]
+name = "synthetic-persistent-extension"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+media-extension-sdk = { path = "../../../Aether/crates/extension-sdk" }
+
+[profile.release]
+opt-level = "z"
+lto = true
+panic = "abort"
+strip = true
