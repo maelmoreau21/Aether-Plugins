@@ -71,15 +71,15 @@ jobs:
           cat detected.json
           
           # Filtrer les plugins dont le tag existe déjà pour garantir l'idempotence
-          FILTERED=$(jq '[.[] | select(.tag_exists == false)]' detected.json)
+          FILTERED=$(jq -c '[.[] | select(.tag_exists == false)]' detected.json)
           COUNT=$(echo "$FILTERED" | jq 'length')
           
           if [ "$COUNT" -gt 0 ]; then
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-            echo "matrix={\"include\":$FILTERED}" >> $GITHUB_OUTPUT
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "matrix={\"include\":$FILTERED}" >> "$GITHUB_OUTPUT"
           else
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-            echo "matrix={\"include\":[]}" >> $GITHUB_OUTPUT
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo 'matrix={"include":[]}' >> "$GITHUB_OUTPUT"
             echo "Aucune extension ne nécessite de release."
           fi
 
@@ -217,21 +217,23 @@ jobs:
         run: |
           cd Aether-Plugins
           NOTES_FILE="release_notes_${{ matrix.id }}.md"
-          echo "## Extension ${{ matrix.name }} — Version ${{ matrix.next_version }}" > "$NOTES_FILE"
-          echo "" >> "$NOTES_FILE"
-          echo "- **Identifiant** : \`${{ matrix.id }}\`" >> "$NOTES_FILE"
-          echo "- **Type d'évolution** : \`${{ matrix.bump_type }}\` (${{ matrix.reason }})" >> "$NOTES_FILE"
-          echo "- **Cible ABI** : \`1.0\`" >> "$NOTES_FILE"
-          echo "- **Éditeur** : \`${{ github.repository_owner }}\`" >> "$NOTES_FILE"
-          echo "" >> "$NOTES_FILE"
-          echo "### Empreintes de sécurité" >> "$NOTES_FILE"
           CRATE="${{ matrix.name }}"
           SHORT="${CRATE#aether-plugin-}"
           PKG="repository/packages/$SHORT-${{ matrix.next_version }}.package.json"
           PKG_SHA=$(sha256sum "$PKG" | awk '{print $1}')
-          echo "- **SHA-256 du paquet signé** : \`$PKG_SHA\`" >> "$NOTES_FILE"
-          echo "- **Signature** : Ed25519 vérifiée" >> "$NOTES_FILE"
-          echo "notes_file=$NOTES_FILE" >> $GITHUB_OUTPUT
+          {
+            echo "## Extension ${{ matrix.name }} — Version ${{ matrix.next_version }}"
+            echo ""
+            echo "- **Identifiant** : \`${{ matrix.id }}\`"
+            echo "- **Type d'évolution** : \`${{ matrix.bump_type }}\` (${{ matrix.reason }})"
+            echo "- **Cible ABI** : \`1.0\`"
+            echo "- **Éditeur** : \`${{ github.repository_owner }}\`"
+            echo ""
+            echo "### Empreintes de sécurité"
+            echo "- **SHA-256 du paquet signé** : \`$PKG_SHA\`"
+            echo "- **Signature** : Ed25519 vérifiée"
+          } > "$NOTES_FILE"
+          echo "notes_file=$NOTES_FILE" >> "$GITHUB_OUTPUT"
 
       - name: Créer le tag Git et la GitHub Release
         env:
