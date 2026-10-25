@@ -1,0 +1,270 @@
+name: Release Plugin
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      plugin_id:
+        description: 'Identifiant du plugin (ex: tmdb, imdb, intro-skipper)'
+        required: true
+        type: choice
+        options:
+          - tmdb
+          - imdb
+          - omdb
+          - fanart-tv
+          - musicbrainz
+          - discogs
+          - lrclib
+          - avatars
+          - intro-skipper
+      bump_type:
+        description: 'Type de version (MAJOR requiert décision manuelle, ou MINOR)'
+        required: true
+        type: choice
+        options:
+          - MINOR
+          - MAJOR
+        default: MINOR
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-plugins-main
+  cancel-in-progress: false
+
+jobs:
+  detect-changes:
+    name: Détection des plugins à publier
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.detect.outputs.matrix }}
+      has_changes: ${{ steps.detect.outputs.has_changes }}
+    steps:
+      - name: Checkout Aether-Plugins (full history & tags)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Détecter les extensions modifiées
+        id: detect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_PLUGIN: ${{ github.event.inputs.plugin_id }}
+          INPUT_BUMP: ${{ github.event.inputs.bump_type }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            python scripts/detect_changed_plugins.py --manual-plugin "$INPUT_PLUGIN" --manual-bump "$INPUT_BUMP" > detected.json
+          else
+            python scripts/detect_changed_plugins.py > detected.json
+          fi
+
+          cat detected.json
+          
+          # Filtrer les plugins dont le tag existe déjà pour garantir l'idempotence
+          FILTERED=$(jq '[.[] | select(.tag_exists == false)]' detected.json)
+          COUNT=$(echo "$FILTERED" | jq 'length')
+          
+          if [ "$COUNT" -gt 0 ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "matrix={\"include\":$FILTERED}" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "matrix={\"include\":[]}" >> $GITHUB_OUTPUT
+            echo "Aucune extension ne nécessite de release."
+          fi
+
+  publish-plugin:
+    name: Publication ${{ matrix.id }} (${{ matrix.next_version }})
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
+    environment: production
+    steps:
+      - name: Vérifier la présence de la clé privée de signature
+        env:
+          ED25519_PRIVATE_KEY: ${{ secrets.ED25519_PRIVATE_KEY }}
+        run: |
+          if [ -z "$ED25519_PRIVATE_KEY" ]; then
+            echo "::error::Le secret ED25519_PRIVATE_KEY est requis pour signer le paquet. Publication annulée sans modification."
+            exit 1
+          fi
+
+      - name: Checkout Aether (for media-extension-pack & SDK)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/Aether
+          ref: main
+          path: Aether
+
+      - name: Checkout Aether-Plugins
+        uses: actions/checkout@v4
+        with:
+          path: Aether-Plugins
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Cache Cargo Dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            Aether-Plugins -> target
+            Aether -> target
+
+      - name: Compiler les outils de signature Aether Core
+        run: |
+          cd Aether
+          cargo build --release -p media-poc --bin media-extension-pack --bin media-extension-worker
+
+      - name: Mettre à jour la version dans Cargo.toml du plugin
+        run: |
+          cd Aether-Plugins/${{ matrix.dir }}
+          sed -i 's/^version = ".*"/version = "${{ matrix.next_version }}"/' Cargo.toml
+          git diff Cargo.toml
+
+      - name: Compiler le module WebAssembly
+        run: |
+          cd Aether-Plugins
+          cargo build --release --lib -p ${{ matrix.name }} --target wasm32-unknown-unknown
+          cargo build --release --bin ${{ matrix.name }} -p ${{ matrix.name }}
+
+      - name: Valider le module Wasm
+        run: |
+          cd Aether-Plugins
+          node scripts/test-wasm.cjs target/wasm32-unknown-unknown/release
+
+      - name: Préparer la clé de signature privée
+        env:
+          ED25519_PRIVATE_KEY: ${{ secrets.ED25519_PRIVATE_KEY }}
+        run: |
+          mkdir -p "$HOME/.aether_keys"
+          echo -n "$ED25519_PRIVATE_KEY" > "$HOME/.aether_keys/private.key"
+          chmod 600 "$HOME/.aether_keys/private.key"
+
+      - name: Générer le manifeste et signer le paquet
+        run: |
+          cd Aether-Plugins
+          CRATE="${{ matrix.name }}"
+          SHORT="${CRATE#aether-plugin-}"
+          WASM_PATH="target/wasm32-unknown-unknown/release/${CRATE//-/_}.wasm"
+          
+          # Extraire le manifest json depuis le binaire natif
+          "./target/release/$CRATE" --manifest > "target/$SHORT.raw.manifest.json"
+          
+          # Calculer checksum wasm
+          WASM_HASH=$(sha256sum "$WASM_PATH" | awk '{print $1}')
+          
+          # Construire manifest complet
+          python3 -c "
+          import json
+          with open('target/$SHORT.raw.manifest.json', 'r', encoding='utf-8') as f:
+              m = json.load(f)
+          m['apiVersion'] = 1
+          m['version'] = '${{ matrix.next_version }}'
+          m['checksum'] = '$WASM_HASH'
+          m['repository'] = '${{ github.server_url }}/${{ github.repository }}'
+          with open('target/$SHORT.manifest.json', 'w', encoding='utf-8') as f:
+              json.dump(m, f, indent=2)
+          "
+          
+          # Signer et packager
+          ../Aether/target/release/media-extension-pack pack \
+            "target/$SHORT.manifest.json" \
+            "$WASM_PATH" \
+            "$HOME/.aether_keys/private.key" \
+            "${{ github.repository_owner }}" \
+            "repository/packages/$SHORT-${{ matrix.next_version }}.package.json"
+
+      - name: Mettre à jour l'entrée dans repository/manifest.json
+        run: |
+          cd Aether-Plugins
+          CRATE="${{ matrix.name }}"
+          SHORT="${CRATE#aether-plugin-}"
+          PKG_PATH="repository/packages/$SHORT-${{ matrix.next_version }}.package.json"
+          
+          python3 scripts/update_catalog_entry.py \
+            --package-path "$PKG_PATH" \
+            --public-key-path "repository/publisher-public.txt" \
+            --base-url "https://raw.githubusercontent.com/${{ github.repository }}/main/repository/packages/" \
+            --manifest-path "repository/manifest.json"
+
+      - name: Vérifier l'intégrité du catalogue et des signatures
+        run: |
+          cd Aether-Plugins
+          node scripts/test-manifests.cjs
+          node scripts/test-repository.cjs repository "https://raw.githubusercontent.com/${{ github.repository }}/main/repository/packages/"
+
+      - name: Générer le changelog de la release
+        id: notes
+        run: |
+          cd Aether-Plugins
+          NOTES_FILE="release_notes_${{ matrix.id }}.md"
+          echo "## Extension ${{ matrix.name }} — Version ${{ matrix.next_version }}" > "$NOTES_FILE"
+          echo "" >> "$NOTES_FILE"
+          echo "- **Identifiant** : \`${{ matrix.id }}\`" >> "$NOTES_FILE"
+          echo "- **Type d'évolution** : \`${{ matrix.bump_type }}\` (${{ matrix.reason }})" >> "$NOTES_FILE"
+          echo "- **Cible ABI** : \`1.0\`" >> "$NOTES_FILE"
+          echo "- **Éditeur** : \`${{ github.repository_owner }}\`" >> "$NOTES_FILE"
+          echo "" >> "$NOTES_FILE"
+          echo "### Empreintes de sécurité" >> "$NOTES_FILE"
+          CRATE="${{ matrix.name }}"
+          SHORT="${CRATE#aether-plugin-}"
+          PKG="repository/packages/$SHORT-${{ matrix.next_version }}.package.json"
+          PKG_SHA=$(sha256sum "$PKG" | awk '{print $1}')
+          echo "- **SHA-256 du paquet signé** : \`$PKG_SHA\`" >> "$NOTES_FILE"
+          echo "- **Signature** : Ed25519 vérifiée" >> "$NOTES_FILE"
+          echo "notes_file=$NOTES_FILE" >> $GITHUB_OUTPUT
+
+      - name: Créer le tag Git et la GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ matrix.tag }}
+        run: |
+          cd Aether-Plugins
+          CRATE="${{ matrix.name }}"
+          SHORT="${CRATE#aether-plugin-}"
+          PKG="repository/packages/$SHORT-${{ matrix.next_version }}.package.json"
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Créer et pousser le tag git indépendant
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+          
+          # Créer la GitHub Release avec le paquet en asset téléchargeable
+          gh release create "$TAG" \
+            --title "${{ matrix.name }} ${{ matrix.next_version }}" \
+            --notes-file "${{ steps.notes.outputs.notes_file }}" \
+            "$PKG"
+
+      - name: Committer et synchroniser la mise à jour du catalogue sur main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd Aether-Plugins
+          git add Cargo.lock Aether-Plugins-*/Cargo.toml repository/manifest.json repository/packages/*.package.json
+          if git diff --staged --quiet; then
+            echo "Aucune modification à committer pour le catalogue."
+          else
+            git commit -m "chore(release): update catalog and version for ${{ matrix.id }} ${{ matrix.next_version }} [skip ci]"
+            git push origin main
+          fi

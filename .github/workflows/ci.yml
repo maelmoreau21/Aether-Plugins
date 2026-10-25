@@ -28,8 +28,8 @@ jobs:
       - name: Checkout Aether (for shared SDK)
         uses: actions/checkout@v4
         with:
-          repository: maelmoreau21/Aether
-          ref: develop
+          repository: ${{ github.repository_owner }}/Aether
+          ref: main
           path: Aether
 
       - name: Checkout Aether-Plugins
@@ -52,8 +52,8 @@ jobs:
       - name: Checkout Aether (for shared SDK)
         uses: actions/checkout@v4
         with:
-          repository: maelmoreau21/Aether
-          ref: develop
+          repository: ${{ github.repository_owner }}/Aether
+          ref: main
           path: Aether
 
       - name: Checkout Aether-Plugins

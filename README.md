@@ -244,3 +244,36 @@ Les anciennes installations en base sont matérialisées au démarrage. Voir
 Les collections peuvent aussi être envoyées depuis un ordinateur : plusieurs
 images PNG/JPEG/WebP, nom de collection, puis Envoyer au serveur dans les paramètres
 du plugin. Le téléchargement GitHub et l’upload stockent les images sur le serveur.
+
+## Releases automatiques et Versioning indépendant
+
+### 1. Principes de Versioning des Plugins
+- **Version indépendante** : Chaque plugin situé dans un sous-dossier `Aether-Plugins-*` possède son propre numéro de version Semantic Versioning `MAJOR.MINOR.PATCH` dans son `Cargo.toml`.
+- **Incrémentation MINOR automatique** : Tout merge validé sur `main` qui modifie le code source ou la configuration d'un plugin incrémente automatiquement sa version MINOR (ex: `0.1.0 → 0.2.0`, `1.12.0 → 1.13.0`), et remet PATCH à 0. Les modifications purement documentaires (fichiers `.md`, `docs/`) ne déclenchent pas de release.
+- **Incrémentation MAJOR manuelle** : Une version majeure ne s'incrémente **jamais** automatiquement. Pour passer à une nouvelle majeure (ex: `1.12.0 → 2.0.0`), déclencher le workflow GitHub Actions `Release Plugin` manuellement via **Run workflow** (`workflow_dispatch`), en sélectionnant le plugin ciblé et le mode `MAJOR`.
+
+### 2. Configuration Sécurisée de la Signature en CI
+Pour permettre la signature automatique Ed25519 lors des publications sur `main` :
+1. Dans GitHub, aller dans **Settings > Environments > New environment** et créer un environnement nommé `production`.
+2. Restreindre cet environnement à la branche `main` (**Deployment branches > Selected branches > main**).
+3. Ajouter le secret d'environnement :
+   - Nom : `ED25519_PRIVATE_KEY`
+   - Valeur : Le contenu de la clé privée PKCS#8 Ed25519 (identique à celle ayant généré `repository/publisher-public.txt`).
+4. **Sécurité garantie** :
+   - Les Pull Requests et branches de développement n'ont aucun accès à ce secret.
+   - Si le secret est absent ou vide, le job de release s'interrompt immédiatement avec un diagnostic d'erreur explicite, sans corrompre le catalogue ni publier d'archive non signée.
+
+### 3. Cycle de Release & Mise à jour du Catalogue
+Lorsqu'une release est déclenchée :
+1. Le script `scripts/detect_changed_plugins.py` identifie les extensions modifiées.
+2. Le plugin Rust est compilé en WebAssembly optimisé (`wasm32-unknown-unknown`).
+3. Le module Wasm est vérifié (bytecode, exports ABI `memory`, `media_alloc`, `media_run`, budget mémoire $\le 256$ Kio).
+4. Le manifest JSON est généré avec son SHA-256 et signé via `media-extension-pack`.
+5. Le script `scripts/update_catalog_entry.py` met à jour de façon atomique l'entrée du plugin dans `repository/manifest.json`.
+6. L'intégrité globale du catalogue est vérifiée (`scripts/test-manifests.cjs`, `scripts/test-repository.cjs`).
+7. Un tag Git spécifique (ex: `tmdb-v0.2.0`) est créé et une GitHub Release est publiée avec le fichier `.package.json` en asset téléchargeable.
+8. La mise à jour de `repository/manifest.json` et du paquet associé est committée sur `main`.
+
+### 4. Idempotence et Retour Arrière
+- Relancer un workflow pour un tag déjà existant n'effectue aucune action (idempotent, aucun doublon de release).
+- Pour revenir à une version précédente, il suffit de modifier `packageUrl`, `packageSha256` et le manifest dans `repository/manifest.json` pour pointer vers le paquet signé antérieur désiré (les anciens paquets signés restent conservés dans `repository/packages/`).
