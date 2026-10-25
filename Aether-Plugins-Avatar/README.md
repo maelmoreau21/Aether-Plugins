@@ -36,3 +36,15 @@ Extension Rust officielle fournissant la gestion des packs d'avatars de profils,
 # Obtenir un avatar aléatoire pour un utilisateur
 ./target/release/aether-plugin-avatar.exe random --pack personas --seed "user_123"
 ```
+
+## Administration simplifiée dans le Core
+
+La configuration présente trois options : avatar aléatoire pour les nouveaux
+comptes, autoriser Gravatar et verrouiller les imports utilisateurs. Les images
+se gèrent dans la galerie du Core : import depuis l’ordinateur ou depuis
+https://github.com/cedev-1/jellyfin-avatars, aperçu, renommage des collections,
+suppression individuelle et attribution aux comptes sans photo. Le choix d’un
+pack génératif n’est plus présenté dans les réglages ni dans le profil Web.
+Les anciennes opérations Wasm restent disponibles pour compatibilité.
+Le Core applique ces préférences ; une publication signée est nécessaire pour
+mettre à jour le schéma du catalogue distant.

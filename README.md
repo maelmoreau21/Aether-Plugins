@@ -1,3 +1,56 @@
+## Versions publiees sur decision explicite - 25 octobre 2026
+
+Un push ou une fusion sur main/develop ne declenche plus de release numerotee.
+Les workflows CI et les images Docker develop/latest continuent leur parcours
+habituel, avec un identifiant de commit distinct. Pour publier une version,
+ouvrir GitHub Actions, choisir Release (Aether) ou Release Plugin (extensions),
+Run workflow sur main, puis PATCH, MINOR ou MAJOR. PATCH est le choix par defaut.
+Une nouvelle release publiee garde un numero unique ; les versions deja publiees
+ne sont pas ecrasees. Chaque plugin garde son versionnement independant.
+
+## Compilation Wasm et limite de taille
+
+Les modules gardent une limite de **262 144 octets**. La compilation Rust est
+suivie d'une optimisation Binaryen `-Oz` avec version verrouillée dans
+`package-lock.json`, avant validation, calcul des empreintes et signature.
+Node.js 24 et npm servent uniquement à la fabrication des paquets ; le serveur
+Aether n'en dépend pas. Aucun paquet signé existant n'est réécrit.
+
+```powershell
+npm ci --ignore-scripts
+cargo build --workspace --lib --target wasm32-unknown-unknown --release
+$modules = @(Get-ChildItem target/wasm32-unknown-unknown/release/*.wasm | ForEach-Object FullName)
+node scripts/optimize-wasm.mjs @modules
+node scripts/test-wasm.cjs
+```
+
+La CI, les releases et `Build-LocalPackage.ps1` exécutent cette même optimisation.
+`test-wasm.cjs` exige les neuf modules par défaut, vérifie les imports autorisés
+et exécute chaque module via son ABI avec une opération inconnue sans réseau.
+Pour une release isolée, fournir le répertoire puis le nom de crate :
+`node scripts/test-wasm.cjs target/wasm32-unknown-unknown/release aether-plugin-imdb`.
+Un module sélectionné absent provoque un échec.
+
+### Catalogue de développement
+
+Le manifeste de `develop` est accessible à
+`https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/manifest.json`.
+Il décrit les paquets signés référencés par ses `packageUrl`, actuellement sur
+`main` ; il n'installe pas automatiquement le code source de develop. Les
+releases signées sont publiées depuis main. IntroSkipper reste invisible tant
+que sa première entrée signée n'a pas été publiée puis le dépôt actualisé.
+
+## Correctifs catalogue du 25 octobre 2026
+
+IntroSkipper est présent dans les sources mais absent des huit paquets signés
+actuels. Historique : la detection automatique incluait les plugins absents du catalogue.
+Depuis la politique manuelle ci-dessus, leur premiere publication se declenche
+explicitement en selectionnant le plugin. La clé de
+signature production reste obligatoire. Les jobs de publication s'exécutent
+séquentiellement, repartent de main et incorporent les bannières SVG locales
+avant signature. Aucun push, release ou paquet de remplacement non signé n'est
+créé par la correction locale.
+
 # Aether-Plugins — catalogue installable
 
 ## Le lien à ajouter dans Aether
@@ -249,8 +302,8 @@ du plugin. Le téléchargement GitHub et l’upload stockent les images sur le s
 
 ### 1. Principes de Versioning des Plugins
 - **Version indépendante** : Chaque plugin situé dans un sous-dossier `Aether-Plugins-*` possède son propre numéro de version Semantic Versioning `MAJOR.MINOR.PATCH` dans son `Cargo.toml`.
-- **Incrémentation MINOR automatique** : Tout merge validé sur `main` qui modifie le code source ou la configuration d'un plugin incrémente automatiquement sa version MINOR (ex: `0.1.0 → 0.2.0`, `1.12.0 → 1.13.0`), et remet PATCH à 0. Les modifications purement documentaires (fichiers `.md`, `docs/`) ne déclenchent pas de release.
-- **Incrémentation MAJOR manuelle** : Une version majeure ne s'incrémente **jamais** automatiquement. Pour passer à une nouvelle majeure (ex: `1.12.0 → 2.0.0`), déclencher le workflow GitHub Actions `Release Plugin` manuellement via **Run workflow** (`workflow_dispatch`), en sélectionnant le plugin ciblé et le mode `MAJOR`.
+- **Publication manuelle** : Aucun push ou merge ne cree de nouvelle version. Dans Actions, ouvrir `Release Plugin`, puis `Run workflow` sur `main` et choisir uniquement le plugin a publier.
+- **Increment explicite** : `PATCH` par defaut (`0.1.0 -> 0.1.1`), `MINOR` (`0.1.0 -> 0.2.0`) ou `MAJOR` (`0.1.0 -> 1.0.0`). Les autres plugins ne sont pas publies, meme si leurs sources ont change.
 
 ### 2. Configuration Sécurisée de la Signature en CI
 Pour permettre la signature automatique Ed25519 lors des publications sur `main` :
@@ -277,3 +330,30 @@ Lorsqu'une release est déclenchée :
 ### 4. Idempotence et Retour Arrière
 - Relancer un workflow pour un tag déjà existant n'effectue aucune action (idempotent, aucun doublon de release).
 - Pour revenir à une version précédente, il suffit de modifier `packageUrl`, `packageSha256` et le manifest dans `repository/manifest.json` pour pointer vers le paquet signé antérieur désiré (les anciens paquets signés restent conservés dans `repository/packages/`).
+
+
+## Collections d’images localisées (sources du 25 octobre 2026)
+
+`metadata.images` conserve toutes les variantes correspondant aux langues demandées,
+sans réduire chaque type à une image. La réponse est bornée à 200 images et 60 Kio
+de données JSON ; les réponses volumineuses alternent les groupes type/langue afin
+de conserver des logos et des langues de secours malgré de nombreuses affiches. TMDb fournit affiches, arrière-plans et logos ;
+fanart.tv conserve également illustrations transparentes, vignettes, bannières et disques
+lorsque le fournisseur les expose. Aucun type absent n’est inventé.
+
+Le Core peut transmettre `language`, `languages` et `includeNeutral` dans l’entrée,
+et `config.language`, `config.fallbackLanguages`, `config.includeNeutral` dans sa
+configuration privée existante. Exemple de politique : `fr-CA`, puis `fr`, puis `en`,
+avec images sans texte/langue. Les tags régionaux sont conservés et la langue de base
+sert de repli. Sans langue demandée, la collecte historique reste non filtrée ;
+`includeNeutral` vaut vrai par défaut. Cette politique concerne `metadata.images`,
+sans retirer les métadonnées éditoriales de `metadata.details`.
+
+Avec un `id` vide, TMDb utilise `externalIds.tmdb`. fanart.tv utilise exclusivement
+`externalIds.tvdb` pour les séries/épisodes, et TMDb ou IMDb pour les films. Un identifiant
+absent produit une erreur explicite ; aucun premier résultat de recherche n’est choisi.
+La rotation par session, le stockage et la déduplication appartiennent au Core.
+
+Ces modifications de sources ne mettent pas à jour les paquets signés déjà installés.
+Aucun appel réel fournisseur ni téléchargement d’images n’est couvert par les tests locaux
+à réponses simulées ; aucune clé fournisseur supplémentaire n’est nécessaire à ces tests.

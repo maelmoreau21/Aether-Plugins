@@ -253,3 +253,101 @@ async fn test_unsupported_api_version() {
     assert!(!res.success);
     assert_eq!(res.error.unwrap().code, "unsupported_api_version");
 }
+
+#[test]
+fn image_policy_retains_variants_and_regional_language_fallbacks() {
+    let config = ProviderConfig::from_extension_input(&serde_json::json!({
+        "language":"fr-CA", "languages":["fr", "en"], "includeNeutral":true,
+        "config":{"api_key":"fixture", "fallbackLanguages":["ja"]}
+    }));
+    assert_eq!(config.api_key.as_deref(), Some("fixture"));
+    assert_eq!(config.image_languages(), vec!["fr-ca", "fr", "en", "ja"]);
+    let images: Vec<MediaImage> = serde_json::from_value(serde_json::json!([
+        {"url":"neutral", "imageType":"backdrop"},
+        {"url":"de", "imageType":"poster", "language":"de"},
+        {"url":"en", "imageType":"logo", "language":"en"},
+        {"url":"fr1", "imageType":"poster", "language":"fr"},
+        {"url":"fr2", "imageType":"poster", "language":"fr"},
+        {"url":"regional", "imageType":"thumb", "language":"fr-CA"},
+        {"url":"ja", "imageType":"clear_art", "language":"ja"}
+    ]))
+    .unwrap();
+    let selected = config.select_images(images.clone());
+    assert_eq!(
+        selected.iter().map(|v| v.url.as_str()).collect::<Vec<_>>(),
+        vec!["regional", "fr1", "fr2", "en", "ja", "neutral"]
+    );
+    let mut no_neutral = config;
+    no_neutral.include_neutral = Some(false);
+    assert_eq!(no_neutral.select_images(images).len(), 5);
+}
+
+#[test]
+fn oversized_image_response_preserves_roles_and_languages_within_host_limits() {
+    let config = ProviderConfig {
+        language: Some("fr".into()),
+        fallback_languages: vec!["en".into()],
+        ..Default::default()
+    };
+    let roles = [
+        ImageType::Poster,
+        ImageType::Backdrop,
+        ImageType::Logo,
+        ImageType::ClearArt,
+        ImageType::Thumb,
+        ImageType::Banner,
+        ImageType::DiscArt,
+    ];
+    for padding in [0, 2048] {
+        let mut images = Vec::new();
+        for role in roles {
+            for language in [Some("fr"), Some("en"), None] {
+                for i in 0..50 {
+                    images.push(MediaImage {
+                        url: format!(
+                            "https://example.test/{role:?}/{language:?}/{i}/{}",
+                            "x".repeat(padding)
+                        ),
+                        image_type: role,
+                        language: language.map(str::to_owned),
+                        width: None,
+                        height: None,
+                        rating: None,
+                        vote_count: None,
+                        is_primary: false,
+                    });
+                }
+            }
+        }
+        let result = config.select_images(images);
+        assert!(result.len() <= 200);
+        assert!(
+            serde_json::to_vec(&PluginResponse::ok(&result))
+                .unwrap()
+                .len()
+                < 64 * 1024
+        );
+        for role in roles {
+            for language in [Some("fr"), Some("en"), None] {
+                assert!(
+                    result
+                        .iter()
+                        .any(|image| image.image_type == role
+                            && image.language.as_deref() == language),
+                    "missing {role:?}/{language:?}"
+                );
+            }
+        }
+        if padding == 0 {
+            for role in roles {
+                assert!(
+                    result
+                        .iter()
+                        .filter(|image| image.image_type == role)
+                        .count()
+                        > 3
+                );
+            }
+        }
+    }
+}

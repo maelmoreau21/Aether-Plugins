@@ -20,6 +20,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: docker://rhysd/actionlint:1.7.12
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate manual release version policy
+        run: python scripts/test-release-policy.py
 
   security-audit:
     name: Audit de sécurité (cargo audit)
@@ -88,6 +93,17 @@ jobs:
       - name: Build WebAssembly Modules
         working-directory: Aether-Plugins
         run: cargo build --workspace --lib --target wasm32-unknown-unknown --release
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Optimize WebAssembly Modules
+        working-directory: Aether-Plugins
+        run: |
+          npm ci --ignore-scripts
+          node scripts/optimize-wasm.mjs target/wasm32-unknown-unknown/release/*.wasm
 
       - name: Validate WebAssembly Modules (Size, ABI & Smoke tests)
         working-directory: Aether-Plugins

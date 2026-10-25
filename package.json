@@ -1,0 +1,7 @@
+{
+  "name": "aether-plugin-build-tools",
+  "private": true,
+  "devDependencies": {
+    "binaryen": "132.0.0"
+  }
+}

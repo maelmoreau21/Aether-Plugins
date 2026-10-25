@@ -230,13 +230,13 @@ impl MetadataProviderPlugin for LrcLibPlugin {
             default_priority: 50,
             config_schema: vec![ConfigField {
                 key: "base_url".into(),
-                label: "URL de base personnalisée".into(),
+                label: "Adresse du fournisseur".into(),
                 field_type: "text".into(),
                 description: "Instance LRCLIB auto-hébergée (par défaut https://lrclib.net/api)"
                     .into(),
                 required: false,
                 secret: false,
-                default_value: None,
+                default_value: Some(DEFAULT_BASE_URL.into()),
                 options: vec![],
             }],
         }

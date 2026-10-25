@@ -1,9 +1,6 @@
 name: Release Plugin
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       plugin_id:
@@ -21,13 +18,14 @@ on:
           - avatars
           - intro-skipper
       bump_type:
-        description: 'Type de version (MAJOR requiert décision manuelle, ou MINOR)'
+        description: 'Increment choisi pour cette release uniquement'
         required: true
         type: choice
         options:
+          - PATCH
           - MINOR
           - MAJOR
-        default: MINOR
+        default: PATCH
 
 permissions:
   contents: write
@@ -38,6 +36,7 @@ concurrency:
 
 jobs:
   detect-changes:
+    if: github.ref == 'refs/heads/main'
     name: Détection des plugins à publier
     runs-on: ubuntu-latest
     outputs:
@@ -96,6 +95,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
     environment: production
     steps:
@@ -119,6 +119,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: Aether-Plugins
+          ref: main
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -152,10 +153,23 @@ jobs:
           cargo build --release --lib -p ${{ matrix.name }} --target wasm32-unknown-unknown
           cargo build --release --bin ${{ matrix.name }} -p ${{ matrix.name }}
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Optimiser le module Wasm avant signature
+        env:
+          PLUGIN_CRATE: ${{ matrix.name }}
+        run: |
+          cd Aether-Plugins
+          npm ci --ignore-scripts
+          node scripts/optimize-wasm.mjs "target/wasm32-unknown-unknown/release/${PLUGIN_CRATE//-/_}.wasm"
+
       - name: Valider le module Wasm
         run: |
           cd Aether-Plugins
-          node scripts/test-wasm.cjs target/wasm32-unknown-unknown/release
+          node scripts/test-wasm.cjs target/wasm32-unknown-unknown/release "${{ matrix.name }}"
 
       - name: Préparer la clé de signature privée
         env:
@@ -181,8 +195,12 @@ jobs:
           # Construire manifest complet
           python3 -c "
           import json
+          from pathlib import Path
           with open('target/$SHORT.raw.manifest.json', 'r', encoding='utf-8') as f:
               m = json.load(f)
+          banner = m.get('banner')
+          if banner and banner.startswith('assets/'):
+              m['banner'] = Path('${{ matrix.dir }}', banner).read_text(encoding='utf-8')
           m['apiVersion'] = 1
           m['version'] = '${{ matrix.next_version }}'
           m['checksum'] = '$WASM_HASH'

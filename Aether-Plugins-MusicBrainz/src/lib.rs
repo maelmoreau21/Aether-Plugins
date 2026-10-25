@@ -180,12 +180,12 @@ impl MetadataProviderPlugin for MusicBrainzPlugin {
             default_priority: 50,
             config_schema: vec![ConfigField {
                 key: "base_url".into(),
-                label: "URL de base personnalisée".into(),
+                label: "Adresse du fournisseur".into(),
                 field_type: "text".into(),
                 description: "Miroir MusicBrainz ou serveur de test (aucune clé requise)".into(),
                 required: false,
                 secret: false,
-                default_value: None,
+                default_value: Some(DEFAULT_BASE_URL.into()),
                 options: vec![],
             }],
         }

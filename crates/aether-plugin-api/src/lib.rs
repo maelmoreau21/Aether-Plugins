@@ -65,6 +65,12 @@ pub struct ProviderConfig {
     pub language: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub base_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub fallback_languages: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub languages: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub include_neutral: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub timeout_secs: Option<u64>,
     #[serde(default)]
@@ -72,6 +78,149 @@ pub struct ProviderConfig {
 }
 
 impl ProviderConfig {
+    /// Image-specific overrides are public policy only; credentials stay in config.
+    pub fn with_image_input(&self, input: &serde_json::Value) -> Self {
+        let mut result = self.clone();
+        if let Some(language) = input.get("language").and_then(|v| v.as_str()) {
+            result.language = Some(language.to_owned());
+        }
+        if let Some(languages) = input.get("languages").and_then(|v| v.as_array()) {
+            result.languages = languages
+                .iter()
+                .filter_map(|v| v.as_str().map(str::to_owned))
+                .take(16)
+                .collect();
+        }
+        if let Some(neutral) = input.get("includeNeutral").and_then(|v| v.as_bool()) {
+            result.include_neutral = Some(neutral);
+        }
+        result
+    }
+
+    /// Requested language order, preserving regional tags and adding base fallbacks.
+    pub fn image_languages(&self) -> Vec<String> {
+        let mut result = Vec::new();
+        for language in self
+            .language
+            .iter()
+            .chain(self.languages.iter())
+            .chain(self.fallback_languages.iter())
+            .take(32)
+        {
+            let tag = language.trim().replace('_', "-").to_ascii_lowercase();
+            if tag.len() > 35
+                || tag.is_empty()
+                || !tag
+                    .split('-')
+                    .all(|p| !p.is_empty() && p.chars().all(|c| c.is_ascii_alphanumeric()))
+            {
+                continue;
+            }
+            for value in [tag.as_str(), tag.split('-').next().unwrap_or("")] {
+                if !result.iter().any(|v| v == value) {
+                    result.push(value.to_owned());
+                }
+            }
+        }
+        result
+    }
+
+    /// Keep every matching variant, ordered by language, without collapsing image roles.
+    /// With no requested language, preserve the legacy unfiltered collection.
+    pub fn select_images(&self, mut images: Vec<MediaImage>) -> Vec<MediaImage> {
+        let languages = self.image_languages();
+        let rank = |image: &MediaImage| {
+            let tag = image
+                .language
+                .as_deref()
+                .unwrap_or("")
+                .trim()
+                .replace('_', "-")
+                .to_ascii_lowercase();
+            if tag.is_empty() || tag == "00" || tag == "und" || tag == "null" {
+                return self
+                    .include_neutral
+                    .unwrap_or(true)
+                    .then_some(languages.len());
+            }
+            if languages.is_empty() {
+                return Some(0);
+            }
+            languages
+                .iter()
+                .position(|language| language == &tag)
+                .or_else(|| {
+                    languages
+                        .iter()
+                        .position(|language| language == tag.split('-').next().unwrap_or(""))
+                })
+        };
+        images.retain(|image| rank(image).is_some());
+        images.sort_by_key(|image| rank(image).unwrap_or(usize::MAX));
+        // Leave space for the host response envelope within its 64 KiB limit.
+        const MAX_IMAGES: usize = 200;
+        const MAX_BYTES: usize = 60 * 1024;
+        let mut groups =
+            BTreeMap::<(usize, u8, String), std::collections::VecDeque<(MediaImage, usize)>>::new();
+        let mut total_bytes = 2usize;
+        for image in images {
+            let Ok(encoded) = serde_json::to_vec(&image) else {
+                continue;
+            };
+            let bytes = encoded.len() + 1;
+            if bytes > MAX_BYTES - 2 {
+                continue;
+            }
+            total_bytes = total_bytes.saturating_add(bytes);
+            let role = match image.image_type {
+                ImageType::Poster => 0,
+                ImageType::Backdrop => 1,
+                ImageType::Logo => 2,
+                ImageType::ClearArt => 3,
+                ImageType::Thumb => 4,
+                ImageType::Banner => 5,
+                ImageType::DiscArt => 6,
+            };
+            let tag = image.language.as_deref().unwrap_or("").to_ascii_lowercase();
+            groups
+                .entry((rank(&image).unwrap_or(usize::MAX), role, tag))
+                .or_default()
+                .push_back((image, bytes));
+        }
+        let count: usize = groups.values().map(|group| group.len()).sum();
+        // Small responses retain the established language ordering.
+        if count <= MAX_IMAGES && total_bytes <= MAX_BYTES {
+            return groups
+                .into_values()
+                .flatten()
+                .map(|(image, _)| image)
+                .collect();
+        }
+        // Oversized responses rotate across role/language buckets so a large poster
+        // catalogue cannot consume the entire response before logos and fallback art.
+        let mut result = Vec::new();
+        let mut used_bytes = 2usize;
+        loop {
+            let mut remaining = false;
+            for group in groups.values_mut() {
+                if let Some((image, bytes)) = group.pop_front() {
+                    remaining = true;
+                    if used_bytes + bytes <= MAX_BYTES {
+                        used_bytes += bytes;
+                        result.push(image);
+                        if result.len() == MAX_IMAGES {
+                            return result;
+                        }
+                    }
+                }
+            }
+            if !remaining {
+                break;
+            }
+        }
+        result
+    }
+
     /// Read the per-installation configuration supplied through the private Wasm input.
     /// Form schema keys use snake_case; the CLI contract also accepts camelCase.
     pub fn from_extension_input(input: &serde_json::Value) -> Self {
@@ -91,7 +240,8 @@ impl ProviderConfig {
                 }
             }
         }
-        serde_json::from_value(config).unwrap_or_default()
+        let parsed: Self = serde_json::from_value(config).unwrap_or_default();
+        parsed.with_image_input(input)
     }
 }
 
@@ -232,6 +382,7 @@ pub async fn handle_request<P: MetadataProviderPlugin>(plugin: &P, raw_json: &st
             }
         }
         "images" | "metadata.images" => {
+            let image_config = req.config.with_image_input(&req.input);
             let images_req: ImagesRequest = match serde_json::from_value(req.input) {
                 Ok(i) => i,
                 Err(e) => {
@@ -242,7 +393,7 @@ pub async fn handle_request<P: MetadataProviderPlugin>(plugin: &P, raw_json: &st
                     return serde_json::to_string(&res).unwrap_or_else(|_| "{}".into());
                 }
             };
-            match plugin.images(images_req, &req.config).await {
+            match plugin.images(images_req, &image_config).await {
                 Ok(imgs) => {
                     serde_json::to_string(&PluginResponse::ok(imgs)).unwrap_or_else(|_| "{}".into())
                 }

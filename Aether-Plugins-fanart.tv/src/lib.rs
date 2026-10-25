@@ -219,7 +219,7 @@ impl MetadataProviderPlugin for FanartTvPlugin {
             config_schema: vec![
                 ConfigField {
                     key: "api_key".into(),
-                    label: "Clé API Projet (client key)".into(),
+                    label: "API Key".into(),
                     field_type: "password".into(),
                     description: "Clé API fanart.tv pour votre application (obtenue sur fanart.tv)".into(),
                     required: true,
@@ -227,26 +227,8 @@ impl MetadataProviderPlugin for FanartTvPlugin {
                     default_value: None,
                     options: vec![],
                 },
-                ConfigField {
-                    key: "user_key".into(),
-                    label: "Clé Utilisateur VIP (optionnelle)".into(),
-                    field_type: "password".into(),
-                    description: "Clé personnelle VIP pour un accès prioritaire aux dernières contributions".into(),
-                    required: false,
-                    secret: true,
-                    default_value: None,
-                    options: vec![],
-                },
-                ConfigField {
-                    key: "base_url".into(),
-                    label: "URL de base personnalisée".into(),
-                    field_type: "text".into(),
-                    description: "URL alternative pour proxy ou serveur de test mock".into(),
-                    required: false,
-                    secret: false,
-                    default_value: None,
-                    options: vec![],
-                },
+
+
             ],
         }
     }
@@ -291,20 +273,32 @@ impl MetadataProviderPlugin for FanartTvPlugin {
         let api_key = self.resolve_api_key(config)?;
 
         let is_tv = matches!(request.media_type, MediaType::TvShow | MediaType::Episode);
-        let id = if !request.id.is_empty() {
+        let id = if !request.id.trim().is_empty() {
             request.id.clone()
-        } else if let Some(tmdb) = request.external_ids.get("tmdb") {
-            tmdb.clone()
-        } else if let Some(imdb) = request.external_ids.get("imdb") {
-            imdb.clone()
-        } else if let Some(tvdb) = request.external_ids.get("tvdb") {
-            tvdb.clone()
+        } else if is_tv {
+            request
+                .external_ids
+                .get("tvdb")
+                .cloned()
+                .unwrap_or_default()
         } else {
+            request
+                .external_ids
+                .get("tmdb")
+                .or_else(|| request.external_ids.get("imdb"))
+                .cloned()
+                .unwrap_or_default()
+        };
+        if id.is_empty() || !id.bytes().all(|b| b.is_ascii_alphanumeric()) {
             return Err(PluginError::new(
                 "missing_id",
-                "fanart.tv requires TMDb, IMDb or TVDB ID",
+                if is_tv {
+                    "fanart.tv TV artwork requires a TVDB identifier"
+                } else {
+                    "fanart.tv movie artwork requires a TMDb or IMDb identifier"
+                },
             ));
-        };
+        }
 
         let endpoint = if is_tv {
             format!("tv/{id}")
@@ -414,7 +408,7 @@ impl MetadataProviderPlugin for FanartTvPlugin {
                 config,
             )
             .await?;
-        Ok(details.images)
+        Ok(config.select_images(details.images))
     }
 }
 

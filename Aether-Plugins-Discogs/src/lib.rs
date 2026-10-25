@@ -200,7 +200,7 @@ impl MetadataProviderPlugin for DiscogsPlugin {
                     description: "URL alternative pour proxy ou serveur de test".into(),
                     required: false,
                     secret: false,
-                    default_value: None,
+                    default_value: Some(DEFAULT_BASE_URL.into()),
                     options: vec![],
                 },
             ],

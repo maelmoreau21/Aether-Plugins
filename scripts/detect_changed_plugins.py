@@ -170,6 +170,9 @@ def main():
     api_changed_files = [p for p in changed_paths if p.startswith("crates/aether-plugin-api/")]
     shared_api_changed = bool(api_changed_files) and not is_doc_only(api_changed_files)
 
+    with open(os.path.join(repo_root, "repository", "manifest.json"), encoding="utf-8") as catalog_file:
+        published_ids = {entry["manifest"]["id"] for entry in json.load(catalog_file)["extensions"]}
+
     results = []
 
     for p in PLUGINS_MAP:
@@ -187,9 +190,9 @@ def main():
 
         if manual_plugin and (manual_plugin == p_id or manual_plugin == p_dir or manual_plugin == crate_name):
             is_triggered = True
-            bump_type = manual_bump if manual_bump in ["MAJOR", "MINOR"] else "MAJOR"
+            bump_type = manual_bump if manual_bump in ["MAJOR", "MINOR", "PATCH"] else "PATCH"
             reason = f"Manual dispatch requested ({bump_type})"
-        else:
+        elif not manual_plugin:
             p_files = [path for path in changed_paths if path.startswith(p_dir + "/")]
             if p_files and not is_doc_only(p_files):
                 is_triggered = True
@@ -200,11 +203,19 @@ def main():
                 bump_type = "MINOR"
                 reason = "Shared aether-plugin-api changed"
 
+        # Bootstrap source plugins missing from the signed catalogue on automatic runs.
+        # A documentation-only push must also recover an unpublished first release.
+        if not manual_plugin and p_id not in published_ids:
+            is_triggered = True
+            reason = "First signed catalogue release missing"
+
         if is_triggered:
             if bump_type == "MAJOR":
                 next_ver = f"{major + 1}.0.0"
-            else:
+            elif bump_type == "MINOR":
                 next_ver = f"{major}.{minor + 1}.0"
+            else:
+                next_ver = f"{major}.{minor}.{patch + 1}"
             
             tag_name = f"{tag_prefix}-v{next_ver}"
 

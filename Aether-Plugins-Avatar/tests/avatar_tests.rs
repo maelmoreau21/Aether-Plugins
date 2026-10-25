@@ -18,7 +18,14 @@ fn test_avatar_manifest() {
             .iter()
             .any(|f| f.key == "disallow_custom_avatars")
     );
-    assert!(manifest.config_schema.iter().any(|f| f.key == "pack_name"));
+    assert!(!manifest.config_schema.iter().any(|f| f.key == "pack_name"));
+    assert!(
+        manifest
+            .config_schema
+            .iter()
+            .any(|f| f.key == "allow_gravatar")
+    );
+    assert_eq!(manifest.config_schema.len(), 3);
     assert!(
         manifest
             .config_schema
