@@ -60,12 +60,18 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           INPUT_PLUGIN: ${{ github.event.inputs.plugin_id }}
           INPUT_BUMP: ${{ github.event.inputs.bump_type }}
+          BEFORE_SHA: ${{ github.event.before }}
         run: |
           set -euo pipefail
+          BASE_ARG=()
+          if [ -n "${BEFORE_SHA:-}" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]; then
+            BASE_ARG=(--base-ref "$BEFORE_SHA")
+          fi
+
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            python scripts/detect_changed_plugins.py --manual-plugin "$INPUT_PLUGIN" --manual-bump "$INPUT_BUMP" > detected.json
+            python scripts/detect_changed_plugins.py --manual-plugin "$INPUT_PLUGIN" --manual-bump "$INPUT_BUMP" "${BASE_ARG[@]}" > detected.json
           else
-            python scripts/detect_changed_plugins.py > detected.json
+            python scripts/detect_changed_plugins.py "${BASE_ARG[@]}" > detected.json
           fi
 
           cat detected.json
