@@ -195,24 +195,19 @@ impl MetadataProviderPlugin for AvatarPlugin {
             default_priority: 50,
             config_schema: vec![
                 ConfigField {
-                    key: "pack_name".into(),
-                    label: "Pack d'avatars actif".into(),
-                    field_type: "select".into(),
-                    description: "Pack utilisé pour les attributions d'avatars aux utilisateurs".into(),
-                    required: true,
+                    key: "allow_gravatar".into(),
+                    label: "Autoriser l’import depuis Gravatar".into(),
+                    description: "Les utilisateurs peuvent importer leur Gravatar depuis leur profil".into(),
+                    field_type: "boolean".into(),
+                    required: false,
                     secret: false,
-                    default_value: Some("personas".into()),
-                    options: vec![
-                        "personas".into(),
-                        "geometric".into(),
-                        "retro".into(),
-                        "botts".into(),
-                        "all".into(),
-                    ],
+                    default_value: Some("false".into()),
+                    options: vec![],
                 },
+
                 ConfigField {
                     key: "force_random_on_creation".into(),
-                    label: "Attribution aléatoire obligatoire".into(),
+                    label: "Avatar aléatoire pour les nouveaux utilisateurs".into(),
                     field_type: "boolean".into(),
                     description: "Attribuer automatiquement un avatar aléatoire lors de la création d'un utilisateur sans photo".into(),
                     required: false,

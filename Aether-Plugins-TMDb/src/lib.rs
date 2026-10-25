@@ -209,6 +209,16 @@ impl MetadataProviderPlugin for TmdbPlugin {
             default_priority: 100,
             config_schema: vec![
                 ConfigField {
+                    key: "base_url".into(),
+                    label: "Adresse du fournisseur".into(),
+                    description: "Adresse officielle du fournisseur, modifiable si nécessaire".into(),
+                    field_type: "text".into(),
+                    required: false,
+                    secret: false,
+                    default_value: Some(DEFAULT_BASE_URL.into()),
+                    options: vec![],
+                },
+                ConfigField {
                     key: "api_key".into(),
                     label: "Clé API TMDb".into(),
                     field_type: "password".into(),
@@ -218,16 +228,7 @@ impl MetadataProviderPlugin for TmdbPlugin {
                     default_value: None,
                     options: vec![],
                 },
-                ConfigField {
-                    key: "language".into(),
-                    label: "Langue par défaut".into(),
-                    field_type: "select".into(),
-                    description: "Langue des titres et descriptions récupérés".into(),
-                    required: false,
-                    secret: false,
-                    default_value: Some("fr-FR".into()),
-                    options: vec!["fr-FR".into(), "en-US".into(), "es-ES".into(), "de-DE".into(), "ja-JP".into()],
-                },
+
                 ConfigField {
                     key: "include_adult".into(),
                     label: "Contenus adultes".into(),

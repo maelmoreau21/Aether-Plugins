@@ -219,7 +219,7 @@ impl MetadataProviderPlugin for FanartTvPlugin {
             config_schema: vec![
                 ConfigField {
                     key: "api_key".into(),
-                    label: "Clé API Projet (client key)".into(),
+                    label: "API Key".into(),
                     field_type: "password".into(),
                     description: "Clé API fanart.tv pour votre application (obtenue sur fanart.tv)".into(),
                     required: true,
@@ -227,26 +227,8 @@ impl MetadataProviderPlugin for FanartTvPlugin {
                     default_value: None,
                     options: vec![],
                 },
-                ConfigField {
-                    key: "user_key".into(),
-                    label: "Clé Utilisateur VIP (optionnelle)".into(),
-                    field_type: "password".into(),
-                    description: "Clé personnelle VIP pour un accès prioritaire aux dernières contributions".into(),
-                    required: false,
-                    secret: true,
-                    default_value: None,
-                    options: vec![],
-                },
-                ConfigField {
-                    key: "base_url".into(),
-                    label: "URL de base personnalisée".into(),
-                    field_type: "text".into(),
-                    description: "URL alternative pour proxy ou serveur de test mock".into(),
-                    required: false,
-                    secret: false,
-                    default_value: None,
-                    options: vec![],
-                },
+
+
             ],
         }
     }
