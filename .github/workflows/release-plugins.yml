@@ -162,7 +162,7 @@ jobs:
           ED25519_PRIVATE_KEY: ${{ secrets.ED25519_PRIVATE_KEY }}
         run: |
           mkdir -p "$HOME/.aether_keys"
-          echo -n "$ED25519_PRIVATE_KEY" > "$HOME/.aether_keys/private.key"
+          echo -n "$ED25519_PRIVATE_KEY" | base64 -d > "$HOME/.aether_keys/private.key"
           chmod 600 "$HOME/.aether_keys/private.key"
 
       - name: Générer le manifeste et signer le paquet
