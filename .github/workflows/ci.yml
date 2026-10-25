@@ -89,6 +89,17 @@ jobs:
         working-directory: Aether-Plugins
         run: cargo build --workspace --lib --target wasm32-unknown-unknown --release
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Optimize WebAssembly Modules
+        working-directory: Aether-Plugins
+        run: |
+          npm ci --ignore-scripts
+          node scripts/optimize-wasm.mjs target/wasm32-unknown-unknown/release/*.wasm
+
       - name: Validate WebAssembly Modules (Size, ABI & Smoke tests)
         working-directory: Aether-Plugins
         run: node scripts/test-wasm.cjs

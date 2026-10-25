@@ -27,6 +27,12 @@ try {
         & cargo build --release --lib -p $crate --target wasm32-unknown-unknown -j 1
         if ($LASTEXITCODE -ne 0) { throw 'Compilation Wasm échouée. Vérifiez rustup target add wasm32-unknown-unknown.' }
     } finally { $env:CARGO_PROFILE_RELEASE_OPT_LEVEL = $previousOptimization }
+    & npm ci --ignore-scripts
+    if ($LASTEXITCODE -ne 0) { throw 'Installation des outils Wasm échouée.' }
+    & node scripts/optimize-wasm.mjs "target/wasm32-unknown-unknown/release/$($crate.Replace('-', '_')).wasm"
+    if ($LASTEXITCODE -ne 0) { throw 'Optimisation Wasm échouée.' }
+    & node scripts/test-wasm.cjs target/wasm32-unknown-unknown/release $crate
+    if ($LASTEXITCODE -ne 0) { throw 'Validation Wasm échouée.' }
     & cargo build --bin $crate -p $crate -j 1
     if ($LASTEXITCODE -ne 0) { throw 'Compilation du manifeste échouée.' }
     # Read the native process bytes as UTF-8, independently of the Windows console code page.

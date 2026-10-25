@@ -23,16 +23,16 @@ const expectedPlugins = [
   'aether_plugin_tmdb',
 ];
 
+// CI requires all modules; release jobs explicitly select one crate.
+const requested = process.argv.slice(3).map(name => name.replaceAll('-', '_'));
+for (const name of requested) assert(expectedPlugins.includes(name), `Unknown plugin: ${name}`);
+const plugins = requested.length ? requested : expectedPlugins;
 console.log(`Verifying WebAssembly modules in: ${wasmDir}`);
 assert(fs.existsSync(wasmDir), `Directory not found: ${wasmDir}`);
 
-for (const pluginName of expectedPlugins) {
+for (const pluginName of plugins) {
   const wasmPath = path.join(wasmDir, `${pluginName}.wasm`);
-  if (!fs.existsSync(wasmPath)) {
-    // Si exécuté pour un sous-ensemble de plugins, continuer si d'autres sont présents
-    console.log(`Note: ${pluginName}.wasm not found in target dir (skipped)`);
-    continue;
-  }
+  assert(fs.existsSync(wasmPath), `Missing required WebAssembly module: ${wasmPath}`);
 
   const bytes = fs.readFileSync(wasmPath);
   console.log(`Checking ${pluginName}.wasm (${bytes.length} bytes)...`);
@@ -54,6 +54,26 @@ for (const pluginName of expectedPlugins) {
   assert(exportNames.has('memory'), `${pluginName} missing exported memory`);
   assert(exportNames.has('media_alloc'), `${pluginName} missing media_alloc export`);
   assert(exportNames.has('media_run'), `${pluginName} missing media_run export`);
+
+  for (const item of WebAssembly.Module.imports(module)) {
+    assert(item.module === 'aether' && item.name === 'aether_host_http' && item.kind === 'function',
+      `${pluginName}: forbidden import ${item.module}:${item.name}`);
+  }
+  const instance = new WebAssembly.Instance(module, {
+    aether: { aether_host_http() { throw new Error('Smoke request must not access the network'); } },
+  });
+  const request = Buffer.from(JSON.stringify({apiVersion: 1, operation: 'ci.unsupported', input: {}}));
+  const {memory, media_alloc, media_run} = instance.exports;
+  const ptr = media_alloc(request.length) >>> 0;
+  assert(ptr > 0, `${pluginName}: allocation failed`);
+  new Uint8Array(memory.buffer, ptr, request.length).set(request);
+  const result = media_run(ptr, request.length);
+  const resultPtr = Number(result >> 32n);
+  const resultLen = Number(result & 0xffffffffn);
+  assert(resultLen > 0 && resultLen <= 65536, `${pluginName}: invalid response size`);
+  const response = JSON.parse(Buffer.from(memory.buffer, resultPtr, resultLen).toString('utf8'));
+  assert.equal(response.apiVersion, 1, `${pluginName}: invalid response API version`);
+  assert.equal(response.result.error, 'unsupported_operation', `${pluginName}: invalid smoke response`);
 
   console.log(`  ✓ ${pluginName}: valid bytecode, exports, imports, smoke test ok (${bytes.length} octets)`);
 }

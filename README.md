@@ -1,3 +1,35 @@
+## Compilation Wasm et limite de taille
+
+Les modules gardent une limite de **262 144 octets**. La compilation Rust est
+suivie d'une optimisation Binaryen `-Oz` avec version verrouillée dans
+`package-lock.json`, avant validation, calcul des empreintes et signature.
+Node.js 24 et npm servent uniquement à la fabrication des paquets ; le serveur
+Aether n'en dépend pas. Aucun paquet signé existant n'est réécrit.
+
+```powershell
+npm ci --ignore-scripts
+cargo build --workspace --lib --target wasm32-unknown-unknown --release
+$modules = @(Get-ChildItem target/wasm32-unknown-unknown/release/*.wasm | ForEach-Object FullName)
+node scripts/optimize-wasm.mjs @modules
+node scripts/test-wasm.cjs
+```
+
+La CI, les releases et `Build-LocalPackage.ps1` exécutent cette même optimisation.
+`test-wasm.cjs` exige les neuf modules par défaut, vérifie les imports autorisés
+et exécute chaque module via son ABI avec une opération inconnue sans réseau.
+Pour une release isolée, fournir le répertoire puis le nom de crate :
+`node scripts/test-wasm.cjs target/wasm32-unknown-unknown/release aether-plugin-imdb`.
+Un module sélectionné absent provoque un échec.
+
+### Catalogue de développement
+
+Le manifeste de `develop` est accessible à
+`https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/manifest.json`.
+Il décrit les paquets signés référencés par ses `packageUrl`, actuellement sur
+`main` ; il n'installe pas automatiquement le code source de develop. Les
+releases signées sont publiées depuis main. IntroSkipper reste invisible tant
+que sa première entrée signée n'a pas été publiée puis le dépôt actualisé.
+
 ## Correctifs catalogue du 25 octobre 2026
 
 IntroSkipper est présent dans les sources mais absent des huit paquets signés

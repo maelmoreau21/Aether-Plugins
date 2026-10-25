@@ -154,10 +154,23 @@ jobs:
           cargo build --release --lib -p ${{ matrix.name }} --target wasm32-unknown-unknown
           cargo build --release --bin ${{ matrix.name }} -p ${{ matrix.name }}
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Optimiser le module Wasm avant signature
+        env:
+          PLUGIN_CRATE: ${{ matrix.name }}
+        run: |
+          cd Aether-Plugins
+          npm ci --ignore-scripts
+          node scripts/optimize-wasm.mjs "target/wasm32-unknown-unknown/release/${PLUGIN_CRATE//-/_}.wasm"
+
       - name: Valider le module Wasm
         run: |
           cd Aether-Plugins
-          node scripts/test-wasm.cjs target/wasm32-unknown-unknown/release
+          node scripts/test-wasm.cjs target/wasm32-unknown-unknown/release "${{ matrix.name }}"
 
       - name: Préparer la clé de signature privée
         env:
