@@ -1,6 +1,7 @@
-﻿//! Common Versioned API and Data Contracts for Aether Metadata Provider Extensions.
+//! Common Versioned API and Data Contracts for Aether Metadata Provider Extensions.
 //!
 //! Re-exports and unifies contracts directly from Aether's official `media-extension-sdk`.
+//! Version: 0.1.0
 
 pub use media_extension_sdk::*;
 
