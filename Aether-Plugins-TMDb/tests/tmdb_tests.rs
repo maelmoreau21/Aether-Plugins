@@ -164,3 +164,59 @@ async fn test_tmdb_details_mock_server() {
     assert_eq!(details.backdrops.len(), 1);
     assert_eq!(details.images.len(), 3);
 }
+
+#[tokio::test]
+async fn image_collection_keeps_localized_variants_and_neutral_artwork() {
+    use aether_plugin_api::{ImageType, ImagesRequest};
+    use http_body_util::Full;
+    use hyper::{Request, Response, body::Bytes, server::conn::http1, service::service_fn};
+    use hyper_util::rt::TokioIo;
+    use std::convert::Infallible;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = tokio::spawn(async move {
+        loop {
+            let (stream, _) = listener.accept().await.unwrap();
+            tokio::spawn(async move {
+                http1::Builder::new().serve_connection(TokioIo::new(stream), service_fn(|req: Request<hyper::body::Incoming>| async move {
+                    assert_eq!(req.uri().path(), "/movie/42/images");
+                    Ok::<_, Infallible>(Response::new(Full::new(Bytes::from(r#"{"posters":[{"file_path":"/fr1.jpg","iso_639_1":"fr"},{"file_path":"/fr2.jpg","iso_639_1":"fr"},{"file_path":"/en.jpg","iso_639_1":"en"},{"file_path":"/de.jpg","iso_639_1":"de"}],"backdrops":[{"file_path":"/neutral.jpg","iso_639_1":null}],"logos":[{"file_path":"/logo.png","iso_639_1":"fr"}]}"#))))
+                })).await.unwrap();
+            });
+        }
+    });
+    let plugin = TmdbPlugin::new();
+    let config = ProviderConfig {
+        api_key: Some("fixture".into()),
+        base_url: Some(format!("http://{address}")),
+        language: Some("fr-FR".into()),
+        fallback_languages: vec!["en".into()],
+        ..Default::default()
+    };
+    let images = plugin
+        .images(
+            ImagesRequest {
+                id: String::new(),
+                media_type: MediaType::Movie,
+                external_ids: [("tmdb".into(), "42".into())].into(),
+            },
+            &config,
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        images
+            .iter()
+            .filter(|v| v.image_type == ImageType::Poster)
+            .count(),
+        3
+    );
+    assert!(images.iter().any(|v| v.image_type == ImageType::Logo));
+    assert!(
+        images
+            .iter()
+            .any(|v| v.image_type == ImageType::Backdrop && v.language.is_none())
+    );
+    assert!(!images.iter().any(|v| v.language.as_deref() == Some("de")));
+    server.abort();
+}

@@ -186,3 +186,80 @@ async fn test_fanart_movie_details_mock() {
     assert!(has_thumb);
     assert!(has_disc);
 }
+
+#[tokio::test]
+async fn image_collection_keeps_localized_variants_and_neutral_artwork() {
+    use aether_plugin_api::{ImageType, ImagesRequest};
+    use http_body_util::Full;
+    use hyper::{Request, Response, body::Bytes, server::conn::http1, service::service_fn};
+    use hyper_util::rt::TokioIo;
+    use std::convert::Infallible;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = tokio::spawn(async move {
+        loop {
+            let (stream, _) = listener.accept().await.unwrap();
+            tokio::spawn(async move {
+                http1::Builder::new().serve_connection(TokioIo::new(stream), service_fn(|req: Request<hyper::body::Incoming>| async move {
+                    assert_eq!(req.uri().path(), "/movies/42");
+                    Ok::<_, Infallible>(Response::new(Full::new(Bytes::from(r#"{"name":"Fixture","movieposter":[{"url":"https://assets.fanart.tv/fr1.jpg","lang":"fr"},{"url":"https://assets.fanart.tv/fr2.jpg","lang":"fr"},{"url":"https://assets.fanart.tv/en.jpg","lang":"en"},{"url":"https://assets.fanart.tv/de.jpg","lang":"de"}],"moviebackground":[{"url":"https://assets.fanart.tv/neutral.jpg","lang":"00"}],"hdmovielogo":[{"url":"https://assets.fanart.tv/logo.png","lang":"fr"}],"hdmovieart":[{"url":"https://assets.fanart.tv/art.png","lang":"en"}]}"#))))
+                })).await.unwrap();
+            });
+        }
+    });
+    let plugin = FanartTvPlugin::new();
+    let config = ProviderConfig {
+        api_key: Some("fixture".into()),
+        base_url: Some(format!("http://{address}")),
+        language: Some("fr-FR".into()),
+        fallback_languages: vec!["en".into()],
+        ..Default::default()
+    };
+    let images = plugin
+        .images(
+            ImagesRequest {
+                id: String::new(),
+                media_type: MediaType::Movie,
+                external_ids: [("tmdb".into(), "42".into())].into(),
+            },
+            &config,
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        images
+            .iter()
+            .filter(|v| v.image_type == ImageType::Poster)
+            .count(),
+        3
+    );
+    assert!(images.iter().any(|v| v.image_type == ImageType::Logo));
+    assert!(
+        images
+            .iter()
+            .any(|v| v.image_type == ImageType::Backdrop && v.language.is_none())
+    );
+    assert!(!images.iter().any(|v| v.language.as_deref() == Some("de")));
+    server.abort();
+}
+
+#[tokio::test]
+async fn tv_images_refuse_movie_namespace_identifiers() {
+    use aether_plugin_api::ImagesRequest;
+    let config = ProviderConfig {
+        api_key: Some("fixture".into()),
+        ..Default::default()
+    };
+    let error = FanartTvPlugin::new()
+        .images(
+            ImagesRequest {
+                id: String::new(),
+                media_type: MediaType::TvShow,
+                external_ids: [("tmdb".into(), "42".into()), ("imdb".into(), "tt42".into())].into(),
+            },
+            &config,
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, "missing_id");
+}

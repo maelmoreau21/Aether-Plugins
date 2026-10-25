@@ -291,20 +291,32 @@ impl MetadataProviderPlugin for FanartTvPlugin {
         let api_key = self.resolve_api_key(config)?;
 
         let is_tv = matches!(request.media_type, MediaType::TvShow | MediaType::Episode);
-        let id = if !request.id.is_empty() {
+        let id = if !request.id.trim().is_empty() {
             request.id.clone()
-        } else if let Some(tmdb) = request.external_ids.get("tmdb") {
-            tmdb.clone()
-        } else if let Some(imdb) = request.external_ids.get("imdb") {
-            imdb.clone()
-        } else if let Some(tvdb) = request.external_ids.get("tvdb") {
-            tvdb.clone()
+        } else if is_tv {
+            request
+                .external_ids
+                .get("tvdb")
+                .cloned()
+                .unwrap_or_default()
         } else {
+            request
+                .external_ids
+                .get("tmdb")
+                .or_else(|| request.external_ids.get("imdb"))
+                .cloned()
+                .unwrap_or_default()
+        };
+        if id.is_empty() || !id.bytes().all(|b| b.is_ascii_alphanumeric()) {
             return Err(PluginError::new(
                 "missing_id",
-                "fanart.tv requires TMDb, IMDb or TVDB ID",
+                if is_tv {
+                    "fanart.tv TV artwork requires a TVDB identifier"
+                } else {
+                    "fanart.tv movie artwork requires a TMDb or IMDb identifier"
+                },
             ));
-        };
+        }
 
         let endpoint = if is_tv {
             format!("tv/{id}")
@@ -414,7 +426,7 @@ impl MetadataProviderPlugin for FanartTvPlugin {
                 config,
             )
             .await?;
-        Ok(details.images)
+        Ok(config.select_images(details.images))
     }
 }
 

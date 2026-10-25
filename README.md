@@ -277,3 +277,30 @@ Lorsqu'une release est déclenchée :
 ### 4. Idempotence et Retour Arrière
 - Relancer un workflow pour un tag déjà existant n'effectue aucune action (idempotent, aucun doublon de release).
 - Pour revenir à une version précédente, il suffit de modifier `packageUrl`, `packageSha256` et le manifest dans `repository/manifest.json` pour pointer vers le paquet signé antérieur désiré (les anciens paquets signés restent conservés dans `repository/packages/`).
+
+
+## Collections d’images localisées (sources du 25 octobre 2026)
+
+`metadata.images` conserve toutes les variantes correspondant aux langues demandées,
+sans réduire chaque type à une image. La réponse est bornée à 200 images et 60 Kio
+de données JSON ; les réponses volumineuses alternent les groupes type/langue afin
+de conserver des logos et des langues de secours malgré de nombreuses affiches. TMDb fournit affiches, arrière-plans et logos ;
+fanart.tv conserve également illustrations transparentes, vignettes, bannières et disques
+lorsque le fournisseur les expose. Aucun type absent n’est inventé.
+
+Le Core peut transmettre `language`, `languages` et `includeNeutral` dans l’entrée,
+et `config.language`, `config.fallbackLanguages`, `config.includeNeutral` dans sa
+configuration privée existante. Exemple de politique : `fr-CA`, puis `fr`, puis `en`,
+avec images sans texte/langue. Les tags régionaux sont conservés et la langue de base
+sert de repli. Sans langue demandée, la collecte historique reste non filtrée ;
+`includeNeutral` vaut vrai par défaut. Cette politique concerne `metadata.images`,
+sans retirer les métadonnées éditoriales de `metadata.details`.
+
+Avec un `id` vide, TMDb utilise `externalIds.tmdb`. fanart.tv utilise exclusivement
+`externalIds.tvdb` pour les séries/épisodes, et TMDb ou IMDb pour les films. Un identifiant
+absent produit une erreur explicite ; aucun premier résultat de recherche n’est choisi.
+La rotation par session, le stockage et la déduplication appartiennent au Core.
+
+Ces modifications de sources ne mettent pas à jour les paquets signés déjà installés.
+Aucun appel réel fournisseur ni téléchargement d’images n’est couvert par les tests locaux
+à réponses simulées ; aucune clé fournisseur supplémentaire n’est nécessaire à ces tests.

@@ -576,56 +576,68 @@ impl MetadataProviderPlugin for TmdbPlugin {
         config: &ProviderConfig,
     ) -> Result<Vec<MediaImage>, PluginError> {
         let is_tv = matches!(request.media_type, MediaType::TvShow | MediaType::Episode);
-        let endpoint = if is_tv {
-            format!("tv/{}/images", request.id)
+        let id = if request.id.trim().is_empty() {
+            request
+                .external_ids
+                .get("tmdb")
+                .map(String::as_str)
+                .unwrap_or("")
         } else {
-            format!("movie/{}/images", request.id)
+            request.id.as_str()
+        };
+        if id.is_empty() || !id.bytes().all(|b| b.is_ascii_digit()) {
+            return Err(PluginError::new(
+                "missing_id",
+                "TMDb images require a numeric TMDb identifier",
+            ));
+        }
+        let endpoint = if is_tv {
+            format!("tv/{id}/images")
+        } else {
+            format!("movie/{id}/images")
         };
 
+        // A single unfiltered provider response includes localized and textless artwork.
+        // Apply the same policy as fanart locally so fallback variants are retained.
         let val: serde_json::Value = self.fetch_json(&endpoint, &[], config).await?;
         let mut images = Vec::new();
-
-        if let Some(posters) = val.get("posters").and_then(|v| v.as_array()) {
-            for (idx, p) in posters.iter().enumerate() {
-                if let Some(file_path) = p.get("file_path").and_then(|v| v.as_str()) {
-                    images.push(MediaImage {
-                        url: format!("{IMAGE_ORIGINAL_URL}{file_path}"),
-                        image_type: ImageType::Poster,
-                        width: p.get("width").and_then(|v| v.as_u64()).map(|w| w as u32),
-                        height: p.get("height").and_then(|v| v.as_u64()).map(|h| h as u32),
-                        language: p
-                            .get("iso_639_1")
-                            .and_then(|v| v.as_str())
-                            .map(str::to_owned),
-                        rating: p.get("vote_average").and_then(|v| v.as_f64()),
-                        vote_count: p.get("vote_count").and_then(|v| v.as_u64()),
-                        is_primary: idx == 0,
-                    });
+        for (key, image_type) in [
+            ("posters", ImageType::Poster),
+            ("backdrops", ImageType::Backdrop),
+            ("logos", ImageType::Logo),
+        ] {
+            if let Some(items) = val.get(key).and_then(|v| v.as_array()) {
+                for (idx, item) in items.iter().enumerate() {
+                    if let Some(path) = item
+                        .get("file_path")
+                        .and_then(|v| v.as_str())
+                        .filter(|path| path.starts_with('/') && !path.starts_with("//"))
+                    {
+                        images.push(MediaImage {
+                            url: format!("{IMAGE_ORIGINAL_URL}{path}"),
+                            image_type,
+                            width: item
+                                .get("width")
+                                .and_then(|v| v.as_u64())
+                                .and_then(|v| u32::try_from(v).ok()),
+                            height: item
+                                .get("height")
+                                .and_then(|v| v.as_u64())
+                                .and_then(|v| u32::try_from(v).ok()),
+                            language: item
+                                .get("iso_639_1")
+                                .and_then(|v| v.as_str())
+                                .filter(|v| !v.is_empty())
+                                .map(str::to_owned),
+                            rating: item.get("vote_average").and_then(|v| v.as_f64()),
+                            vote_count: item.get("vote_count").and_then(|v| v.as_u64()),
+                            is_primary: idx == 0,
+                        });
+                    }
                 }
             }
         }
-
-        if let Some(backdrops) = val.get("backdrops").and_then(|v| v.as_array()) {
-            for (idx, b) in backdrops.iter().enumerate() {
-                if let Some(file_path) = b.get("file_path").and_then(|v| v.as_str()) {
-                    images.push(MediaImage {
-                        url: format!("{IMAGE_ORIGINAL_URL}{file_path}"),
-                        image_type: ImageType::Backdrop,
-                        width: b.get("width").and_then(|v| v.as_u64()).map(|w| w as u32),
-                        height: b.get("height").and_then(|v| v.as_u64()).map(|h| h as u32),
-                        language: b
-                            .get("iso_639_1")
-                            .and_then(|v| v.as_str())
-                            .map(str::to_owned),
-                        rating: b.get("vote_average").and_then(|v| v.as_f64()),
-                        vote_count: b.get("vote_count").and_then(|v| v.as_u64()),
-                        is_primary: idx == 0,
-                    });
-                }
-            }
-        }
-
-        Ok(images)
+        Ok(config.select_images(images))
     }
 }
 
