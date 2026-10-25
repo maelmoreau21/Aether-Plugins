@@ -1,5 +1,13 @@
 # Créer et distribuer son plugin
 
+Stockage privé v1 : déclarer `storage.private`, puis utiliser les modules
+`media_extension_sdk::storage` et `media_extension_sdk::objects` (également
+réexportés par `aether-plugin-api`). Le Core contrôle l'identité, les scopes et
+les quotas ; aucune connexion SQL ni chemin disque dans le guest. Exemple
+synthétique hors catalogue : `templates/persistent-storage` ; compteur durable
+avec CAS, compilable pour `wasm32-unknown-unknown`. Voir le contrat complet dans
+`Aether/docs/EXTENSION_STORAGE.md`, notamment rétention, expiration et objets.
+
 Aucune liste d’auteurs ni de fournisseurs n’est compilée dans Aether. Un auteur
 publie son module Wasm, son manifeste signé et un catalogue HTTPS. L’administrateur
 ajoute ce lien, installe, configure puis active le plugin. Aucune approbation

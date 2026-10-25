@@ -2,7 +2,7 @@
 // - Valid WebAssembly bytecode
 // - Hard size budget <= 256 KB (262,144 bytes, defined by media-extension-sdk MAX_MODULE)
 // - ABI exports: memory, media_alloc, media_run
-// - Host brokered imports: aether:aether_host_http (for plugins requesting network)
+// - Explicit host HTTP and versioned private storage imports only
 
 const fs = require('node:fs');
 const path = require('node:path');
@@ -56,11 +56,17 @@ for (const pluginName of plugins) {
   assert(exportNames.has('media_run'), `${pluginName} missing media_run export`);
 
   for (const item of WebAssembly.Module.imports(module)) {
-    assert(item.module === 'aether' && item.name === 'aether_host_http' && item.kind === 'function',
+    const allowed = (item.module === 'aether' && item.name === 'aether_host_http') ||
+      (item.module === 'media' && ['media_host_storage_v1', 'media_host_objects_v1'].includes(item.name));
+    assert(allowed && item.kind === 'function',
       `${pluginName}: forbidden import ${item.module}:${item.name}`);
   }
   const instance = new WebAssembly.Instance(module, {
     aether: { aether_host_http() { throw new Error('Smoke request must not access the network'); } },
+    media: {
+      media_host_storage_v1() { throw new Error('Unsupported operation smoke must not access storage'); },
+      media_host_objects_v1() { throw new Error('Unsupported operation smoke must not access objects'); },
+    },
   });
   const request = Buffer.from(JSON.stringify({apiVersion: 1, operation: 'ci.unsupported', input: {}}));
   const {memory, media_alloc, media_run} = instance.exports;
