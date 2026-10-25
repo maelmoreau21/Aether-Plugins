@@ -1,3 +1,8 @@
+## 25 octobre 2026 - Publication manuelle uniquement
+
+- Les pushes/merges ne lancent plus Release Plugin. Run workflow sur main selectionne un plugin et PATCH (defaut), MINOR ou MAJOR. Une release manuelle ne selectionne plus les autres plugins modifies. Pas de reutilisation d'une version deja publiee.
+- test-release-policy.py : 3 increments et isolation du plugin verifies ; ajoute au job workflows de CI. Aucun paquet, tag ou release publie par cette intervention.
+
 # Etat et validations des plugins
 
 ## 25 octobre 2026 - Modules Wasm sous la limite de 256 Kio

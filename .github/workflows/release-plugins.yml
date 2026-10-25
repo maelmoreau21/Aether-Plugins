@@ -1,9 +1,6 @@
 name: Release Plugin
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       plugin_id:
@@ -21,13 +18,14 @@ on:
           - avatars
           - intro-skipper
       bump_type:
-        description: 'Type de version (MAJOR requiert décision manuelle, ou MINOR)'
+        description: 'Increment choisi pour cette release uniquement'
         required: true
         type: choice
         options:
+          - PATCH
           - MINOR
           - MAJOR
-        default: MINOR
+        default: PATCH
 
 permissions:
   contents: write
@@ -38,6 +36,7 @@ concurrency:
 
 jobs:
   detect-changes:
+    if: github.ref == 'refs/heads/main'
     name: Détection des plugins à publier
     runs-on: ubuntu-latest
     outputs:

@@ -1,3 +1,13 @@
+## Versions publiees sur decision explicite - 25 octobre 2026
+
+Un push ou une fusion sur main/develop ne declenche plus de release numerotee.
+Les workflows CI et les images Docker develop/latest continuent leur parcours
+habituel, avec un identifiant de commit distinct. Pour publier une version,
+ouvrir GitHub Actions, choisir Release (Aether) ou Release Plugin (extensions),
+Run workflow sur main, puis PATCH, MINOR ou MAJOR. PATCH est le choix par defaut.
+Une nouvelle release publiee garde un numero unique ; les versions deja publiees
+ne sont pas ecrasees. Chaque plugin garde son versionnement independant.
+
 ## Compilation Wasm et limite de taille
 
 Les modules gardent une limite de **262 144 octets**. La compilation Rust est
@@ -33,8 +43,9 @@ que sa première entrée signée n'a pas été publiée puis le dépôt actualis
 ## Correctifs catalogue du 25 octobre 2026
 
 IntroSkipper est présent dans les sources mais absent des huit paquets signés
-actuels. Les exécutions automatiques de release incluent désormais les plugins
-absents du catalogue, même sans changement récent de leur code. La clé de
+actuels. Historique : la detection automatique incluait les plugins absents du catalogue.
+Depuis la politique manuelle ci-dessus, leur premiere publication se declenche
+explicitement en selectionnant le plugin. La clé de
 signature production reste obligatoire. Les jobs de publication s'exécutent
 séquentiellement, repartent de main et incorporent les bannières SVG locales
 avant signature. Aucun push, release ou paquet de remplacement non signé n'est
@@ -291,8 +302,8 @@ du plugin. Le téléchargement GitHub et l’upload stockent les images sur le s
 
 ### 1. Principes de Versioning des Plugins
 - **Version indépendante** : Chaque plugin situé dans un sous-dossier `Aether-Plugins-*` possède son propre numéro de version Semantic Versioning `MAJOR.MINOR.PATCH` dans son `Cargo.toml`.
-- **Incrémentation MINOR automatique** : Tout merge validé sur `main` qui modifie le code source ou la configuration d'un plugin incrémente automatiquement sa version MINOR (ex: `0.1.0 → 0.2.0`, `1.12.0 → 1.13.0`), et remet PATCH à 0. Les modifications purement documentaires (fichiers `.md`, `docs/`) ne déclenchent pas de release.
-- **Incrémentation MAJOR manuelle** : Une version majeure ne s'incrémente **jamais** automatiquement. Pour passer à une nouvelle majeure (ex: `1.12.0 → 2.0.0`), déclencher le workflow GitHub Actions `Release Plugin` manuellement via **Run workflow** (`workflow_dispatch`), en sélectionnant le plugin ciblé et le mode `MAJOR`.
+- **Publication manuelle** : Aucun push ou merge ne cree de nouvelle version. Dans Actions, ouvrir `Release Plugin`, puis `Run workflow` sur `main` et choisir uniquement le plugin a publier.
+- **Increment explicite** : `PATCH` par defaut (`0.1.0 -> 0.1.1`), `MINOR` (`0.1.0 -> 0.2.0`) ou `MAJOR` (`0.1.0 -> 1.0.0`). Les autres plugins ne sont pas publies, meme si leurs sources ont change.
 
 ### 2. Configuration Sécurisée de la Signature en CI
 Pour permettre la signature automatique Ed25519 lors des publications sur `main` :

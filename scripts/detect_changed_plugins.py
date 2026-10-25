@@ -190,9 +190,9 @@ def main():
 
         if manual_plugin and (manual_plugin == p_id or manual_plugin == p_dir or manual_plugin == crate_name):
             is_triggered = True
-            bump_type = manual_bump if manual_bump in ["MAJOR", "MINOR"] else "MAJOR"
+            bump_type = manual_bump if manual_bump in ["MAJOR", "MINOR", "PATCH"] else "PATCH"
             reason = f"Manual dispatch requested ({bump_type})"
-        else:
+        elif not manual_plugin:
             p_files = [path for path in changed_paths if path.startswith(p_dir + "/")]
             if p_files and not is_doc_only(p_files):
                 is_triggered = True
@@ -212,8 +212,10 @@ def main():
         if is_triggered:
             if bump_type == "MAJOR":
                 next_ver = f"{major + 1}.0.0"
-            else:
+            elif bump_type == "MINOR":
                 next_ver = f"{major}.{minor + 1}.0"
+            else:
+                next_ver = f"{major}.{minor}.{patch + 1}"
             
             tag_name = f"{tag_prefix}-v{next_ver}"
 
