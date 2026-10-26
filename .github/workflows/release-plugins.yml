@@ -37,6 +37,7 @@ jobs:
         id: release_check
         run: |
           set -euo pipefail
+          # shellcheck disable=SC2016 # JavaScript template literals are passed verbatim.
           node -e '
             const fs = require("fs");
             const manifest = JSON.parse(fs.readFileSync("repository/manifest.json", "utf-8"));
@@ -88,13 +89,9 @@ jobs:
               git tag -a "$TAG" -m "Release $NAME $VER ($TAG)"
               git push origin "$TAG"
 
-              NOTES="## Extension $NAME — Version $VER
-              
-- **Identifiant** : \`$ID\`
-- **Version** : \`$VER\`
-- **Tag Git** : \`$TAG\`
-- **Paquet** : \`$PKG_FILE\`
-- **Signature** : Ed25519 vérifiée avec succès."
+              # shellcheck disable=SC2016 # Markdown backticks are literal in single quotes.
+              printf -v NOTES '## Extension %s — Version %s\n\n- **Identifiant** : `%s`\n- **Version** : `%s`\n- **Tag Git** : `%s`\n- **Paquet** : `%s`\n- **Signature** : Ed25519 vérifiée avec succès.' \
+                "$NAME" "$VER" "$ID" "$VER" "$TAG" "$PKG_FILE"
 
               echo "Création de la GitHub Release $TAG..."
               gh release create "$TAG" \

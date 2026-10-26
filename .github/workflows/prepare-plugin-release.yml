@@ -97,11 +97,13 @@ jobs:
             exit 1
           fi
 
-          echo "plugin_name=$PLUGIN_NAME" >> "$GITHUB_OUTPUT"
-          echo "plugin_dir=$PLUGIN_DIR" >> "$GITHUB_OUTPUT"
-          echo "plugin_tag=$PLUGIN_TAG" >> "$GITHUB_OUTPUT"
-          echo "next_ver=$NEXT_VER" >> "$GITHUB_OUTPUT"
-          echo "short_id=$SHORT_ID" >> "$GITHUB_OUTPUT"
+          {
+            echo "plugin_name=$PLUGIN_NAME"
+            echo "plugin_dir=$PLUGIN_DIR"
+            echo "plugin_tag=$PLUGIN_TAG"
+            echo "next_ver=$NEXT_VER"
+            echo "short_id=$SHORT_ID"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Configurer la branche de release
         env:
@@ -234,13 +236,16 @@ jobs:
           git commit -m "chore(release): prepare $PLUGIN_ID v$NEXT_VER [skip ci]"
           git push origin "$BRANCH_NAME"
 
+          # shellcheck disable=SC2016 # Markdown backticks are literal in single quotes.
+          printf '%s\n' \
+            "Préparation automatisée de la release pour l'extension **$PLUGIN_ID** en version **$NEXT_VER**." \
+            '' \
+            '- Paquet signé avec Ed25519' \
+            '- Intégrité Wasm et ABI vérifiées' \
+            '- Entrée du catalogue mise à jour dans `repository/manifest.json`' \
+            '- Respect strict des branches protégées (pas de push direct sur main).' > pr-body.md
           gh pr create \
             --base main \
             --head "$BRANCH_NAME" \
             --title "chore(release): release $PLUGIN_ID v$NEXT_VER" \
-            --body "Préparation automatisée de la release pour l'extension **$PLUGIN_ID** en version **$NEXT_VER**.
-            
-- Paquet signé avec Ed25519
-- Intégrité Wasm et ABI vérifiées
-- Entrée du catalogue mise à jour dans \`repository/manifest.json\`
-- Respect strict des branches protégées (pas de push direct sur main)."
+            --body-file pr-body.md
