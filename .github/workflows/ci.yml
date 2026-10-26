@@ -18,7 +18,7 @@ jobs:
     name: Validation des workflows
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: docker://rhysd/actionlint:1.7.12
       - uses: actions/setup-python@v5
         with:
@@ -31,14 +31,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Aether (for shared SDK)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/Aether
           ref: main
           path: Aether
 
       - name: Checkout Aether-Plugins
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: Aether-Plugins
 
@@ -55,14 +55,14 @@ jobs:
 
     steps:
       - name: Checkout Aether (for shared SDK)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/Aether
           ref: main
           path: Aether
 
       - name: Checkout Aether-Plugins
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: Aether-Plugins
 

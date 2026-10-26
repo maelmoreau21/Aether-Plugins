@@ -44,7 +44,7 @@ jobs:
       has_changes: ${{ steps.detect.outputs.has_changes }}
     steps:
       - name: Checkout Aether-Plugins (full history & tags)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -109,14 +109,14 @@ jobs:
           fi
 
       - name: Checkout Aether (for media-extension-pack & SDK)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/Aether
           ref: main
           path: Aether
 
       - name: Checkout Aether-Plugins
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: Aether-Plugins
           ref: main
