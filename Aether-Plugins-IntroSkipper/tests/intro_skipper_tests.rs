@@ -38,6 +38,37 @@ fn test_plugin_manifest_structure() {
 }
 
 #[test]
+fn never_compare_different_seasons_or_series() {
+    let config = IntroSkipperConfig::default();
+    let analyzer = SeasonAnalyzer::new(&config);
+    let fingerprint: Vec<u32> = (0_u32..300).map(|i| i ^ i.rotate_left(7)).collect();
+    let episode = |id: &str, series: &str, season| EpisodeData {
+        id: id.into(),
+        series_id: Some(series.into()),
+        season_number: Some(season),
+        duration: 1800.0,
+        fingerprints: Some(fingerprint.clone()),
+        fingerprint_rate: Some(10.0),
+        ..Default::default()
+    };
+    for other in [episode("b", "show-a", 2), episode("b", "show-b", 1)] {
+        let results = analyzer.analyze_season(&[episode("a", "show-a", 1), other]);
+        assert!(results.iter().all(|r| r.markers.is_empty()));
+    }
+}
+
+#[test]
+fn silence_does_not_create_a_fingerprint_marker() {
+    let config = IntroSkipperConfig::default();
+    let matcher = FingerprintMatcher::new(&config, Some(10.0));
+    assert!(
+        matcher
+            .find_best_match(&vec![0; 500], &vec![0; 500])
+            .is_none()
+    );
+}
+
+#[test]
 fn test_chapter_detection_multilingual() {
     let config = IntroSkipperConfig::default();
     let classifier = ChapterClassifier::new(&config);
@@ -237,6 +268,8 @@ fn test_season_consensus_analysis() {
     let episodes = vec![
         EpisodeData {
             id: "ep-1".into(),
+            series_id: Some("series-1".into()),
+            season_number: Some(1),
             duration: 1200.0,
             fingerprints: Some(ep1_fps),
             fingerprint_rate: Some(10.0),
@@ -245,6 +278,8 @@ fn test_season_consensus_analysis() {
         },
         EpisodeData {
             id: "ep-2".into(),
+            series_id: Some("series-1".into()),
+            season_number: Some(1),
             duration: 1200.0,
             fingerprints: Some(ep2_fps),
             fingerprint_rate: Some(10.0),
@@ -253,6 +288,8 @@ fn test_season_consensus_analysis() {
         },
         EpisodeData {
             id: "ep-3".into(),
+            series_id: Some("series-1".into()),
+            season_number: Some(1),
             duration: 1200.0,
             fingerprints: None,
             fingerprint_rate: None,

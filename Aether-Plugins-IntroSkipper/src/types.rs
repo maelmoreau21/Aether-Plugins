@@ -65,6 +65,8 @@ pub struct ChapterItem {
 pub struct EpisodeData {
     pub id: String,
     #[serde(default)]
+    pub series_id: Option<String>,
+    #[serde(default)]
     pub title: Option<String>,
     #[serde(default)]
     pub season_number: Option<u32>,

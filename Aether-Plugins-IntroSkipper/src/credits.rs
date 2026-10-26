@@ -26,6 +26,9 @@ impl<'a> CreditsDetector<'a> {
         let rate_b = ep_b
             .fingerprint_rate
             .unwrap_or(crate::matcher::DEFAULT_FINGERPRINT_RATE);
+        if !rate_a.is_finite() || !rate_b.is_finite() || (rate_a - rate_b).abs() > 0.01 {
+            return None;
+        }
 
         // Analyze last 5 minutes (300 seconds) of each episode
         let tail_seconds = self.config.max_credits_duration.max(180.0);

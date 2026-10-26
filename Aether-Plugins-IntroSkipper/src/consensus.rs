@@ -19,6 +19,23 @@ impl<'a> SeasonAnalyzer<'a> {
 
     /// Analyze a list of episodes belonging to the same season / show
     pub fn analyze_season(&self, episodes: &[EpisodeData]) -> Vec<EpisodeDetectionResult> {
+        // The host must supply one explicit series/season scope. Never compare
+        // unrelated episodes even if a caller accidentally mixes its batch.
+        let scope = episodes.first().map(|ep| (&ep.series_id, ep.season_number));
+        if episodes
+            .iter()
+            .any(|ep| Some((&ep.series_id, ep.season_number)) != scope)
+        {
+            return episodes
+                .iter()
+                .map(|ep| EpisodeDetectionResult {
+                    episode_id: ep.id.clone(),
+                    markers: Vec::new(),
+                    intro: None,
+                    credits: None,
+                })
+                .collect();
+        }
         let mut results_map: HashMap<String, EpisodeDetectionResult> = HashMap::new();
 
         // Initialize empty results
@@ -57,7 +74,12 @@ impl<'a> SeasonAnalyzer<'a> {
         }
 
         // Pass 2: Fingerprint-based intro detection with cross-episode pairing
-        if self.config.enable_fingerprint_detection && episodes.len() >= 2 {
+        if self.config.enable_fingerprint_detection
+            && episodes.len() >= 2
+            && episodes.first().is_some_and(|ep| {
+                ep.series_id.as_ref().is_some_and(|id| !id.is_empty()) && ep.season_number.is_some()
+            })
+        {
             self.detect_fingerprint_intros(episodes, &mut results_map);
             self.detect_fingerprint_credits(episodes, &mut results_map);
         }
@@ -105,6 +127,11 @@ impl<'a> SeasonAnalyzer<'a> {
         for (idx_a, idx_b) in pair_indices {
             let ep_a = fp_episodes[idx_a];
             let ep_b = fp_episodes[idx_b];
+            if let (Some(a), Some(b)) = (ep_a.fingerprint_rate, ep_b.fingerprint_rate)
+                && (a - b).abs() > 0.01
+            {
+                continue;
+            }
 
             // If both already have trusted chapter intro, skip expensive audio matching
             let has_chap_a = results

@@ -32,7 +32,7 @@ impl IntroSkipperPlugin {
             version: "0.1.0".into(),
             category: "Playback".into(),
             provider: "Intro Skipper".into(),
-            permissions: vec!["metadata.read".into()],
+            permissions: vec!["metadata.read".into(), "playback.markers".into()],
             http_hosts: Vec::new(), // Zero external network access required - pure local analysis
             description: "Détection automatique ultra-rapide des introductions et génériques de fin par empreintes audio et chapitres".into(),
             author: "Aether Team".into(),
@@ -159,8 +159,17 @@ pub fn handle_intro_skipper_request(
     req: media_extension_sdk::ExtensionRequest,
 ) -> media_extension_sdk::ExtensionResponse {
     let config = if let Some(cfg_val) = req.input.get("config") {
-        let provider_config: ProviderConfig =
+        let mut provider_config: ProviderConfig =
             serde_json::from_value(cfg_val.clone()).unwrap_or_default();
+        if let Some(settings) = cfg_val.as_object() {
+            for (key, value) in settings {
+                if let Some(value) = value.as_str() {
+                    provider_config.extra.insert(key.clone(), value.to_owned());
+                } else if value.is_boolean() || value.is_number() {
+                    provider_config.extra.insert(key.clone(), value.to_string());
+                }
+            }
+        }
         IntroSkipperConfig::from_provider_config(&provider_config)
     } else {
         IntroSkipperConfig::default()

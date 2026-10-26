@@ -33,6 +33,21 @@ impl<'a> FingerprintMatcher<'a> {
         if a.is_empty() || b.is_empty() {
             return None;
         }
+        // Flat/silent fingerprints match almost anything and are a common
+        // source of convincing but entirely false intro markers.
+        if a.iter()
+            .take(8192)
+            .collect::<std::collections::HashSet<_>>()
+            .len()
+            < 8
+            || b.iter()
+                .take(8192)
+                .collect::<std::collections::HashSet<_>>()
+                .len()
+                < 8
+        {
+            return None;
+        }
 
         // Limit search to configured search window (e.g. first 10 minutes)
         let max_frames_search = (self.config.search_window_end * self.rate).round() as usize;

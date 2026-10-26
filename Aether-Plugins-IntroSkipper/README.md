@@ -2,7 +2,7 @@
 
 Portage officiel, autonome et hautement optimisé en **Rust** du célèbre plugin [intro-skipper/intro-skipper](https://github.com/intro-skipper/intro-skipper).
 
-Intro Skipper permet de détecter automatiquement les **génériques d'ouverture (intros)** et les **génériques de fin (crédits / outro)** dans les séries télévisées et animes pour proposer le saut d'introduction ("Skip Intro") instantané et optionnellement automatique.
+Intro Skipper classe des chapitres et compare des empreintes déjà fournies par l'hôte. L'intégration automatique au scanner, au stockage et au lecteur Aether reste à réaliser ; installer ce paquet seul ne déclenche aucune analyse média.
 
 ---
 
@@ -11,12 +11,12 @@ Intro Skipper permet de détecter automatiquement les **génériques d'ouverture
 1. **Zéro dépendance native lourde à l'exécution** :
    - Algorithme d'alignement audio Chromaprint pur Rust, sans allocations superflues.
    - Calcul de distance de Hamming vectorisé avec les instructions CPU `POPCNT` (`count_ones()`).
-   - Analyse par diagonales de corrélation croisée (Diagonal Cross-Correlation Matrix) avec sous-échantillonnage adaptatif (accélération 4x à 9x).
+   - Analyse par diagonales de corrélation croisée avec sous-échantillonnage adaptatif. Les gains de vitesse sur un corpus réel restent à mesurer.
 2. **Consensus multi-épisodes (Season Consensus)** :
    - Détection des décalages d'intro (Cold Opens / résumés de début d'épisode).
-   - Validation croisée entre plusieurs épisodes d'une même saison pour éliminer 100% des faux positifs.
+   - Comparaisons entre épisodes fournis dans un même lot ; les lots mélangeant séries ou saisons sont rejetés. La précision et les faux positifs restent à mesurer sur un corpus annoté.
 3. **Double moteur d'analyse** :
-   - **Détection acoustique (Chromaprint / FPcalc)** : identifie les signatures musicales répétées entre épisodes.
+   - **Comparaison acoustique** : compare des vecteurs d'empreintes `u32` fournis par l'hôte. Le plugin ne calcule pas ces empreintes et ne lance pas FPcalc.
    - **Détection sémantique par chapitres** : extraction immédiate (0ms CPU) si le conteneur MKV/MP4 contient déjà des chapitres nommés multilingues (`Intro`, `Opening`, `OP`, `Générique`, `Credits`, `ED`, etc.).
 4. **Détection des crédits & génériques de fin** :
    - Analyse de la queue d'épisode pour proposer la transition fluide vers l'épisode suivant.
@@ -29,7 +29,7 @@ Intro Skipper permet de détecter automatiquement les **génériques d'ouverture
 ## 🛠️ Opérations supportées
 
 - `manifest` : retourne le manifeste complet du plugin et son schéma de configuration.
-- `intro.detect` / `markers.detect` : analyse une liste d'épisodes et produit les segments détectés.
+- `intro.detect` / `markers.detect` : analyse une liste d'épisodes et produit des candidats. L'hôte doit fournir des épisodes d'une seule série et saison, avec des empreintes de même cadence.
 - `intro.match_fingerprints` : compare deux séries d'empreintes acoustiques et retourne le segment commun.
 - `intro.parse_chapters` : extrait les marqueurs d'intro/crédits à partir des chapitres du conteneur.
 
