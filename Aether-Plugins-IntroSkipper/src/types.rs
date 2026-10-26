@@ -78,6 +78,10 @@ pub struct EpisodeData {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fingerprint_rate: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tail_fingerprints: Option<Vec<u32>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tail_start: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chapters: Option<Vec<ChapterItem>>,
 }
 

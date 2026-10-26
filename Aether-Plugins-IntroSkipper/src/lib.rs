@@ -179,11 +179,31 @@ pub fn handle_intro_skipper_request(
         "manifest" => serde_json::to_value(plugin.manifest()).unwrap_or_default(),
 
         "intro.detect" | "markers.detect" => {
-            let episodes: Vec<EpisodeData> = req
+            let mut episodes: Vec<EpisodeData> = req
                 .input
                 .get("episodes")
                 .and_then(|v| serde_json::from_value(v.clone()).ok())
                 .unwrap_or_default();
+            for (episode, raw) in episodes
+                .iter_mut()
+                .zip(req.input["episodes"].as_array().into_iter().flatten())
+            {
+                if let Some(compact) = raw["fingerprintsCompact"].as_str() {
+                    use base64::Engine;
+                    episode.fingerprints = base64::engine::general_purpose::STANDARD
+                        .decode(compact)
+                        .ok()
+                        .filter(|bytes| bytes.len() <= 24_000 && bytes.len() % 4 == 0)
+                        .map(|bytes| {
+                            bytes
+                                .chunks_exact(4)
+                                .map(|word| {
+                                    u32::from_le_bytes([word[0], word[1], word[2], word[3]])
+                                })
+                                .collect()
+                        });
+                }
+            }
 
             let analyzer = SeasonAnalyzer::new(&config);
             let results = analyzer.analyze_season(&episodes);

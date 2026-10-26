@@ -17,8 +17,10 @@ impl<'a> CreditsDetector<'a> {
         ep_a: &EpisodeData,
         ep_b: &EpisodeData,
     ) -> Option<(IntroMarker, IntroMarker)> {
-        let fps_a = ep_a.fingerprints.as_deref()?;
-        let fps_b = ep_b.fingerprints.as_deref()?;
+        let fps_a = ep_a.tail_fingerprints.as_deref()?;
+        let fps_b = ep_b.tail_fingerprints.as_deref()?;
+        let tail_start_a = ep_a.tail_start?;
+        let tail_start_b = ep_b.tail_start?;
 
         let rate_a = ep_a
             .fingerprint_rate
@@ -55,10 +57,10 @@ impl<'a> CreditsDetector<'a> {
         let matcher = FingerprintMatcher::new(&tail_config, Some(rate_a));
         let match_result = matcher.find_best_match(slice_a, slice_b)?;
 
-        let credits_start_a = (start_idx_a as f64 / rate_a) + match_result.offset_a;
+        let credits_start_a = tail_start_a + (start_idx_a as f64 / rate_a) + match_result.offset_a;
         let credits_end_a = (credits_start_a + match_result.duration).min(ep_a.duration);
 
-        let credits_start_b = (start_idx_b as f64 / rate_b) + match_result.offset_b;
+        let credits_start_b = tail_start_b + (start_idx_b as f64 / rate_b) + match_result.offset_b;
         let credits_end_b = (credits_start_b + match_result.duration).min(ep_b.duration);
 
         let marker_a = IntroMarker {

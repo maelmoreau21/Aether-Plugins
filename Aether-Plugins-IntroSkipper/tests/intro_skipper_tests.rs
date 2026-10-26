@@ -5,6 +5,40 @@ use aether_plugin_intro_skipper::{
 };
 
 #[test]
+fn compact_host_fingerprints_detect_intro_without_false_credits() {
+    use base64::Engine;
+    let theme: Vec<u32> = (0..300_u32).map(|i| i.wrapping_mul(0x1f2e3d4c)).collect();
+    let encode = |prefix: u32| {
+        let words: Vec<u32> = (0..100)
+            .map(|i| i ^ prefix)
+            .chain(theme.iter().copied())
+            .collect();
+        let bytes: Vec<u8> = words.into_iter().flat_map(u32::to_le_bytes).collect();
+        base64::engine::general_purpose::STANDARD.encode(bytes)
+    };
+    let req = media_extension_sdk::ExtensionRequest {
+        api_version: 1,
+        operation: "intro.detect".into(),
+        input: serde_json::json!({"episodes":[
+            {"id":"a","seriesId":"series","seasonNumber":1,"duration":1200.0,"fingerprintRate":10.0,"fingerprintsCompact":encode(0x12345678)},
+            {"id":"b","seriesId":"series","seasonNumber":1,"duration":1200.0,"fingerprintRate":10.0,"fingerprintsCompact":encode(0xabcdef01)}
+        ]}),
+    };
+    let response = handle_intro_skipper_request(&IntroSkipperPlugin::new(), req);
+    let episodes = response.result.as_array().unwrap();
+    assert!(episodes.iter().all(|ep| {
+        ep["markers"]
+            .as_array()
+            .is_some_and(|markers| markers.iter().any(|m| m["markerType"] == "intro"))
+    }));
+    assert!(episodes.iter().all(|ep| {
+        ep["markers"]
+            .as_array()
+            .is_some_and(|markers| markers.iter().all(|m| m["markerType"] != "credits"))
+    }));
+}
+
+#[test]
 fn test_plugin_manifest_structure() {
     let plugin = IntroSkipperPlugin::new();
     let manifest = plugin.manifest();
@@ -66,6 +100,17 @@ fn silence_does_not_create_a_fingerprint_marker() {
             .find_best_match(&vec![0; 500], &vec![0; 500])
             .is_none()
     );
+}
+
+#[test]
+fn flat_host_settings_change_chapter_detection() {
+    let req = media_extension_sdk::ExtensionRequest {
+        api_version: 1,
+        operation: "intro.parse_chapters".into(),
+        input: serde_json::json!({"episodeId":"ep","duration":120.0,"chapters":[{"start":0.0,"end":30.0,"title":"Intro"}],"config":{"min_intro_duration":40}}),
+    };
+    let response = handle_intro_skipper_request(&IntroSkipperPlugin::new(), req);
+    assert_eq!(response.result, serde_json::json!([]));
 }
 
 #[test]

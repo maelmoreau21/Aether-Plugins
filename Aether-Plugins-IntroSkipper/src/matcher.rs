@@ -70,20 +70,28 @@ impl<'a> FingerprintMatcher<'a> {
             return None;
         }
 
-        // Phase 1: Diagonal histogram accumulation (subsampled for ultra-fast candidate spotting)
-        // Step size 2 or 3 gives 4x-9x speedup while retaining 99.8% detection accuracy
-        let step = if slice_a.len() > 1000 && slice_b.len() > 1000 {
-            2
-        } else {
-            1
-        };
+        // Four independent byte bands index the second episode. Candidate pairs
+        // are still checked with the full Hamming distance; no audio is skipped.
+        let mut bands: HashMap<(u8, u8), Vec<usize>> = HashMap::new();
+        for (j, &word) in slice_b.iter().enumerate() {
+            for band in 0..4_u8 {
+                bands
+                    .entry((band, (word >> (band * 8)) as u8))
+                    .or_default()
+                    .push(j);
+            }
+        }
         let mut diagonal_hits: HashMap<i64, u32> = HashMap::with_capacity(256);
-
-        for (i, &fa) in slice_a.iter().enumerate().step_by(step) {
-            for (j, &fb) in slice_b.iter().enumerate().step_by(step) {
-                if (fa ^ fb).count_ones() <= COARSE_MAX_HAMMING {
-                    let diag = (i as i64) - (j as i64);
-                    *diagonal_hits.entry(diag).or_insert(0) += 1;
+        let mut seen = vec![usize::MAX; slice_b.len()];
+        for (i, &fa) in slice_a.iter().enumerate() {
+            for band in 0..4_u8 {
+                if let Some(indices) = bands.get(&(band, (fa >> (band * 8)) as u8)) {
+                    for &j in indices {
+                        if seen[j] != i && (fa ^ slice_b[j]).count_ones() <= COARSE_MAX_HAMMING {
+                            seen[j] = i;
+                            *diagonal_hits.entry(i as i64 - j as i64).or_insert(0) += 1;
+                        }
+                    }
                 }
             }
         }
@@ -93,7 +101,7 @@ impl<'a> FingerprintMatcher<'a> {
         }
 
         // Phase 2: Filter the top candidate diagonals
-        let min_hits_threshold = (min_match_frames / step) as u32 / 3;
+        let min_hits_threshold = min_match_frames as u32 / 3;
         let mut candidates: Vec<(i64, u32)> = diagonal_hits
             .into_iter()
             .filter(|&(_, hits)| hits >= min_hits_threshold)

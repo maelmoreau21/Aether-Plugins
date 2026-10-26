@@ -100,12 +100,7 @@ impl<'a> SeasonAnalyzer<'a> {
         // Collect episodes having fingerprint data
         let fp_episodes: Vec<&EpisodeData> = episodes
             .iter()
-            .filter(|e| {
-                e.fingerprints
-                    .as_ref()
-                    .map(|f| !f.is_empty())
-                    .unwrap_or(false)
-            })
+            .filter(|e| e.fingerprints.as_ref().is_some_and(|f| !f.is_empty()))
             .collect();
 
         if fp_episodes.len() < 2 {

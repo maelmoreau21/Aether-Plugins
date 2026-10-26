@@ -1,0 +1,246 @@
+name: Préparer la release d'un plugin (PR contrôlée)
+
+on:
+  workflow_dispatch:
+    inputs:
+      plugin_id:
+        description: 'Identifiant du plugin à préparer'
+        required: true
+        type: choice
+        options:
+          - tmdb
+          - imdb
+          - omdb
+          - fanart-tv
+          - musicbrainz
+          - discogs
+          - lrclib
+          - avatars
+          - intro-skipper
+      bump_type:
+        description: 'Type d’incrément pour cette release'
+        required: true
+        type: choice
+        options:
+          - PATCH
+          - MINOR
+          - MAJOR
+        default: PATCH
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: prepare-plugin-${{ github.event.inputs.plugin_id }}
+  cancel-in-progress: false
+
+jobs:
+  prepare-pr:
+    name: Préparation et signature du paquet
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Vérifier la présence de la clé privée de signature
+        env:
+          ED25519_PRIVATE_KEY: ${{ secrets.ED25519_PRIVATE_KEY }}
+        run: |
+          if [ -z "$ED25519_PRIVATE_KEY" ]; then
+            echo "::error::Le secret ED25519_PRIVATE_KEY est requis pour signer le paquet. Opération annulée."
+            exit 1
+          fi
+
+      - name: Checkout Aether (for media-extension-pack & SDK)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/Aether
+          ref: main
+          path: Aether
+
+      - name: Checkout Aether-Plugins (full history)
+        uses: actions/checkout@v4
+        with:
+          path: Aether-Plugins
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Déterminer la version et vérifier l’immutabilité
+        id: detect
+        run: |
+          cd Aether-Plugins
+          python scripts/detect_changed_plugins.py \
+            --manual-plugin "${{ github.event.inputs.plugin_id }}" \
+            --manual-bump "${{ github.event.inputs.bump_type }}" \
+            --channel main > detected.json
+          cat detected.json
+
+          COUNT=$(jq 'length' detected.json)
+          if [ "$COUNT" -eq 0 ]; then
+            echo "::error::Plugin introuvable ou aucune version calculée."
+            exit 1
+          fi
+
+          PLUGIN_NAME=$(jq -r '.[0].name' detected.json)
+          PLUGIN_DIR=$(jq -r '.[0].dir' detected.json)
+          PLUGIN_TAG=$(jq -r '.[0].tag' detected.json)
+          NEXT_VER=$(jq -r '.[0].next_version' detected.json)
+          SHORT_ID=$(jq -r '.[0].tag_prefix' detected.json)
+          PKG_EXISTS=$(jq -r '.[0].package_already_exists' detected.json)
+
+          if [ "$PKG_EXISTS" = "true" ]; then
+            echo "::error::Le paquet pour la version $NEXT_VER existe déjà dans repository/packages/. Refus d'écrasement."
+            exit 1
+          fi
+
+          echo "plugin_name=$PLUGIN_NAME" >> "$GITHUB_OUTPUT"
+          echo "plugin_dir=$PLUGIN_DIR" >> "$GITHUB_OUTPUT"
+          echo "plugin_tag=$PLUGIN_TAG" >> "$GITHUB_OUTPUT"
+          echo "next_ver=$NEXT_VER" >> "$GITHUB_OUTPUT"
+          echo "short_id=$SHORT_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Configurer la branche de release
+        env:
+          BRANCH_NAME: release/${{ github.event.inputs.plugin_id }}-v${{ steps.detect.outputs.next_ver }}
+        run: |
+          cd Aether-Plugins
+          git checkout -b "$BRANCH_NAME"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Cache Cargo Dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            Aether-Plugins -> target
+            Aether -> target
+
+      - name: Compiler les outils de signature Aether Core
+        run: |
+          cd Aether
+          cargo build --release -p media-poc --bin media-extension-pack --bin media-extension-worker
+
+      - name: Mettre à jour la version dans Cargo.toml du plugin
+        run: |
+          cd Aether-Plugins/${{ steps.detect.outputs.plugin_dir }}
+          sed -i 's/^version = ".*"/version = "${{ steps.detect.outputs.next_ver }}"/' Cargo.toml
+          git diff Cargo.toml
+
+      - name: Compiler le module WebAssembly
+        run: |
+          cd Aether-Plugins
+          cargo build --release --lib -p ${{ steps.detect.outputs.plugin_name }} --target wasm32-unknown-unknown
+          cargo build --release --bin ${{ steps.detect.outputs.plugin_name }} -p ${{ steps.detect.outputs.plugin_name }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Optimiser le module Wasm avant signature
+        env:
+          PLUGIN_CRATE: ${{ steps.detect.outputs.plugin_name }}
+        run: |
+          cd Aether-Plugins
+          npm ci --ignore-scripts
+          node scripts/optimize-wasm.mjs "target/wasm32-unknown-unknown/release/${PLUGIN_CRATE//-/_}.wasm"
+
+      - name: Valider le module Wasm
+        run: |
+          cd Aether-Plugins
+          node scripts/test-wasm.cjs target/wasm32-unknown-unknown/release "${{ steps.detect.outputs.plugin_name }}"
+
+      - name: Préparer la clé de signature privée
+        env:
+          ED25519_PRIVATE_KEY: ${{ secrets.ED25519_PRIVATE_KEY }}
+        run: |
+          mkdir -p "$HOME/.aether_keys"
+          echo -n "$ED25519_PRIVATE_KEY" | base64 -d > "$HOME/.aether_keys/private.key"
+          chmod 600 "$HOME/.aether_keys/private.key"
+
+      - name: Générer le manifeste et signer le paquet
+        run: |
+          cd Aether-Plugins
+          CRATE="${{ steps.detect.outputs.plugin_name }}"
+          SHORT="${{ steps.detect.outputs.short_id }}"
+          NEXT_VER="${{ steps.detect.outputs.next_ver }}"
+          WASM_PATH="target/wasm32-unknown-unknown/release/${CRATE//-/_}.wasm"
+
+          "./target/release/$CRATE" --manifest > "target/$SHORT.raw.manifest.json"
+          WASM_HASH=$(sha256sum "$WASM_PATH" | awk '{print $1}')
+
+          python3 -c "
+          import json
+          from pathlib import Path
+          with open('target/$SHORT.raw.manifest.json', 'r', encoding='utf-8') as f:
+              m = json.load(f)
+          banner = m.get('banner')
+          if banner and banner.startswith('assets/'):
+              m['banner'] = Path('${{ steps.detect.outputs.plugin_dir }}', banner).read_text(encoding='utf-8')
+          m['apiVersion'] = 1
+          m['version'] = '$NEXT_VER'
+          m['checksum'] = '$WASM_HASH'
+          m['repository'] = '${{ github.server_url }}/${{ github.repository }}'
+          with open('target/$SHORT.manifest.json', 'w', encoding='utf-8') as f:
+              json.dump(m, f, indent=2)
+          "
+
+          ../Aether/target/release/media-extension-pack pack \
+            "target/$SHORT.manifest.json" \
+            "$WASM_PATH" \
+            "$HOME/.aether_keys/private.key" \
+            "${{ github.repository_owner }}" \
+            "repository/packages/$SHORT-$NEXT_VER.package.json"
+
+      - name: Mettre à jour repository/manifest.json
+        run: |
+          cd Aether-Plugins
+          SHORT="${{ steps.detect.outputs.short_id }}"
+          NEXT_VER="${{ steps.detect.outputs.next_ver }}"
+          PKG_PATH="repository/packages/$SHORT-$NEXT_VER.package.json"
+
+          python3 scripts/update_catalog_entry.py \
+            --package-path "$PKG_PATH" \
+            --public-key-path "repository/publisher-public.txt" \
+            --base-url "https://raw.githubusercontent.com/${{ github.repository }}/main/repository/packages/" \
+            --manifest-path "repository/manifest.json"
+
+      - name: Vérifier l'intégrité du catalogue et des signatures
+        run: |
+          cd Aether-Plugins
+          node scripts/test-manifests.cjs
+          node scripts/test-repository.cjs repository "https://raw.githubusercontent.com/${{ github.repository }}/main/repository/packages/"
+
+      - name: Créer la Pull Request contrôlée pour main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PLUGIN_ID: ${{ github.event.inputs.plugin_id }}
+          NEXT_VER: ${{ steps.detect.outputs.next_ver }}
+          BRANCH_NAME: release/${{ github.event.inputs.plugin_id }}-v${{ steps.detect.outputs.next_ver }}
+        run: |
+          cd Aether-Plugins
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add Cargo.lock Aether-Plugins-*/Cargo.toml repository/manifest.json repository/packages/*.package.json
+          git commit -m "chore(release): prepare $PLUGIN_ID v$NEXT_VER [skip ci]"
+          git push origin "$BRANCH_NAME"
+
+          gh pr create \
+            --base main \
+            --head "$BRANCH_NAME" \
+            --title "chore(release): release $PLUGIN_ID v$NEXT_VER" \
+            --body "Préparation automatisée de la release pour l'extension **$PLUGIN_ID** en version **$NEXT_VER**.
+            
+- Paquet signé avec Ed25519
+- Intégrité Wasm et ABI vérifiées
+- Entrée du catalogue mise à jour dans \`repository/manifest.json\`
+- Respect strict des branches protégées (pas de push direct sur main)."

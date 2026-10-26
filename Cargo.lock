@@ -85,6 +85,7 @@ version = "0.1.0"
 dependencies = [
  "aether-plugin-api",
  "async-trait",
+ "base64",
  "http-body-util",
  "hyper",
  "hyper-util",
