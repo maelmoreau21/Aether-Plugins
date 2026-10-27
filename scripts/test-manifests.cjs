@@ -25,7 +25,6 @@ const pluginDirs = [
   { dir: 'Aether-Plugins-OMDb', id: 'omdb' },
   { dir: 'Aether-Plugins-TMDb', id: 'tmdb' },
   { dir: 'Aether-Plugins-IntroSkipper', id: 'intro-skipper', optionalInRepository: true },
-  { dir: 'Aether-Plugins-PosterRotator', id: 'poster-rotator', optionalInRepository: true },
 ];
 
 const extensionsMap = new Map();

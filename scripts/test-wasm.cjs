@@ -20,7 +20,6 @@ const expectedPlugins = [
   'aether_plugin_lrclib',
   'aether_plugin_musicbrainz',
   'aether_plugin_omdb',
-  'aether_plugin_poster_rotator',
   'aether_plugin_tmdb',
 ];
 

@@ -70,12 +70,6 @@ PLUGINS_MAP = [
         "tag_prefix": "omdb"
     },
     {
-        "id": "poster-rotator",
-        "crate_name": "aether-plugin-poster-rotator",
-        "dir": "Aether-Plugins-PosterRotator",
-        "tag_prefix": "poster-rotator"
-    },
-    {
         "id": "tmdb",
         "crate_name": "aether-plugin-tmdb",
         "dir": "Aether-Plugins-TMDb",

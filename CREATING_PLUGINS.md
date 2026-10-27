@@ -18,8 +18,10 @@ n’est pas une certification de son auteur. Le court avertissement reste dans D
 ## Exemple indépendant prêt à compiler
 
 Le dossier `templates/metadata-provider` est un projet autonome, hors du catalogue
-officiel. Copiez-le dans votre dépôt, adaptez le chemin `media-extension-sdk` dans
-Cargo.toml vers un clone d’Aether, puis modifiez `manifest.json` et `src/lib.rs`.
+officiel. Copiez-le dans votre dépôt, conservez la révision Git figée du SDK dans
+`Cargo.toml`, puis modifiez `manifest.json` et `src/lib.rs`. Sa compilation ne
+nécessite pas un clone local d'Aether ; les outils de signature ci-dessous, eux,
+utilisent un checkout voisin.
 Le manifeste déclare identité, version, permissions, hôtes réseau et `configSchema`.
 L’interface génère les paramètres texte, secret, liste et interrupteur à partir
 de ce schéma ; aucune page Svelte propre à votre plugin n’est nécessaire.

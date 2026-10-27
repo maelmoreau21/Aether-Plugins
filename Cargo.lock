@@ -141,14 +141,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "aether-plugin-poster-rotator"
-version = "0.1.0"
-dependencies = [
- "media-extension-sdk",
- "serde_json",
-]
-
-[[package]]
 name = "aether-plugin-tmdb"
 version = "0.1.0"
 dependencies = [
@@ -831,6 +823,7 @@ checksum = "4050469837a6ff301cd14c1f8f24f88549e6d548f24f64e2148eb0f72cebc51f"
 [[package]]
 name = "media-extension-sdk"
 version = "0.1.0"
+source = "git+https://github.com/maelmoreau21/Aether.git?rev=74377be769fb9e2e1d5d2f6257b8dca5cf4e251e#74377be769fb9e2e1d5d2f6257b8dca5cf4e251e"
 dependencies = [
  "serde",
  "serde_json",

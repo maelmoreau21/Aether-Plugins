@@ -131,8 +131,9 @@ silencieuse. Une rotation de clé exige un nouvel identifiant d’éditeur.
 ## Guide local détaillé
 
 Ce dépôt contient les sources Rust des fournisseurs TMDb, IMDb, fanart.tv, OMDb, MusicBrainz, Discogs, LRCLIB et des
-avatars. Le serveur Aether reste dans le dépôt voisin `Aether`. Les dépendances
-locales supposent cette disposition :
+avatars. La compilation des extensions ne dépend pas d'un checkout local
+d'Aether : le SDK est téléchargé par Cargo à une révision Git précise. Pour les
+outils de signature locaux et les exemples ci-dessous, placer le serveur voisin :
 
 ```text
 GitHub/
@@ -254,13 +255,29 @@ sauvegardes.
 ## Développement et validation
 
 ```powershell
-cargo test -j 1
+cargo test --locked -j 1
 cargo fmt --all --check
-cargo clippy --all-targets -j 1 -- -D warnings
+cargo clippy --locked --all-targets -j 1 -- -D warnings
 ```
 
-Le SDK officiel est `../Aether/crates/extension-sdk`; `aether-plugin-api` le
-réexporte et fournit le contrat des fournisseurs. Le broker du Core autorise
+Le SDK `media-extension-sdk` version `0.1.0` est figé au commit Aether public
+`74377be769fb9e2e1d5d2f6257b8dca5cf4e251e`, avec Rust 1.99 minimum ;
+`Cargo.lock` fixe les dépendances transitives. `aether-plugin-api` le réexporte.
+La révision est un instantané public : les évolutions ultérieures du Core ou du
+SDK ne sont pas incluses et exigent une mise à jour coordonnée du commit, du
+lockfile et des tests d'ABI avant publication.
+
+Pour développer contre un SDK local, créer un fichier TOML hors du dépôt :
+
+```toml
+[patch."https://github.com/maelmoreau21/Aether.git"]
+media-extension-sdk = { path = "C:/chemin/vers/Aether/crates/extension-sdk" }
+```
+
+Passer ce fichier explicitement avec `cargo --config C:/chemin/sdk-local.toml
+test -j 1`. Cette surcharge est réservée au développement : elle peut modifier
+le lockfile et n'est pas reproductible ; ne pas l'utiliser pour une release.
+Le broker du Core autorise
 uniquement les hôtes HTTPS prévus pour ces fournisseurs. Les tests locaux/mocks
 ne constituent pas une validation réelle des clés ou comptes externes.
 

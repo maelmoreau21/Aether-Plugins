@@ -50,11 +50,11 @@ jobs:
             exit 1
           fi
 
-      - name: Checkout Aether (for media-extension-pack & SDK)
+      - name: Checkout Aether (version figée des outils de signature)
         uses: actions/checkout@v4
         with:
           repository: ${{ github.repository_owner }}/Aether
-          ref: main
+          ref: 74377be769fb9e2e1d5d2f6257b8dca5cf4e251e
           path: Aether
 
       - name: Checkout Aether-Plugins (full history)
@@ -128,19 +128,22 @@ jobs:
       - name: Compiler les outils de signature Aether Core
         run: |
           cd Aether
-          cargo build --release -p media-poc --bin media-extension-pack --bin media-extension-worker
+          cargo build --locked --release -p media-poc --bin media-extension-pack --bin media-extension-worker
 
       - name: Mettre à jour la version dans Cargo.toml du plugin
         run: |
           cd Aether-Plugins/${{ steps.detect.outputs.plugin_dir }}
           sed -i 's/^version = ".*"/version = "${{ steps.detect.outputs.next_ver }}"/' Cargo.toml
           git diff Cargo.toml
+          cd ..
+          # Actualise la version du paquet local dans le lockfile avant --locked.
+          cargo metadata --format-version 1 > /dev/null
 
       - name: Compiler le module WebAssembly
         run: |
           cd Aether-Plugins
-          cargo build --release --lib -p ${{ steps.detect.outputs.plugin_name }} --target wasm32-unknown-unknown
-          cargo build --release --bin ${{ steps.detect.outputs.plugin_name }} -p ${{ steps.detect.outputs.plugin_name }}
+          cargo build --locked --release --lib -p ${{ steps.detect.outputs.plugin_name }} --target wasm32-unknown-unknown
+          cargo build --locked --release --bin ${{ steps.detect.outputs.plugin_name }} -p ${{ steps.detect.outputs.plugin_name }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4

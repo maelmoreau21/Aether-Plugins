@@ -30,13 +30,6 @@ jobs:
     name: Audit de sécurité (cargo audit)
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Aether (for shared SDK)
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ github.repository_owner }}/Aether
-          ref: main
-          path: Aether
-
       - name: Checkout Aether-Plugins
         uses: actions/checkout@v4
         with:
@@ -54,13 +47,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Aether (for shared SDK)
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ github.repository_owner }}/Aether
-          ref: main
-          path: Aether
-
       - name: Checkout Aether-Plugins
         uses: actions/checkout@v4
         with:
@@ -84,15 +70,15 @@ jobs:
 
       - name: Run Clippy
         working-directory: Aether-Plugins
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --locked --all-targets -- -D warnings
 
       - name: Run Native Tests
         working-directory: Aether-Plugins
-        run: cargo test --workspace
+        run: cargo test --locked --workspace
 
       - name: Build WebAssembly Modules
         working-directory: Aether-Plugins
-        run: cargo build --workspace --lib --target wasm32-unknown-unknown --release
+        run: cargo build --locked --workspace --lib --target wasm32-unknown-unknown --release
 
       - name: Set up Node.js
         uses: actions/setup-node@v4

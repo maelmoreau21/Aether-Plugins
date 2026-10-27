@@ -20,7 +20,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 aether-plugin-api = { path = "../crates/aether-plugin-api" }
-media-extension-sdk = { path = "../../Aether/crates/extension-sdk" }
+media-extension-sdk.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 async-trait.workspace = true
