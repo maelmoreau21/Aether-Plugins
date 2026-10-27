@@ -35,10 +35,10 @@ impl TmdbPlugin {
             return Ok(key.trim());
         }
         #[cfg(not(target_arch = "wasm32"))]
-        if let Ok(key) = std::env::var("TMDB_API_KEY") {
-            if !key.trim().is_empty() {
-                return Ok(Box::leak(key.into_boxed_str()));
-            }
+        if let Ok(key) = std::env::var("TMDB_API_KEY")
+            && !key.trim().is_empty()
+        {
+            return Ok(Box::leak(key.into_boxed_str()));
         }
         Err(PluginError::missing_api_key("tmdb"))
     }
@@ -63,10 +63,8 @@ impl TmdbPlugin {
             "User-Agent",
             HeaderValue::from_static("Aether-Plugin-TMDb/0.1.0 (Aether Media Server)"),
         );
-        if is_bearer {
-            if let Ok(val) = HeaderValue::from_str(&format!("Bearer {api_key}")) {
-                headers.insert(AUTHORIZATION, val);
-            }
+        if is_bearer && let Ok(val) = HeaderValue::from_str(&format!("Bearer {api_key}")) {
+            headers.insert(AUTHORIZATION, val);
         }
 
         let client = reqwest::Client::builder()
@@ -515,33 +513,33 @@ impl MetadataProviderPlugin for TmdbPlugin {
             }
         }
 
-        if posters.is_empty() {
-            if let Some(poster_path) = val.get("poster_path").and_then(|v| v.as_str()) {
-                posters.push(MediaImage {
-                    url: format!("{IMAGE_ORIGINAL_URL}{poster_path}"),
-                    image_type: ImageType::Poster,
-                    width: None,
-                    height: None,
-                    language: Some(language.into()),
-                    rating: None,
-                    vote_count: None,
-                    is_primary: true,
-                });
-            }
+        if posters.is_empty()
+            && let Some(poster_path) = val.get("poster_path").and_then(|v| v.as_str())
+        {
+            posters.push(MediaImage {
+                url: format!("{IMAGE_ORIGINAL_URL}{poster_path}"),
+                image_type: ImageType::Poster,
+                width: None,
+                height: None,
+                language: Some(language.into()),
+                rating: None,
+                vote_count: None,
+                is_primary: true,
+            });
         }
-        if backdrops.is_empty() {
-            if let Some(backdrop_path) = val.get("backdrop_path").and_then(|v| v.as_str()) {
-                backdrops.push(MediaImage {
-                    url: format!("{IMAGE_ORIGINAL_URL}{backdrop_path}"),
-                    image_type: ImageType::Backdrop,
-                    width: None,
-                    height: None,
-                    language: None,
-                    rating: None,
-                    vote_count: None,
-                    is_primary: true,
-                });
-            }
+        if backdrops.is_empty()
+            && let Some(backdrop_path) = val.get("backdrop_path").and_then(|v| v.as_str())
+        {
+            backdrops.push(MediaImage {
+                url: format!("{IMAGE_ORIGINAL_URL}{backdrop_path}"),
+                image_type: ImageType::Backdrop,
+                width: None,
+                height: None,
+                language: None,
+                rating: None,
+                vote_count: None,
+                is_primary: true,
+            });
         }
 
         Ok(StructuredMetadata {

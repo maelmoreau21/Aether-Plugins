@@ -1,4 +1,4 @@
-﻿//! MusicBrainz music metadata provider extension for Aether (releases and cover art).
+//! MusicBrainz music metadata provider extension for Aether (releases and cover art).
 //!
 //! The Aether extension contract has no dedicated music media type yet: the plugin ignores
 //! `media_type` and treats every query as an album (MusicBrainz *release*) search. An

@@ -196,10 +196,10 @@ pub fn handle_intro_skipper_request(
                         .filter(|bytes| bytes.len() <= 24_000 && bytes.len() % 4 == 0)
                         .map(|bytes| {
                             bytes
-                                .chunks_exact(4)
-                                .map(|word| {
-                                    u32::from_le_bytes([word[0], word[1], word[2], word[3]])
-                                })
+                                .as_chunks::<4>()
+                                .0
+                                .iter()
+                                .map(|word| u32::from_le_bytes(*word))
                                 .collect()
                         });
                 }

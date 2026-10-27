@@ -28,10 +28,10 @@ impl FanartTvPlugin {
         if let Some(key) = config.api_key.as_deref().filter(|s| !s.trim().is_empty()) {
             return Ok(key.trim());
         }
-        if let Ok(key) = std::env::var("FANART_TV_API_KEY") {
-            if !key.trim().is_empty() {
-                return Ok(Box::leak(key.into_boxed_str()));
-            }
+        if let Ok(key) = std::env::var("FANART_TV_API_KEY")
+            && !key.trim().is_empty()
+        {
+            return Ok(Box::leak(key.into_boxed_str()));
         }
         Err(PluginError::missing_api_key("fanart.tv"))
     }

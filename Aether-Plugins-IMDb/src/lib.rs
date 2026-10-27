@@ -275,11 +275,11 @@ impl MetadataProviderPlugin for ImdbPlugin {
                 })
             })
             .filter(|item| {
-                if let Some(target_year) = query.year {
-                    if let Some(y) = item.year {
-                        // Allow small 1-year tolerance for release date discrepancies
-                        return (y as i32 - target_year as i32).abs() <= 1;
-                    }
+                if let Some(target_year) = query.year
+                    && let Some(y) = item.year
+                {
+                    // Allow small 1-year tolerance for release date discrepancies
+                    return (y as i32 - target_year as i32).abs() <= 1;
                 }
                 true
             })

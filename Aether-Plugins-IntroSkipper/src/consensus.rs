@@ -148,21 +148,20 @@ impl<'a> SeasonAnalyzer<'a> {
             let rate = ep_a.fingerprint_rate.or(ep_b.fingerprint_rate);
 
             let matcher = FingerprintMatcher::new(self.config, rate);
-            if let Some(m) = matcher.find_best_match(fps_a, fps_b) {
-                if m.duration >= self.config.min_intro_duration
-                    && m.duration <= self.config.max_intro_duration
-                {
-                    candidates_by_ep.entry(ep_a.id.clone()).or_default().push((
-                        m.offset_a,
-                        m.offset_a + m.duration,
-                        m.score,
-                    ));
-                    candidates_by_ep.entry(ep_b.id.clone()).or_default().push((
-                        m.offset_b,
-                        m.offset_b + m.duration,
-                        m.score,
-                    ));
-                }
+            if let Some(m) = matcher.find_best_match(fps_a, fps_b)
+                && m.duration >= self.config.min_intro_duration
+                && m.duration <= self.config.max_intro_duration
+            {
+                candidates_by_ep.entry(ep_a.id.clone()).or_default().push((
+                    m.offset_a,
+                    m.offset_a + m.duration,
+                    m.score,
+                ));
+                candidates_by_ep.entry(ep_b.id.clone()).or_default().push((
+                    m.offset_b,
+                    m.offset_b + m.duration,
+                    m.score,
+                ));
             }
         }
 
@@ -235,17 +234,17 @@ impl<'a> SeasonAnalyzer<'a> {
             }
 
             if let Some((marker_a, marker_b)) = detector.detect_tail_credits(ep_a, ep_b) {
-                if let Some(res_a) = results.get_mut(&ep_a.id) {
-                    if res_a.credits.is_none() {
-                        res_a.credits = Some(marker_a.clone());
-                        res_a.markers.push(marker_a);
-                    }
+                if let Some(res_a) = results.get_mut(&ep_a.id)
+                    && res_a.credits.is_none()
+                {
+                    res_a.credits = Some(marker_a.clone());
+                    res_a.markers.push(marker_a);
                 }
-                if let Some(res_b) = results.get_mut(&ep_b.id) {
-                    if res_b.credits.is_none() {
-                        res_b.credits = Some(marker_b.clone());
-                        res_b.markers.push(marker_b);
-                    }
+                if let Some(res_b) = results.get_mut(&ep_b.id)
+                    && res_b.credits.is_none()
+                {
+                    res_b.credits = Some(marker_b.clone());
+                    res_b.markers.push(marker_b);
                 }
             }
         }
