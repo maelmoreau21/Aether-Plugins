@@ -46,6 +46,7 @@ fn test_plugin_manifest_structure() {
     assert_eq!(manifest.api_version, 1);
     assert_eq!(manifest.id, "intro-skipper");
     assert_eq!(manifest.category, "Playback");
+    assert_eq!(manifest.permissions, vec!["playback.markers".to_string()]);
     assert!(
         manifest.http_hosts.is_empty(),
         "Intro Skipper runs 100% locally with zero external network requirement"
@@ -69,6 +70,19 @@ fn test_plugin_manifest_structure() {
             .iter()
             .any(|f| f.key == "auto_skip_intro")
     );
+}
+
+#[test]
+fn rejects_unsupported_abi_or_api_version() {
+    let plugin = IntroSkipperPlugin::new();
+    let req = media_extension_sdk::ExtensionRequest {
+        api_version: 2,
+        operation: "manifest".into(),
+        input: serde_json::Value::Null,
+    };
+    let res = handle_intro_skipper_request(&plugin, req);
+    assert_eq!(res.api_version, 1);
+    assert_eq!(res.result["error"], "unsupported_api_version");
 }
 
 #[test]

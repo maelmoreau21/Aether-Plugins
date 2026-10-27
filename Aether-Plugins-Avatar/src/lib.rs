@@ -428,6 +428,12 @@ media_extension_sdk::extension!(handle_avatar_extension_request);
 pub fn handle_avatar_extension_request(
     req: media_extension_sdk::ExtensionRequest,
 ) -> media_extension_sdk::ExtensionResponse {
+    if req.api_version != 1 {
+        return media_extension_sdk::ExtensionResponse {
+            api_version: 1,
+            result: serde_json::json!({"error": "unsupported_api_version"}),
+        };
+    }
     let plugin = AvatarPlugin::new();
     let result_json = match req.operation.as_str() {
         "manifest" => serde_json::to_value(plugin.manifest()).unwrap_or_default(),

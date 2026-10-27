@@ -13,6 +13,18 @@ fn test_tmdb_manifest() {
     assert!(manifest.capabilities.len() >= 3);
 }
 
+#[test]
+fn test_tmdb_unsupported_api_version() {
+    let req = media_extension_sdk::ExtensionRequest {
+        api_version: 2,
+        operation: "manifest".into(),
+        input: serde_json::Value::Null,
+    };
+    let res = aether_plugin_tmdb::handle_tmdb_extension_request(req);
+    assert_eq!(res.api_version, 1);
+    assert_eq!(res.result["error"], "unsupported_api_version");
+}
+
 #[tokio::test]
 async fn test_tmdb_missing_api_key() {
     let plugin = TmdbPlugin::new();

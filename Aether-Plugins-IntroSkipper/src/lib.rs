@@ -32,7 +32,7 @@ impl IntroSkipperPlugin {
             version: "0.1.0".into(),
             category: "Playback".into(),
             provider: "Intro Skipper".into(),
-            permissions: vec!["metadata.read".into(), "playback.markers".into()],
+            permissions: vec!["playback.markers".into()],
             http_hosts: Vec::new(), // Zero external network access required - pure local analysis
             description: "Détection automatique ultra-rapide des introductions et génériques de fin par empreintes audio et chapitres".into(),
             author: "Aether Team".into(),
@@ -158,6 +158,12 @@ pub fn handle_intro_skipper_request(
     plugin: &IntroSkipperPlugin,
     req: media_extension_sdk::ExtensionRequest,
 ) -> media_extension_sdk::ExtensionResponse {
+    if req.api_version != 1 {
+        return media_extension_sdk::ExtensionResponse {
+            api_version: 1,
+            result: serde_json::json!({ "error": "unsupported_api_version" }),
+        };
+    }
     let config = if let Some(cfg_val) = req.input.get("config") {
         let mut provider_config: ProviderConfig =
             serde_json::from_value(cfg_val.clone()).unwrap_or_default();

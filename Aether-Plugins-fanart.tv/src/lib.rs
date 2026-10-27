@@ -486,6 +486,12 @@ media_extension_sdk::extension!(handle_fanart_extension_request);
 pub fn handle_fanart_extension_request(
     req: media_extension_sdk::ExtensionRequest,
 ) -> media_extension_sdk::ExtensionResponse {
+    if req.api_version != 1 {
+        return media_extension_sdk::ExtensionResponse {
+            api_version: 1,
+            result: serde_json::json!({"error": "unsupported_api_version"}),
+        };
+    }
     let plugin = FanartTvPlugin::new();
     let config = ProviderConfig::from_extension_input(&req.input);
 

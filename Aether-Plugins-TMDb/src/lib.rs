@@ -30,15 +30,18 @@ impl TmdbPlugin {
         Self
     }
 
-    fn resolve_api_key<'a>(&self, config: &'a ProviderConfig) -> Result<&'a str, PluginError> {
+    fn resolve_api_key<'a>(
+        &self,
+        config: &'a ProviderConfig,
+    ) -> Result<std::borrow::Cow<'a, str>, PluginError> {
         if let Some(key) = config.api_key.as_deref().filter(|s| !s.trim().is_empty()) {
-            return Ok(key.trim());
+            return Ok(std::borrow::Cow::Borrowed(key.trim()));
         }
         #[cfg(not(target_arch = "wasm32"))]
         if let Ok(key) = std::env::var("TMDB_API_KEY")
             && !key.trim().is_empty()
         {
-            return Ok(Box::leak(key.into_boxed_str()));
+            return Ok(std::borrow::Cow::Owned(key.trim().to_string()));
         }
         Err(PluginError::missing_api_key("tmdb"))
     }
@@ -92,7 +95,7 @@ impl TmdbPlugin {
 
         let mut query_params = params.to_vec();
         if !is_bearer {
-            query_params.push(("api_key", api_key));
+            query_params.push(("api_key", api_key.as_ref()));
         }
 
         let query_string = query_params
@@ -146,7 +149,7 @@ impl TmdbPlugin {
 
         #[cfg(not(target_arch = "wasm32"))]
         {
-            let (client, _, _) = self.build_client(config, api_key)?;
+            let (client, _, _) = self.build_client(config, api_key.as_ref())?;
             let req = client.get(&full_url);
             let res = req
                 .send()
@@ -696,6 +699,12 @@ media_extension_sdk::extension!(handle_tmdb_extension_request);
 pub fn handle_tmdb_extension_request(
     req: media_extension_sdk::ExtensionRequest,
 ) -> media_extension_sdk::ExtensionResponse {
+    if req.api_version != 1 {
+        return media_extension_sdk::ExtensionResponse {
+            api_version: 1,
+            result: serde_json::json!({"error": "unsupported_api_version"}),
+        };
+    }
     let plugin = TmdbPlugin::new();
     let config = ProviderConfig::from_extension_input(&req.input);
 

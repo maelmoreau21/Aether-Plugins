@@ -337,6 +337,12 @@ media_extension_sdk::extension!(handle_lrclib_extension_request);
 pub fn handle_lrclib_extension_request(
     req: aether_plugin_api::ExtensionRequest,
 ) -> aether_plugin_api::ExtensionResponse {
+    if req.api_version != aether_plugin_api::API_VERSION {
+        return aether_plugin_api::ExtensionResponse {
+            api_version: aether_plugin_api::API_VERSION,
+            result: serde_json::json!({"error": "unsupported_api_version"}),
+        };
+    }
     if req.operation == "lyrics.get" {
         let config = ProviderConfig::from_extension_input(&req.input);
         let result = match serde_json::from_value::<LyricsRequest>(req.input) {

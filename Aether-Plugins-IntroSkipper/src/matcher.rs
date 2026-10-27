@@ -28,6 +28,27 @@ impl<'a> FingerprintMatcher<'a> {
         1.0 - (diff as f64 / 32.0)
     }
 
+    /// Check whether a fingerprint slice is silent or degenerate (less than 8 unique words).
+    /// Executed in O(1) space without heap allocation.
+    #[inline]
+    pub fn is_silent_or_flat(slice: &[u32]) -> bool {
+        if slice.is_empty() {
+            return true;
+        }
+        let mut unique = [0u32; 8];
+        let mut count = 0;
+        for &word in slice.iter().take(8192) {
+            if !unique[..count].contains(&word) {
+                unique[count] = word;
+                count += 1;
+                if count >= 8 {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
     /// Match two fingerprint sequences and find common repeated audio segment
     pub fn find_best_match(&self, a: &[u32], b: &[u32]) -> Option<FingerprintMatch> {
         if a.is_empty() || b.is_empty() {
@@ -35,17 +56,7 @@ impl<'a> FingerprintMatcher<'a> {
         }
         // Flat/silent fingerprints match almost anything and are a common
         // source of convincing but entirely false intro markers.
-        if a.iter()
-            .take(8192)
-            .collect::<std::collections::HashSet<_>>()
-            .len()
-            < 8
-            || b.iter()
-                .take(8192)
-                .collect::<std::collections::HashSet<_>>()
-                .len()
-                < 8
-        {
+        if Self::is_silent_or_flat(a) || Self::is_silent_or_flat(b) {
             return None;
         }
 
@@ -70,27 +81,26 @@ impl<'a> FingerprintMatcher<'a> {
             return None;
         }
 
-        // Four independent byte bands index the second episode. Candidate pairs
-        // are still checked with the full Hamming distance; no audio is skipped.
-        let mut bands: HashMap<(u8, u8), Vec<usize>> = HashMap::new();
+        // Four independent byte bands index the second episode (4 * 256 = 1024 flat buckets).
+        // Candidate pairs are still checked with the full Hamming distance; no audio is skipped.
+        let mut bands: Vec<Vec<usize>> = vec![Vec::new(); 1024];
         for (j, &word) in slice_b.iter().enumerate() {
-            for band in 0..4_u8 {
-                bands
-                    .entry((band, (word >> (band * 8)) as u8))
-                    .or_default()
-                    .push(j);
+            for band in 0..4_usize {
+                let byte = ((word >> (band * 8)) & 0xFF) as usize;
+                let key = (band << 8) | byte;
+                bands[key].push(j);
             }
         }
         let mut diagonal_hits: HashMap<i64, u32> = HashMap::with_capacity(256);
         let mut seen = vec![usize::MAX; slice_b.len()];
         for (i, &fa) in slice_a.iter().enumerate() {
-            for band in 0..4_u8 {
-                if let Some(indices) = bands.get(&(band, (fa >> (band * 8)) as u8)) {
-                    for &j in indices {
-                        if seen[j] != i && (fa ^ slice_b[j]).count_ones() <= COARSE_MAX_HAMMING {
-                            seen[j] = i;
-                            *diagonal_hits.entry(i as i64 - j as i64).or_insert(0) += 1;
-                        }
+            for band in 0..4_usize {
+                let byte = ((fa >> (band * 8)) & 0xFF) as usize;
+                let key = (band << 8) | byte;
+                for &j in &bands[key] {
+                    if seen[j] != i && (fa ^ slice_b[j]).count_ones() <= COARSE_MAX_HAMMING {
+                        seen[j] = i;
+                        *diagonal_hits.entry(i as i64 - j as i64).or_insert(0) += 1;
                     }
                 }
             }

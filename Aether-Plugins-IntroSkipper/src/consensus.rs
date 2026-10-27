@@ -216,9 +216,17 @@ impl<'a> SeasonAnalyzer<'a> {
             })
             .collect();
 
+        let mut pair_indices: Vec<(usize, usize)> = Vec::new();
         for i in 0..(fp_episodes.len().saturating_sub(1)) {
-            let ep_a = fp_episodes[i];
-            let ep_b = fp_episodes[i + 1];
+            pair_indices.push((i, i + 1));
+            if i + 2 < fp_episodes.len() {
+                pair_indices.push((i, i + 2));
+            }
+        }
+
+        for (idx_a, idx_b) in pair_indices {
+            let ep_a = fp_episodes[idx_a];
+            let ep_b = fp_episodes[idx_b];
 
             // If both already have chapter credits, skip
             let has_chap_a = results

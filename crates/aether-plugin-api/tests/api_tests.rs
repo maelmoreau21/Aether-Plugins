@@ -351,3 +351,32 @@ fn oversized_image_response_preserves_roles_and_languages_within_host_limits() {
         }
     }
 }
+
+#[tokio::test]
+async fn handle_extension_rejects_unsupported_api_version() {
+    let req = aether_plugin_api::ExtensionRequest {
+        api_version: 99,
+        operation: "manifest".into(),
+        input: serde_json::Value::Null,
+    };
+    let res = aether_plugin_api::http::handle_extension(&MockPlugin, req);
+    assert_eq!(res.api_version, API_VERSION);
+    assert_eq!(res.result["error"], "unsupported_api_version");
+}
+
+#[tokio::test]
+async fn handle_extension_proposes_metadata_when_unique() {
+    let req = aether_plugin_api::ExtensionRequest {
+        api_version: 1,
+        operation: "metadata.propose".into(),
+        input: serde_json::json!({
+            "title": "Interstellar",
+            "year": 2014,
+            "mediaType": "movie"
+        }),
+    };
+    let res = aether_plugin_api::http::handle_extension(&MockPlugin, req);
+    assert_eq!(res.api_version, API_VERSION);
+    assert_eq!(res.result["title"], "Interstellar");
+    assert_eq!(res.result["summary"], "Mock overview");
+}
