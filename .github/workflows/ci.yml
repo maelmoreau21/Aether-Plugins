@@ -117,8 +117,61 @@ jobs:
         working-directory: Aether-Plugins
         run: node scripts/test-repository.cjs
 
+      - name: Verify release asset discovery
+        working-directory: Aether-Plugins
+        run: node --test scripts/test-discover-plugin-releases.cjs
+
       - name: Upload Wasm Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: aether-wasm-plugins
           path: Aether-Plugins/target/wasm32-unknown-unknown/release/*.wasm
+
+  tag-beta-plugins:
+    name: Tags de développement pour plugins modifiés (develop)
+    needs: [test-and-build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Aether-Plugins (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Identifier les plugins modifiés sur develop
+        id: detect
+        run: |
+          set -euo pipefail
+          python scripts/detect_changed_plugins.py --channel develop > changed_plugins.json
+          cat changed_plugins.json
+          COUNT=$(jq 'length' changed_plugins.json)
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+
+      - name: Poser les tags bêta pour les plugins modifiés
+        if: steps.detect.outputs.count > 0
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          for row in $(jq -r '.[] | select(.tag_exists == false) | @base64' changed_plugins.json); do
+            _jq() {
+              echo "$row" | base64 --decode | jq -r "$1"
+            }
+            TAG=$(_jq '.tag')
+            ID=$(_jq '.id')
+            VER=$(_jq '.next_version')
+
+            echo "Création du tag bêta $TAG pour $ID..."
+            git tag -a "$TAG" -m "Development beta for $ID $VER ($TAG)"
+            git push origin "$TAG"
+          done

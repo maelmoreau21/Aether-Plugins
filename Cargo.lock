@@ -140,6 +140,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "aether-plugin-poster-rotator"
+version = "0.1.0"
+dependencies = [
+ "media-extension-sdk",
+ "serde_json",
+]
+
+[[package]]
 name = "aether-plugin-tmdb"
 version = "0.1.0"
 dependencies = [
