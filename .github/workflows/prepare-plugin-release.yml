@@ -44,10 +44,16 @@ jobs:
     steps:
       - name: Vérifier la présence de la clé privée de signature
         env:
-          ED25519_PRIVATE_KEY: ${{ secrets.ED25519_PRIVATE_KEY }}
+          DEFAULT_SIGNING_KEY: ${{ secrets.ED25519_PRIVATE_KEY }}
+          POSTER_SIGNING_KEY: ${{ secrets.POSTER_ROTATOR_ED25519_PRIVATE_KEY }}
         run: |
-          if [ -z "$ED25519_PRIVATE_KEY" ]; then
-            echo "::error::Le secret ED25519_PRIVATE_KEY est requis pour signer le paquet. Opération annulée."
+          if [ "${{ github.event.inputs.plugin_id }}" = "poster-rotator" ]; then
+            SIGNING_KEY="$POSTER_SIGNING_KEY"
+          else
+            SIGNING_KEY="$DEFAULT_SIGNING_KEY"
+          fi
+          if [ -z "$SIGNING_KEY" ]; then
+            echo "::error::La clé privée de signature du plugin est absente dans l'environnement production."
             exit 1
           fi
 
@@ -163,10 +169,16 @@ jobs:
 
       - name: Préparer la clé de signature privée
         env:
-          ED25519_PRIVATE_KEY: ${{ secrets.ED25519_PRIVATE_KEY }}
+          DEFAULT_SIGNING_KEY: ${{ secrets.ED25519_PRIVATE_KEY }}
+          POSTER_SIGNING_KEY: ${{ secrets.POSTER_ROTATOR_ED25519_PRIVATE_KEY }}
         run: |
+          if [ "${{ github.event.inputs.plugin_id }}" = "poster-rotator" ]; then
+            SIGNING_KEY="$POSTER_SIGNING_KEY"
+          else
+            SIGNING_KEY="$DEFAULT_SIGNING_KEY"
+          fi
           mkdir -p "$HOME/.aether_keys"
-          echo -n "$ED25519_PRIVATE_KEY" | base64 -d > "$HOME/.aether_keys/private.key"
+          echo -n "$SIGNING_KEY" | base64 -d > "$HOME/.aether_keys/private.key"
           chmod 600 "$HOME/.aether_keys/private.key"
 
       - name: Générer le manifeste et signer le paquet
@@ -176,6 +188,11 @@ jobs:
           SHORT="${{ steps.detect.outputs.short_id }}"
           NEXT_VER="${{ steps.detect.outputs.next_ver }}"
           WASM_PATH="target/wasm32-unknown-unknown/release/${CRATE//-/_}.wasm"
+          if [ "${{ github.event.inputs.plugin_id }}" = "poster-rotator" ]; then
+            PUBLISHER_ID="poster-rotator"
+          else
+            PUBLISHER_ID="${{ github.repository_owner }}"
+          fi
 
           "./target/release/$CRATE" --manifest > "target/$SHORT.raw.manifest.json"
           WASM_HASH=$(sha256sum "$WASM_PATH" | awk '{print $1}')
@@ -200,7 +217,7 @@ jobs:
             "target/$SHORT.manifest.json" \
             "$WASM_PATH" \
             "$HOME/.aether_keys/private.key" \
-            "${{ github.repository_owner }}" \
+            "$PUBLISHER_ID" \
             "repository/packages/$SHORT-$NEXT_VER.package.json"
 
       - name: Mettre à jour repository/manifest.json
@@ -209,10 +226,15 @@ jobs:
           SHORT="${{ steps.detect.outputs.short_id }}"
           NEXT_VER="${{ steps.detect.outputs.next_ver }}"
           PKG_PATH="repository/packages/$SHORT-$NEXT_VER.package.json"
+          if [ "${{ github.event.inputs.plugin_id }}" = "poster-rotator" ]; then
+            PUBLIC_KEY_PATH="repository/poster-rotator-public.txt"
+          else
+            PUBLIC_KEY_PATH="repository/publisher-public.txt"
+          fi
 
           python3 scripts/update_catalog_entry.py \
             --package-path "$PKG_PATH" \
-            --public-key-path "repository/publisher-public.txt" \
+            --public-key-path "$PUBLIC_KEY_PATH" \
             --base-url "https://raw.githubusercontent.com/${{ github.repository }}/main/repository/packages/" \
             --manifest-path "repository/manifest.json"
 

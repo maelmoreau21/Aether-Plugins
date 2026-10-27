@@ -5,12 +5,18 @@ const base=process.argv[3] || 'https://raw.githubusercontent.com/maelmoreau21/Ae
 const bytes=fs.readFileSync(path.join(root,'manifest.json'));
 assert(bytes.length<=256*1024);const catalogue=JSON.parse(bytes);assert.equal(catalogue.apiVersion,1);
 assert(catalogue.extensions.length>0 && catalogue.extensions.length<=100);
-const publicKey=fs.readFileSync(path.join(root,'publisher-public.txt'),'utf8').trim();
-const spki=Buffer.concat([Buffer.from('302a300506032b6570032100','hex'),Buffer.from(publicKey,'base64')]);
-const key=crypto.createPublicKey({key:spki,format:'der',type:'spki'});const unique=new Set();
+const publicKeys=new Map([
+  ['maelmoreau21',fs.readFileSync(path.join(root,'publisher-public.txt'),'utf8').trim()],
+  ['poster-rotator',fs.readFileSync(path.join(root,'poster-rotator-public.txt'),'utf8').trim()],
+]);
+const unique=new Set();
 for(const entry of catalogue.extensions){
   const identity=`${entry.manifest.id}@${entry.manifest.version}`;assert(!unique.has(identity));unique.add(identity);
-  assert.equal(entry.publicKey,publicKey);const url=new URL(entry.packageUrl);
+  const publicKey=publicKeys.get(entry.publisherId);assert(publicKey,`Unknown publisher: ${entry.publisherId}`);
+  assert.equal(entry.publicKey,publicKey);
+  const spki=Buffer.concat([Buffer.from('302a300506032b6570032100','hex'),Buffer.from(publicKey,'base64')]);
+  const key=crypto.createPublicKey({key:spki,format:'der',type:'spki'});
+  const url=new URL(entry.packageUrl);
   assert.equal(url.protocol,'https:');assert.equal(url.username,'');assert.equal(url.password,'');assert.equal(url.hash,'');
   const filename=decodeURIComponent(path.posix.basename(url.pathname));assert(/^[a-z0-9][a-z0-9._-]*\.package\.json$/.test(filename));
   const file=path.join(root,'packages',filename);
