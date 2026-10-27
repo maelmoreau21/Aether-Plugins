@@ -6,4 +6,4 @@ Après installation d'un paquet **signé**, ouvrir **Administration → Extensio
 
 Les images doivent déjà être présentes dans le catalogue. La collecte de nouvelles images reste l'action **Modifier les images → Enrichir les images**, avec TMDb/fanart.tv installés et configurés. Ce premier jalon ne porte pas encore les tâches de téléchargement automatique, de nettoyage et de purge de l'extension Jellyfin.
 
-L'extension est dans le workspace, mais n'apparaîtra dans le catalogue public d'Aether qu'après compilation Wasm, signature et publication explicites. Pour un paquet local, utiliser `scripts/Build-LocalPackage.ps1 -Plugin poster-rotator -KeyPath <clé privée>` puis importer le paquet dans l'administration.
+L'extension possède une clé de signature dédiée, distincte des autres extensions du dépôt. Après publication, il faut approuver l'éditeur `poster-rotator` dans l'administration avant installation. Pour un paquet local, utiliser `scripts/Build-LocalPackage.ps1 -Plugin poster-rotator -KeyPath <clé privée>` puis importer le paquet dans l'administration.
