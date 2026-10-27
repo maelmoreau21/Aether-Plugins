@@ -22,3 +22,12 @@
 
 - Les deux workflows de release utilisent maintenant des chaînes shell valides pour le corps de Pull Request et les notes GitHub Release ; les textes Markdown restent inchangés. Les sorties de `prepare-plugin-release.yml` sont regroupées pour ShellCheck SC2129, avec exceptions SC2016 limitées aux littéraux JavaScript et Markdown.
 - Vérifié localement : `actionlint` 1.7.12 sur tous les workflows et `python scripts/test-release-policy.py` (7 tests). Aucune release ni Pull Request déclenchée ; exécution distante à confirmer après intégration.
+
+## 27 octobre 2026 — Publication des paquets aux noms abrégés
+
+- `release-plugins.yml` déduit désormais le fichier signé et le préfixe du tag
+  de `packageUrl` dans le catalogue vérifié. `avatars` publie `avatar-*` et
+  `fanart-tv` publie `fanart-*` ; un paquet manquant bloque le workflow au lieu
+  d'être ignoré. La relance peut reprendre après la création du tag sans
+  dupliquer une GitHub Release. Vérification locale par test ciblé et tests de
+  catalogue ; aucune publication réelle n'a été déclenchée.

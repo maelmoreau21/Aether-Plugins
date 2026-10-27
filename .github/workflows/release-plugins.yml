@@ -37,23 +37,9 @@ jobs:
         id: release_check
         run: |
           set -euo pipefail
-          # shellcheck disable=SC2016 # JavaScript template literals are passed verbatim.
-          node -e '
-            const fs = require("fs");
-            const manifest = JSON.parse(fs.readFileSync("repository/manifest.json", "utf-8"));
-            const released = [];
-            for (const ext of manifest.extensions || []) {
-              const m = ext.manifest;
-              const id = m.id;
-              const ver = m.version;
-              const tag = `${id}-v${ver}`;
-              const pkgFile = `repository/packages/${id}-${ver}.package.json`;
-              if (fs.existsSync(pkgFile)) {
-                released.push({ id, version: ver, tag, pkgFile, name: m.name });
-              }
-            }
-            fs.writeFileSync("discovered_releases.json", JSON.stringify(released, null, 2));
-          '
+          node scripts/discover-plugin-releases.cjs \
+            "https://raw.githubusercontent.com/${{ github.repository }}/main/repository/packages/" \
+            > discovered_releases.json
           cat discovered_releases.json
 
       - name: Créer les tags Git et Releases GitHub pour chaque paquet validé
@@ -82,13 +68,15 @@ jobs:
 
             echo "Traitement de $ID version $VER (Tag: $TAG)"
 
-            if git rev-parse "$TAG" >/dev/null 2>&1; then
-              echo "Le tag $TAG existe déjà sur git. Pas de duplication."
-            else
+            if ! git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
               echo "Création du tag Git $TAG..."
               git tag -a "$TAG" -m "Release $NAME $VER ($TAG)"
               git push origin "$TAG"
+            fi
 
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              echo "La GitHub Release $TAG existe déjà. Pas de duplication."
+            else
               # shellcheck disable=SC2016 # Markdown backticks are literal in single quotes.
               printf -v NOTES '## Extension %s — Version %s\n\n- **Identifiant** : `%s`\n- **Version** : `%s`\n- **Tag Git** : `%s`\n- **Paquet** : `%s`\n- **Signature** : Ed25519 vérifiée avec succès.' \
                 "$NAME" "$VER" "$ID" "$VER" "$TAG" "$PKG_FILE"

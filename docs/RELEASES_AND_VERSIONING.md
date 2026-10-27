@@ -60,6 +60,14 @@ Le processus s'organise en deux étapes complémentaires :
 5. Il crée la GitHub Release et y attache le fichier `.package.json` signé téléchargeable.
 6. **Aucun `git push origin main` n'est exécuté** : toutes les modifications de fichiers ont été fusionnées préalablement par la PR !
 
+Le fichier attaché et le préfixe du tag sont déduits de `packageUrl` dans le
+catalogue vérifié, et non de l'identifiant du plugin. Par exemple, `avatars`
+publie `avatar-0.1.0.package.json` sous `avatar-v0.1.0`, et `fanart-tv`
+publie `fanart-0.1.0.package.json` sous `fanart-v0.1.0`. Une entrée dont le
+paquet local manque fait échouer la publication au lieu d'être ignorée.
+Après un échec entre la création du tag et celle de la Release, une relance
+reprend la création de la Release existante sans recréer le tag.
+
 ---
 
 ## 4. Cycle de développement sur `develop`

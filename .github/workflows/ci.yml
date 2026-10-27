@@ -117,6 +117,10 @@ jobs:
         working-directory: Aether-Plugins
         run: node scripts/test-repository.cjs
 
+      - name: Verify release asset discovery
+        working-directory: Aether-Plugins
+        run: node --test scripts/test-discover-plugin-releases.cjs
+
       - name: Upload Wasm Artifacts
         uses: actions/upload-artifact@v4
         with:

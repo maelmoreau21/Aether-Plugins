@@ -11,6 +11,7 @@ members = [
     "Aether-Plugins-Discogs",
     "Aether-Plugins-LrcLib",
     "Aether-Plugins-IntroSkipper",
+    "Aether-Plugins-PosterRotator",
 ]
 
 [workspace.package]
