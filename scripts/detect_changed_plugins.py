@@ -1,27 +1,17 @@
 #!/usr/bin/env python3
 """
 detect_changed_plugins.py
-Détecte les plugins modifiés entre un commit de référence (ou le dernier tag du plugin) et HEAD.
-Règles :
-- Analyse les chemins modifiés (`git diff --name-only <base>..HEAD`).
-- Si un plugin (dossier Aether-Plugins-*) contient des modifications :
-  - Ignore les modifications purement documentaires (.md, docs/) si aucun code source n'a changé.
-- Si le crate commun `crates/aether-plugin-api` est modifié, tous les plugins dépendants sont marqués modifiés.
-- Si `manual_plugin` et `manual_bump_type` (ex: MAJOR) sont fournis en argument, force la détection de ce plugin.
+Detects modified plugins in Aether-Plugins between a base commit/tag and HEAD.
 
-Sortie JSON lisible par les workflows GitHub Actions :
-[
-  {
-    "id": "tmdb",
-    "name": "aether-plugin-tmdb",
-    "dir": "Aether-Plugins-TMDb",
-    "current_version": "0.1.0",
-    "next_version": "0.2.0",
-    "tag": "tmdb-v0.2.0",
-    "bump_type": "MINOR",
-    "reason": "Source files changed in Aether-Plugins-TMDb"
-  }
-]
+Rules:
+- Each plugin has an independent lifecycle and versioning.
+- Analyzes diff paths (`git diff --name-only <base>..HEAD`).
+- Filters out documentation-only changes (.md, .txt, docs/).
+- Detects shared API changes (`crates/aether-plugin-api/`).
+- Channel awareness:
+  - --channel develop : calculates next beta version (e.g. tmdb-v0.2.0-beta.1).
+  - --channel main : calculates next stable version (e.g. tmdb-v0.2.0).
+- Verifies package immutability: fails if attempting to modify an existing signed package.
 """
 
 import os
@@ -80,6 +70,12 @@ PLUGINS_MAP = [
         "tag_prefix": "omdb"
     },
     {
+        "id": "poster-rotator",
+        "crate_name": "aether-plugin-poster-rotator",
+        "dir": "Aether-Plugins-PosterRotator",
+        "tag_prefix": "poster-rotator"
+    },
+    {
         "id": "tmdb",
         "crate_name": "aether-plugin-tmdb",
         "dir": "Aether-Plugins-TMDb",
@@ -93,29 +89,33 @@ def run_git(args, cwd=None):
 
 def get_current_cargo_version(plugin_dir, repo_root):
     cargo_path = os.path.join(repo_root, plugin_dir, "Cargo.toml")
-    with open(cargo_path, "r", encoding="utf-8") as f:
-        content = f.read()
-    m = re.search(r'version\s*=\s*"([^"]+)"', content)
-    if m:
-        return m.group(1)
+    try:
+        with open(cargo_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        m = re.search(r'version\s*=\s*"([^"]+)"', content)
+        if m:
+            return m.group(1)
+    except Exception:
+        pass
     return "0.1.0"
 
-def get_latest_plugin_tag(tag_prefix, repo_root):
+def get_all_plugin_tags(tag_prefix, repo_root):
     try:
         tags = run_git(["tag", "-l", f"{tag_prefix}-v*"], cwd=repo_root).splitlines()
-        if not tags:
-            return None
-        # Sort by semver if possible
-        def sort_key(t):
-            v_str = t.replace(f"{tag_prefix}-v", "")
-            return [int(x) if x.isdigit() else 0 for x in v_str.split(".")]
-        tags.sort(key=sort_key)
-        return tags[-1]
+        return [t.strip() for t in tags if t.strip()]
     except Exception:
-        return None
+        return []
+
+def get_tags_at_head(repo_root):
+    try:
+        tags = run_git(["tag", "--points-at", "HEAD"], cwd=repo_root).splitlines()
+        return [t.strip() for t in tags if t.strip()]
+    except Exception:
+        return []
 
 def parse_semver(v_str):
-    parts = v_str.split(".")
+    cleaned = v_str.split("-")[0]
+    parts = cleaned.split(".")
     major = int(parts[0]) if len(parts) > 0 and parts[0].isdigit() else 0
     minor = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 0
     patch = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 0
@@ -131,11 +131,10 @@ def is_doc_only(changed_files):
 def main():
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     
-    # Options manuelles
-    # Usage: python detect_changed_plugins.py [--manual-plugin <id>] [--manual-bump <MAJOR|MINOR>] [--base-ref <ref>]
     manual_plugin = None
     manual_bump = None
     base_ref = None
+    channel = "main"
 
     args = sys.argv[1:]
     i = 0
@@ -149,12 +148,13 @@ def main():
         elif args[i] == "--base-ref" and i + 1 < len(args):
             base_ref = args[i+1]
             i += 2
+        elif args[i] == "--channel" and i + 1 < len(args):
+            channel = args[i+1]
+            i += 2
         else:
             i += 1
 
-    # Déterminer la référence git de base pour la comparaison
     if not base_ref:
-        # Si on est sur un merge HEAD, comparer HEAD~1..HEAD par défaut
         try:
             run_git(["rev-parse", "HEAD~1"], cwd=repo_root)
             base_ref = "HEAD~1"
@@ -166,13 +166,17 @@ def main():
     except Exception:
         changed_paths = []
 
-    # Vérifier si l'API commune a changé (hors docs)
+    # Check if common aether-plugin-api changed
     api_changed_files = [p for p in changed_paths if p.startswith("crates/aether-plugin-api/")]
     shared_api_changed = bool(api_changed_files) and not is_doc_only(api_changed_files)
 
-    with open(os.path.join(repo_root, "repository", "manifest.json"), encoding="utf-8") as catalog_file:
-        published_ids = {entry["manifest"]["id"] for entry in json.load(catalog_file)["extensions"]}
+    catalog_path = os.path.join(repo_root, "repository", "manifest.json")
+    published_ids = set()
+    if os.path.exists(catalog_path):
+        with open(catalog_path, encoding="utf-8") as catalog_file:
+            published_ids = {entry["manifest"]["id"] for entry in json.load(catalog_file).get("extensions", [])}
 
+    head_tags = get_tags_at_head(repo_root)
     results = []
 
     for p in PLUGINS_MAP:
@@ -185,12 +189,14 @@ def main():
         major, minor, patch = parse_semver(current_ver)
 
         is_triggered = False
-        bump_type = "MINOR"
+        bump_type = "PATCH" if channel == "main" else "MINOR"
         reason = ""
 
         if manual_plugin and (manual_plugin == p_id or manual_plugin == p_dir or manual_plugin == crate_name):
             is_triggered = True
             bump_type = manual_bump if manual_bump in ["MAJOR", "MINOR", "PATCH"] else "PATCH"
+            if channel == "main" and p_id not in published_ids and current_ver == "0.1.0":
+                bump_type = "NONE"
             reason = f"Manual dispatch requested ({bump_type})"
         elif not manual_plugin:
             p_files = [path for path in changed_paths if path.startswith(p_dir + "/")]
@@ -203,29 +209,49 @@ def main():
                 bump_type = "MINOR"
                 reason = "Shared aether-plugin-api changed"
 
-        # Bootstrap source plugins missing from the signed catalogue on automatic runs.
-        # A documentation-only push must also recover an unpublished first release.
-        if not manual_plugin and p_id not in published_ids:
+        # Bootstrap plugins missing from published catalog on automatic runs
+        if not manual_plugin and not is_triggered and p_id not in published_ids:
             is_triggered = True
             reason = "First signed catalogue release missing"
+            bump_type = "PATCH" if current_ver != "0.1.0" else "NONE"
 
         if is_triggered:
-            if bump_type == "MAJOR":
-                next_ver = f"{major + 1}.0.0"
-            elif bump_type == "MINOR":
-                next_ver = f"{major}.{minor + 1}.0"
-            else:
-                next_ver = f"{major}.{minor}.{patch + 1}"
-            
-            tag_name = f"{tag_prefix}-v{next_ver}"
+            all_tags = get_all_plugin_tags(tag_prefix, repo_root)
 
-            # Vérifier si ce tag exact existe déjà dans git
-            tag_exists = False
-            try:
-                run_git(["rev-parse", tag_name], cwd=repo_root)
-                tag_exists = True
-            except Exception:
-                tag_exists = False
+            if channel == "develop":
+                # Determine beta version: e.g. 0.2.0-beta.N
+                cycle_target = f"{major}.{minor + 1}.0" if bump_type == "MINOR" else (f"{major + 1}.0.0" if bump_type == "MAJOR" else f"{major}.{minor}.{patch + 1}")
+                beta_re = re.compile(rf"^{tag_prefix}-v{re.escape(cycle_target)}-beta\.(\d+)$")
+                existing_betas = []
+                for t in all_tags:
+                    m = beta_re.match(t)
+                    if m:
+                        existing_betas.append(int(m.group(1)))
+                existing_betas.sort()
+
+                next_beta_idx = 0 if not existing_betas else (existing_betas[-1] + 1)
+                next_ver = f"{cycle_target}-beta.{next_beta_idx}"
+                tag_name = f"{tag_prefix}-v{next_ver}"
+
+                # Idempotency check: is HEAD already tagged?
+                tag_exists = any(t.startswith(f"{tag_prefix}-v{cycle_target}-beta.") for t in head_tags)
+            else:
+                # Channel main: stable version
+                if bump_type == "MAJOR":
+                    next_ver = f"{major + 1}.0.0"
+                elif bump_type == "MINOR":
+                    next_ver = f"{major}.{minor + 1}.0"
+                elif bump_type == "PATCH":
+                    next_ver = f"{major}.{minor}.{patch + 1}"
+                else:
+                    next_ver = current_ver
+
+                tag_name = f"{tag_prefix}-v{next_ver}"
+                tag_exists = tag_name in all_tags
+
+            # Package immutability check
+            pkg_file = os.path.join(repo_root, "repository", "packages", f"{tag_prefix}-{next_ver}.package.json")
+            package_already_exists = os.path.exists(pkg_file)
 
             results.append({
                 "id": p_id,
@@ -237,7 +263,9 @@ def main():
                 "tag": tag_name,
                 "bump_type": bump_type,
                 "reason": reason,
-                "tag_exists": tag_exists
+                "tag_exists": tag_exists,
+                "package_already_exists": package_already_exists,
+                "channel": channel
             })
 
     output_json = json.dumps(results, indent=2)
