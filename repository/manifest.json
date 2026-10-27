@@ -411,6 +411,124 @@
     {
       "manifest": {
         "apiVersion": 1,
+        "id": "poster-rotator",
+        "name": "Poster Rotator",
+        "version": "0.1.0",
+        "description": "Rotation configurable des affiches des films et séries, par bibliothèque.",
+        "author": "Aether Team",
+        "license": "MIT",
+        "repository": "https://github.com/maelmoreau21/Aether-Plugins",
+        "permissions": [
+          "images"
+        ],
+        "category": "Artwork",
+        "targetAbi": "1.0",
+        "minServerVersion": "0.1.0",
+        "maxServerVersion": "1.0.0",
+        "checksum": "2d03c93e0356c448a95f45335957378fbf7b5c4a0097c1f74b7c8e6cbe9324e8",
+        "banner": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 800 240\"><rect width=\"800\" height=\"240\" fill=\"#172435\"/><rect x=\"62\" y=\"42\" width=\"106\" height=\"155\" rx=\"8\" fill=\"#e6a153\"/><rect x=\"194\" y=\"42\" width=\"106\" height=\"155\" rx=\"8\" fill=\"#77bad0\"/><rect x=\"326\" y=\"42\" width=\"106\" height=\"155\" rx=\"8\" fill=\"#a1bf89\"/><text x=\"470\" y=\"137\" font-family=\"sans-serif\" font-size=\"54\" font-weight=\"700\" fill=\"white\">Poster Rotator</text></svg>\n",
+        "configSchema": [
+          {
+            "key": "enable_movies",
+            "label": "Films",
+            "description": "Faire tourner les affiches des films.",
+            "fieldType": "boolean",
+            "defaultValue": "true",
+            "required": false,
+            "secret": false
+          },
+          {
+            "key": "enable_series",
+            "label": "Séries",
+            "description": "Faire tourner les affiches des séries.",
+            "fieldType": "boolean",
+            "defaultValue": "true",
+            "required": false,
+            "secret": false
+          },
+          {
+            "key": "rotation_mode",
+            "label": "Ordre de rotation",
+            "description": "Choix du prochain visuel dans le pool.",
+            "fieldType": "select",
+            "defaultValue": "random",
+            "required": false,
+            "secret": false,
+            "options": [
+              {
+                "label": "Aléatoire",
+                "value": "random"
+              },
+              {
+                "label": "Séquentiel",
+                "value": "sequential"
+              }
+            ]
+          },
+          {
+            "key": "min_hours_between_switches",
+            "label": "Intervalle minimal (heures)",
+            "description": "0 : à chaque nouvelle visite ; 24 : une fois par jour au plus.",
+            "fieldType": "number",
+            "defaultValue": "0",
+            "required": false,
+            "secret": false
+          },
+          {
+            "key": "pool_size",
+            "label": "Taille du pool",
+            "description": "Nombre maximal d'affiches candidates par œuvre (1 à 24).",
+            "fieldType": "number",
+            "defaultValue": "4",
+            "required": false,
+            "secret": false
+          },
+          {
+            "key": "preferred_language",
+            "label": "Langue préférée",
+            "description": "Code de langue, par exemple fr.",
+            "fieldType": "text",
+            "defaultValue": "fr",
+            "required": false,
+            "secret": false
+          },
+          {
+            "key": "fallback_language",
+            "label": "Langue de secours",
+            "description": "Code de langue, par exemple en.",
+            "fieldType": "text",
+            "defaultValue": "en",
+            "required": false,
+            "secret": false
+          },
+          {
+            "key": "include_unknown_language",
+            "label": "Images sans langue",
+            "description": "Accepter les images sans langue connue.",
+            "fieldType": "boolean",
+            "defaultValue": "true",
+            "required": false,
+            "secret": false
+          },
+          {
+            "key": "allow_any_language_fallback",
+            "label": "Autres langues en dernier recours",
+            "description": "Utiliser une autre langue si aucune image préférée n'existe.",
+            "fieldType": "boolean",
+            "defaultValue": "true",
+            "required": false,
+            "secret": false
+          }
+        ]
+      },
+      "publisherId": "poster-rotator",
+      "publicKey": "W+NsOKxMDAYazUQ8yntr17zPbt0l7Lo13Sh1M/Vqf+k=",
+      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/poster-rotator-0.1.0.package.json",
+      "packageSha256": "dcffef48bab9ddc04315cb27622fa1467cb1445d4667f7f0854abd6843ab38aa"
+    },
+    {
+      "manifest": {
+        "apiVersion": 1,
         "id": "tmdb",
         "name": "TMDb (The Movie Database)",
         "version": "0.1.0",
