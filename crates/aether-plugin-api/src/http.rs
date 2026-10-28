@@ -146,6 +146,27 @@ fn error_result(error: &PluginError) -> serde_json::Value {
     serde_json::json!({"error": error.code, "message": error.message})
 }
 
+/// Promote the credited artist returned by a music provider to the optional
+/// structured search field expected by recent Core versions. Call only for
+/// providers whose search `overview` is explicitly the credited artist.
+pub fn promote_music_artist(response: &mut ExtensionResponse) {
+    let Some(items) = response.result.as_array_mut() else {
+        return;
+    };
+    for item in items {
+        if item["mediaType"].as_str() != Some("music") {
+            continue;
+        }
+        let artist = item["overview"]
+            .as_str()
+            .filter(|value| !value.trim().is_empty())
+            .map(str::to_owned);
+        if let Some(artist) = artist {
+            item["artist"] = serde_json::json!(artist);
+        }
+    }
+}
+
 /// Generic guest entry point shared by metadata provider plugins.
 pub fn handle_extension<P: MetadataProviderPlugin>(
     plugin: &P,

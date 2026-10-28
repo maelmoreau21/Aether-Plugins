@@ -318,5 +318,10 @@ media_extension_sdk::extension!(handle_discogs_extension_request);
 pub fn handle_discogs_extension_request(
     req: aether_plugin_api::ExtensionRequest,
 ) -> aether_plugin_api::ExtensionResponse {
-    aether_plugin_api::http::handle_extension(&DiscogsPlugin::new(), req)
+    let search = matches!(req.operation.as_str(), "metadata.search" | "search");
+    let mut response = aether_plugin_api::http::handle_extension(&DiscogsPlugin::new(), req);
+    if search {
+        aether_plugin_api::http::promote_music_artist(&mut response);
+    }
+    response
 }

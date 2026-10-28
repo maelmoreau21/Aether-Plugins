@@ -380,3 +380,19 @@ async fn handle_extension_proposes_metadata_when_unique() {
     assert_eq!(res.result["title"], "Interstellar");
     assert_eq!(res.result["summary"], "Mock overview");
 }
+
+#[test]
+fn music_artist_is_emitted_as_a_structured_field() {
+    let mut response = aether_plugin_api::ExtensionResponse {
+        api_version: 1,
+        result: serde_json::json!([
+            {"id":"1","title":"Album","mediaType":"music","overview":"Artist"},
+            {"id":"2","title":"Unknown","mediaType":"music"},
+            {"id":"3","title":"Film","mediaType":"movie","overview":"Synopsis"}
+        ]),
+    };
+    aether_plugin_api::http::promote_music_artist(&mut response);
+    assert_eq!(response.result[0]["artist"], "Artist");
+    assert!(response.result[1].get("artist").is_none());
+    assert!(response.result[2].get("artist").is_none());
+}
