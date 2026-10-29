@@ -5,7 +5,6 @@ members = [
     "Aether-Plugins-TMDb",
     "Aether-Plugins-IMDb",
     "Aether-Plugins-fanart.tv",
-    "Aether-Plugins-Avatar",
     "Aether-Plugins-OMDb",
     "Aether-Plugins-MusicBrainz",
     "Aether-Plugins-Discogs",

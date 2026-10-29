@@ -15,22 +15,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "aether-plugin-avatar"
-version = "0.1.0"
-dependencies = [
- "aether-plugin-api",
- "async-trait",
- "clap",
- "http-body-util",
- "hyper",
- "hyper-util",
- "media-extension-sdk",
- "serde",
- "serde_json",
- "tokio",
-]
-
-[[package]]
 name = "aether-plugin-discogs"
 version = "0.1.0"
 dependencies = [

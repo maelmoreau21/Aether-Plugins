@@ -15,7 +15,6 @@ on:
           - musicbrainz
           - discogs
           - lrclib
-          - avatars
           - intro-skipper
       bump_type:
         description: 'Type d’incrément pour cette release'

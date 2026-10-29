@@ -12,7 +12,6 @@ const wasmDir = path.resolve(process.argv[2] || path.join(__dirname, '../target/
 const MAX_MODULE_BYTES = 256 * 1024; // 262,144 bytes
 
 const expectedPlugins = [
-  'aether_plugin_avatar',
   'aether_plugin_discogs',
   'aether_plugin_fanart',
   'aether_plugin_imdb',

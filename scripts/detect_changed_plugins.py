@@ -22,12 +22,6 @@ import re
 
 PLUGINS_MAP = [
     {
-        "id": "avatars",
-        "crate_name": "aether-plugin-avatar",
-        "dir": "Aether-Plugins-Avatar",
-        "tag_prefix": "avatar"
-    },
-    {
         "id": "discogs",
         "crate_name": "aether-plugin-discogs",
         "dir": "Aether-Plugins-Discogs",

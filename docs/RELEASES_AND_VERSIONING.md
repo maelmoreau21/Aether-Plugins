@@ -22,7 +22,6 @@ Tableau des correspondances :
 | `musicbrainz` | `aether-plugin-musicbrainz` | `Aether-Plugins-MusicBrainz` | `musicbrainz` |
 | `discogs` | `aether-plugin-discogs` | `Aether-Plugins-Discogs` | `discogs` |
 | `lrclib` | `aether-plugin-lrclib` | `Aether-Plugins-LrcLib` | `lrclib` |
-| `avatars` | `aether-plugin-avatar` | `Aether-Plugins-Avatar` | `avatar` |
 | `intro-skipper` | `aether-plugin-intro-skipper` | `Aether-Plugins-IntroSkipper` | `intro-skipper` |
 
 ---
@@ -61,8 +60,7 @@ Le processus s'organise en deux étapes complémentaires :
 6. **Aucun `git push origin main` n'est exécuté** : toutes les modifications de fichiers ont été fusionnées préalablement par la PR !
 
 Le fichier attaché et le préfixe du tag sont déduits de `packageUrl` dans le
-catalogue vérifié, et non de l'identifiant du plugin. Par exemple, `avatars`
-publie `avatar-0.1.0.package.json` sous `avatar-v0.1.0`, et `fanart-tv`
+catalogue vérifié, et non de l'identifiant du plugin. Par exemple, `fanart-tv`
 publie `fanart-0.1.0.package.json` sous `fanart-v0.1.0`. Une entrée dont le
 paquet local manque fait échouer la publication au lieu d'être ignorée.
 Après un échec entre la création du tag et celle de la Release, une relance
