@@ -250,6 +250,7 @@ impl MetadataProviderPlugin for FanartTvPlugin {
             return Ok(vec![SearchResultItem {
                 id: id.clone(),
                 title: query.title,
+                artist: None,
                 original_title: None,
                 year: query.year,
                 media_type: query.media_type,
@@ -390,6 +391,8 @@ impl MetadataProviderPlugin for FanartTvPlugin {
             posters,
             backdrops,
             images: all_images,
+            seasons: Vec::new(),
+            translations: BTreeMap::new(),
         })
     }
 

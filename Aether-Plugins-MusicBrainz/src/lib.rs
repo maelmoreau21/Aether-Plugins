@@ -224,6 +224,7 @@ impl MetadataProviderPlugin for MusicBrainzPlugin {
                 SearchResultItem {
                     id: r.id,
                     title: r.title,
+                    artist: (!artists.is_empty()).then(|| artists.join(", ")),
                     original_title: None,
                     year: r.date.as_deref().and_then(year_of),
                     media_type: query.media_type,

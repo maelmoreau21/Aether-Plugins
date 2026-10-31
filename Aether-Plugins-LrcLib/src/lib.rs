@@ -259,6 +259,7 @@ impl MetadataProviderPlugin for LrcLibPlugin {
             .map(|l| SearchResultItem {
                 id: l.id.to_string(),
                 title: l.track_name,
+                artist: Some(l.artist_name.clone()),
                 original_title: None,
                 year: None,
                 media_type: query.media_type,

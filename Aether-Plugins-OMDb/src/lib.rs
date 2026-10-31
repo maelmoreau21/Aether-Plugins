@@ -257,6 +257,7 @@ impl MetadataProviderPlugin for OmdbPlugin {
             .map(|e| SearchResultItem {
                 id: e.imdb_id,
                 title: e.title,
+                artist: None,
                 original_title: None,
                 year: e.year.as_deref().and_then(parse_year),
                 media_type: media_type_of(e.kind.as_deref().unwrap_or("movie")),

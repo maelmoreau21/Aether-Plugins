@@ -20,7 +20,7 @@ authors = ["Aether Team"]
 license = "AGPL-3.0-only"
 
 [workspace.dependencies]
-media-extension-sdk = { git = "https://github.com/maelmoreau21/Aether.git", rev = "74377be769fb9e2e1d5d2f6257b8dca5cf4e251e", version = "=0.1.0" }
+media-extension-sdk = { path = "../Aether/crates/extension-sdk", version = "=0.1.0" }
 aether-plugin-api = { path = "crates/aether-plugin-api" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-util", "time"] }
 serde = { version = "1", features = ["derive"] }

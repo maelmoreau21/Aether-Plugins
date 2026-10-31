@@ -241,6 +241,7 @@ impl MetadataProviderPlugin for DiscogsPlugin {
                 SearchResultItem {
                     id: e.id.to_string(),
                     title,
+                    artist: artist.clone(),
                     original_title: None,
                     year: e.year.as_deref().and_then(|y| y.parse().ok()),
                     media_type: query.media_type,

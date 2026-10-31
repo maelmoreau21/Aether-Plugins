@@ -266,6 +266,7 @@ impl MetadataProviderPlugin for ImdbPlugin {
                 Some(SearchResultItem {
                     id: item.id,
                     title: item.l,
+                    artist: None,
                     original_title: None,
                     year: item.y,
                     media_type,
@@ -429,6 +430,8 @@ impl MetadataProviderPlugin for ImdbPlugin {
             posters,
             backdrops: Vec::new(),
             images,
+            seasons: Vec::new(),
+            translations: BTreeMap::new(),
         })
     }
 
