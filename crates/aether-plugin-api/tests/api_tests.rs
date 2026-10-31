@@ -46,6 +46,7 @@ impl MetadataProviderPlugin for MockPlugin {
             overview: Some("Mock overview".into()),
             poster_url: Some("https://example.com/poster.jpg".into()),
             score: Some(8.5),
+            artist: None,
         }])
     }
 
@@ -109,6 +110,8 @@ impl MetadataProviderPlugin for MockPlugin {
                 is_primary: true,
             }],
             images: vec![],
+            seasons: vec![],
+            translations: Default::default(),
         })
     }
 

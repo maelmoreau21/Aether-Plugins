@@ -30,6 +30,13 @@ jobs:
     name: Audit de sécurité (cargo audit)
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout Aether (Core SDK dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/Aether
+          ref: ${{ (github.base_ref == 'main' || github.ref_name == 'main') && 'main' || 'develop' }}
+          path: Aether
+
       - name: Checkout Aether-Plugins
         uses: actions/checkout@v4
         with:
@@ -47,6 +54,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout Aether (Core SDK dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/Aether
+          ref: ${{ (github.base_ref == 'main' || github.ref_name == 'main') && 'main' || 'develop' }}
+          path: Aether
+
       - name: Checkout Aether-Plugins
         uses: actions/checkout@v4
         with:

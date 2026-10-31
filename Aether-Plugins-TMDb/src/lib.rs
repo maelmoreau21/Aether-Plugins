@@ -324,7 +324,10 @@ impl MetadataProviderPlugin for TmdbPlugin {
 
         let params = [
             ("language", language),
-            ("append_to_response", "credits,external_ids,images,translations"),
+            (
+                "append_to_response",
+                "credits,external_ids,images,translations",
+            ),
         ];
 
         let val: serde_json::Value = self.fetch_json(&endpoint, &params, config).await?;
@@ -547,20 +550,40 @@ impl MetadataProviderPlugin for TmdbPlugin {
         }
 
         let mut translations = BTreeMap::new();
-        if let Some(trans_obj) = val.get("translations").and_then(|t| t.get("translations")).and_then(|v| v.as_array()) {
+        if let Some(trans_obj) = val
+            .get("translations")
+            .and_then(|t| t.get("translations"))
+            .and_then(|v| v.as_array())
+        {
             for item in trans_obj {
                 let lang = item.get("iso_639_1").and_then(|v| v.as_str());
                 let data = item.get("data");
                 if let (Some(l), Some(d)) = (lang, data) {
-                    let t_title = d.get("title").or_else(|| d.get("name")).and_then(|v| v.as_str()).filter(|s| !s.trim().is_empty()).map(str::to_owned);
-                    let t_overview = d.get("overview").and_then(|v| v.as_str()).filter(|s| !s.trim().is_empty()).map(str::to_owned);
-                    let t_tagline = d.get("tagline").and_then(|v| v.as_str()).filter(|s| !s.trim().is_empty()).map(str::to_owned);
+                    let t_title = d
+                        .get("title")
+                        .or_else(|| d.get("name"))
+                        .and_then(|v| v.as_str())
+                        .filter(|s| !s.trim().is_empty())
+                        .map(str::to_owned);
+                    let t_overview = d
+                        .get("overview")
+                        .and_then(|v| v.as_str())
+                        .filter(|s| !s.trim().is_empty())
+                        .map(str::to_owned);
+                    let t_tagline = d
+                        .get("tagline")
+                        .and_then(|v| v.as_str())
+                        .filter(|s| !s.trim().is_empty())
+                        .map(str::to_owned);
                     if t_title.is_some() || t_overview.is_some() || t_tagline.is_some() {
-                        translations.insert(l.to_string(), aether_plugin_api::TranslationItem {
-                            title: t_title,
-                            overview: t_overview,
-                            tagline: t_tagline,
-                        });
+                        translations.insert(
+                            l.to_string(),
+                            aether_plugin_api::TranslationItem {
+                                title: t_title,
+                                overview: t_overview,
+                                tagline: t_tagline,
+                            },
+                        );
                     }
                 }
             }
@@ -569,34 +592,62 @@ impl MetadataProviderPlugin for TmdbPlugin {
         let mut seasons = Vec::new();
         if is_tv && let Some(s_arr) = val.get("seasons").and_then(|v| v.as_array()) {
             for s in s_arr {
-                let s_num = s.get("season_number").and_then(|v| v.as_u64()).map(|n| n as u32).unwrap_or(0);
+                let s_num = s
+                    .get("season_number")
+                    .and_then(|v| v.as_u64())
+                    .map(|n| n as u32)
+                    .unwrap_or(0);
                 let s_title = s.get("name").and_then(|v| v.as_str()).map(str::to_owned);
-                let s_overview = s.get("overview").and_then(|v| v.as_str()).filter(|s| !s.trim().is_empty()).map(str::to_owned);
-                let s_poster = s.get("poster_path").and_then(|v| v.as_str()).map(|p| format!("{IMAGE_ORIGINAL_URL}{p}"));
+                let s_overview = s
+                    .get("overview")
+                    .and_then(|v| v.as_str())
+                    .filter(|s| !s.trim().is_empty())
+                    .map(str::to_owned);
+                let s_poster = s
+                    .get("poster_path")
+                    .and_then(|v| v.as_str())
+                    .map(|p| format!("{IMAGE_ORIGINAL_URL}{p}"));
 
                 let mut episodes = Vec::new();
                 let season_endpoint = format!("tv/{}/season/{}", request.id, s_num);
                 let s_params = [("language", language)];
-                if let Ok(season_val) = self.fetch_json::<serde_json::Value>(&season_endpoint, &s_params, config).await {
-                    if let Some(ep_arr) = season_val.get("episodes").and_then(|v| v.as_array()) {
-                        for ep in ep_arr {
-                            let ep_num = ep.get("episode_number").and_then(|v| v.as_u64()).map(|n| n as u32).unwrap_or(0);
-                            let ep_title = ep.get("name").and_then(|v| v.as_str()).map(str::to_owned);
-                            let ep_overview = ep.get("overview").and_then(|v| v.as_str()).filter(|s| !s.trim().is_empty()).map(str::to_owned);
-                            let ep_date = ep.get("air_date").and_then(|v| v.as_str()).map(str::to_owned);
-                            let ep_runtime = ep.get("runtime").and_then(|v| v.as_u64()).map(|r| r as u32);
-                            let ep_still = ep.get("still_path").and_then(|v| v.as_str()).map(|p| format!("{IMAGE_ORIGINAL_URL}{p}"));
-                            let ep_rating = ep.get("vote_average").and_then(|v| v.as_f64());
-                            episodes.push(aether_plugin_api::EpisodeMetadata {
-                                episode_number: ep_num,
-                                title: ep_title,
-                                overview: ep_overview,
-                                air_date: ep_date,
-                                runtime_minutes: ep_runtime,
-                                still_url: ep_still,
-                                rating: ep_rating,
-                            });
-                        }
+                if let Ok(season_val) = self
+                    .fetch_json::<serde_json::Value>(&season_endpoint, &s_params, config)
+                    .await
+                    && let Some(ep_arr) = season_val.get("episodes").and_then(|v| v.as_array())
+                {
+                    for ep in ep_arr {
+                        let ep_num = ep
+                            .get("episode_number")
+                            .and_then(|v| v.as_u64())
+                            .map(|n| n as u32)
+                            .unwrap_or(0);
+                        let ep_title = ep.get("name").and_then(|v| v.as_str()).map(str::to_owned);
+                        let ep_overview = ep
+                            .get("overview")
+                            .and_then(|v| v.as_str())
+                            .filter(|s| !s.trim().is_empty())
+                            .map(str::to_owned);
+                        let ep_date = ep
+                            .get("air_date")
+                            .and_then(|v| v.as_str())
+                            .map(str::to_owned);
+                        let ep_runtime =
+                            ep.get("runtime").and_then(|v| v.as_u64()).map(|r| r as u32);
+                        let ep_still = ep
+                            .get("still_path")
+                            .and_then(|v| v.as_str())
+                            .map(|p| format!("{IMAGE_ORIGINAL_URL}{p}"));
+                        let ep_rating = ep.get("vote_average").and_then(|v| v.as_f64());
+                        episodes.push(aether_plugin_api::EpisodeMetadata {
+                            episode_number: ep_num,
+                            title: ep_title,
+                            overview: ep_overview,
+                            air_date: ep_date,
+                            runtime_minutes: ep_runtime,
+                            still_url: ep_still,
+                            rating: ep_rating,
+                        });
                     }
                 }
 
