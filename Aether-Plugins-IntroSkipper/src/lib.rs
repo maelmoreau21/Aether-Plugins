@@ -194,8 +194,8 @@ pub fn handle_intro_skipper_request(
                 .iter_mut()
                 .zip(req.input["episodes"].as_array().into_iter().flatten())
             {
+                use base64::Engine;
                 if let Some(compact) = raw["fingerprintsCompact"].as_str() {
-                    use base64::Engine;
                     episode.fingerprints = base64::engine::general_purpose::STANDARD
                         .decode(compact)
                         .ok()
@@ -208,6 +208,26 @@ pub fn handle_intro_skipper_request(
                                 .map(|word| u32::from_le_bytes(*word))
                                 .collect()
                         });
+                }
+                if let Some(compact_tail) = raw["tailFingerprintsCompact"].as_str() {
+                    episode.tail_fingerprints = base64::engine::general_purpose::STANDARD
+                        .decode(compact_tail)
+                        .ok()
+                        .filter(|bytes| bytes.len() <= 24_000 && bytes.len() % 4 == 0)
+                        .map(|bytes| {
+                            bytes
+                                .as_chunks::<4>()
+                                .0
+                                .iter()
+                                .map(|word| u32::from_le_bytes(*word))
+                                .collect()
+                        });
+                }
+                if let Some(start) = raw["tailStart"]
+                    .as_f64()
+                    .filter(|s| s.is_finite() && *s >= 0.0)
+                {
+                    episode.tail_start = Some(start);
                 }
             }
 

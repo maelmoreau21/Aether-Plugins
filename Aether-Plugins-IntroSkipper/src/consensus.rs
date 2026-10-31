@@ -73,7 +73,7 @@ impl<'a> SeasonAnalyzer<'a> {
             }
         }
 
-        // Pass 2: Fingerprint-based intro detection with cross-episode pairing
+        // Pass 2: Fingerprint-based detection with cross-episode consensus
         if self.config.enable_fingerprint_detection
             && episodes.len() >= 2
             && episodes.first().is_some_and(|ep| {
@@ -107,16 +107,19 @@ impl<'a> SeasonAnalyzer<'a> {
             return;
         }
 
-        // Pair episodes: (0, 1), (1, 2), ..., and cross-pair (0, 2)
+        // Build comparison pairs: consecutive (i, i+1), lookahead (i, i+2) and anchor pairs
         let mut pair_indices: Vec<(usize, usize)> = Vec::new();
         for i in 0..(fp_episodes.len() - 1) {
             pair_indices.push((i, i + 1));
             if i + 2 < fp_episodes.len() {
                 pair_indices.push((i, i + 2));
             }
+            if i + 3 < fp_episodes.len() && fp_episodes.len() <= 8 {
+                pair_indices.push((i, i + 3));
+            }
         }
 
-        // Discovered candidate matches: (ep_id, start, end, score)
+        // Discovered candidate matches: ep_id -> Vec<(start, end, score)>
         let mut candidates_by_ep: HashMap<String, Vec<(f64, f64, f64)>> = HashMap::new();
 
         for (idx_a, idx_b) in pair_indices {
@@ -128,21 +131,6 @@ impl<'a> SeasonAnalyzer<'a> {
                 continue;
             }
 
-            // If both already have trusted chapter intro, skip expensive audio matching
-            let has_chap_a = results
-                .get(&ep_a.id)
-                .and_then(|r| r.intro.as_ref())
-                .map(|i| i.method == DetectionMethod::Chapter)
-                .unwrap_or(false);
-            let has_chap_b = results
-                .get(&ep_b.id)
-                .and_then(|r| r.intro.as_ref())
-                .map(|i| i.method == DetectionMethod::Chapter)
-                .unwrap_or(false);
-            if has_chap_a && has_chap_b {
-                continue;
-            }
-
             let fps_a = ep_a.fingerprints.as_ref().unwrap();
             let fps_b = ep_b.fingerprints.as_ref().unwrap();
             let rate = ep_a.fingerprint_rate.or(ep_b.fingerprint_rate);
@@ -151,6 +139,7 @@ impl<'a> SeasonAnalyzer<'a> {
             if let Some(m) = matcher.find_best_match(fps_a, fps_b)
                 && m.duration >= self.config.min_intro_duration
                 && m.duration <= self.config.max_intro_duration
+                && m.score >= self.config.similarity_threshold
             {
                 candidates_by_ep.entry(ep_a.id.clone()).or_default().push((
                     m.offset_a,
@@ -165,41 +154,69 @@ impl<'a> SeasonAnalyzer<'a> {
             }
         }
 
-        // Apply consensus: for each episode, pick the most consistent match
+        let fp_count = fp_episodes.len();
+
+        // Apply multi-episode consensus clustering for each episode
         for (ep_id, matches) in candidates_by_ep {
             if matches.is_empty() {
                 continue;
             }
 
+            // Cluster candidate matches by similar start time and duration
+            let best_cluster = cluster_candidates(&matches);
+            let Some((start, end, confidence, votes)) = best_cluster else {
+                continue;
+            };
+
+            // Uncertainty guard: if only 1 match among 3+ fingerprinted episodes and confidence is weak, reject
+            if votes == 1 && fp_count >= 3 && confidence < 0.80 {
+                continue;
+            }
+
             if let Some(res) = results.get_mut(&ep_id) {
-                // If chapter intro already exists, don't overwrite unless confidence is low
-                if res.intro.is_some() {
+                // If a chapter intro already exists, check if audio confirms and refines it
+                if let Some(ref mut chap_intro) = res.intro {
+                    if chap_intro.method == DetectionMethod::Chapter {
+                        // Check if audio overlap with chapter exists
+                        let overlaps = start < chap_intro.end && end > chap_intro.start;
+                        if overlaps {
+                            // Audio fingerprint refines exact timing and maximizes confidence
+                            chap_intro.start = start;
+                            chap_intro.end = end;
+                            chap_intro.confidence = 0.99;
+                            chap_intro.method = DetectionMethod::Fingerprint;
+
+                            // Update in markers array
+                            for m in res.markers.iter_mut() {
+                                if m.marker_type == MarkerType::Intro
+                                    && m.method == DetectionMethod::Chapter
+                                {
+                                    m.start = start;
+                                    m.end = end;
+                                    m.confidence = 0.99;
+                                    m.method = DetectionMethod::Fingerprint;
+                                }
+                            }
+                        }
+                    }
                     continue;
                 }
 
-                // Average cluster candidate
-                let best = matches
-                    .iter()
-                    .max_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal))
-                    .cloned();
-
-                if let Some((start, end, score)) = best {
-                    let marker = IntroMarker {
-                        id: format!("{ep_id}-intro-fp"),
-                        start,
-                        end,
-                        marker_type: MarkerType::Intro,
-                        confidence: score,
-                        method: DetectionMethod::Fingerprint,
-                    };
-                    res.intro = Some(marker.clone());
-                    res.markers.push(marker);
-                }
+                let marker = IntroMarker {
+                    id: format!("{ep_id}-intro-fp"),
+                    start,
+                    end,
+                    marker_type: MarkerType::Intro,
+                    confidence,
+                    method: DetectionMethod::Fingerprint,
+                };
+                res.intro = Some(marker.clone());
+                res.markers.push(marker);
             }
         }
     }
 
-    /// Run credits detection on episode tails
+    /// Run credits detection on episode tails with multi-episode consensus
     fn detect_fingerprint_credits(
         &self,
         episodes: &[EpisodeData],
@@ -209,12 +226,14 @@ impl<'a> SeasonAnalyzer<'a> {
         let fp_episodes: Vec<&EpisodeData> = episodes
             .iter()
             .filter(|e| {
-                e.fingerprints
-                    .as_ref()
-                    .map(|f| !f.is_empty())
-                    .unwrap_or(false)
+                e.tail_fingerprints.as_ref().is_some_and(|f| !f.is_empty())
+                    || (e.fingerprints.as_ref().is_some_and(|f| !f.is_empty()) && e.duration > 0.0)
             })
             .collect();
+
+        if fp_episodes.len() < 2 {
+            return;
+        }
 
         let mut pair_indices: Vec<(usize, usize)> = Vec::new();
         for i in 0..(fp_episodes.len().saturating_sub(1)) {
@@ -222,39 +241,149 @@ impl<'a> SeasonAnalyzer<'a> {
             if i + 2 < fp_episodes.len() {
                 pair_indices.push((i, i + 2));
             }
+            if i + 3 < fp_episodes.len() && fp_episodes.len() <= 8 {
+                pair_indices.push((i, i + 3));
+            }
         }
+
+        let mut candidates_by_ep: HashMap<String, Vec<(f64, f64, f64)>> = HashMap::new();
 
         for (idx_a, idx_b) in pair_indices {
             let ep_a = fp_episodes[idx_a];
             let ep_b = fp_episodes[idx_b];
 
-            // If both already have chapter credits, skip
-            let has_chap_a = results
-                .get(&ep_a.id)
-                .and_then(|r| r.credits.as_ref())
-                .is_some();
-            let has_chap_b = results
-                .get(&ep_b.id)
-                .and_then(|r| r.credits.as_ref())
-                .is_some();
-            if has_chap_a && has_chap_b {
+            if let Some((marker_a, marker_b)) = detector.detect_tail_credits(ep_a, ep_b)
+                && marker_a.confidence >= self.config.similarity_threshold
+            {
+                candidates_by_ep.entry(ep_a.id.clone()).or_default().push((
+                    marker_a.start,
+                    marker_a.end,
+                    marker_a.confidence,
+                ));
+                candidates_by_ep.entry(ep_b.id.clone()).or_default().push((
+                    marker_b.start,
+                    marker_b.end,
+                    marker_b.confidence,
+                ));
+            }
+        }
+
+        let fp_count = fp_episodes.len();
+
+        for (ep_id, matches) in candidates_by_ep {
+            if matches.is_empty() {
                 continue;
             }
 
-            if let Some((marker_a, marker_b)) = detector.detect_tail_credits(ep_a, ep_b) {
-                if let Some(res_a) = results.get_mut(&ep_a.id)
-                    && res_a.credits.is_none()
-                {
-                    res_a.credits = Some(marker_a.clone());
-                    res_a.markers.push(marker_a);
+            let best_cluster = cluster_candidates(&matches);
+            let Some((start, end, confidence, votes)) = best_cluster else {
+                continue;
+            };
+
+            if votes == 1 && fp_count >= 3 && confidence < 0.80 {
+                continue;
+            }
+
+            if let Some(res) = results.get_mut(&ep_id) {
+                // If chapter credits already exist, check overlap
+                if let Some(ref mut chap_credits) = res.credits {
+                    if chap_credits.method == DetectionMethod::Chapter {
+                        let overlaps = start < chap_credits.end && end > chap_credits.start;
+                        if overlaps {
+                            chap_credits.start = start;
+                            chap_credits.end = end;
+                            chap_credits.confidence = 0.99;
+                            chap_credits.method = DetectionMethod::Fingerprint;
+
+                            for m in res.markers.iter_mut() {
+                                if m.marker_type == MarkerType::Credits
+                                    && m.method == DetectionMethod::Chapter
+                                {
+                                    m.start = start;
+                                    m.end = end;
+                                    m.confidence = 0.99;
+                                    m.method = DetectionMethod::Fingerprint;
+                                }
+                            }
+                        }
+                    }
+                    continue;
                 }
-                if let Some(res_b) = results.get_mut(&ep_b.id)
-                    && res_b.credits.is_none()
-                {
-                    res_b.credits = Some(marker_b.clone());
-                    res_b.markers.push(marker_b);
-                }
+
+                let marker = IntroMarker {
+                    id: format!("{ep_id}-credits-fp"),
+                    start,
+                    end,
+                    marker_type: MarkerType::Credits,
+                    confidence,
+                    method: DetectionMethod::Fingerprint,
+                };
+                res.credits = Some(marker.clone());
+                res.markers.push(marker);
             }
         }
     }
+}
+
+/// Cluster candidate segments by start offset and duration proximity
+fn cluster_candidates(matches: &[(f64, f64, f64)]) -> Option<(f64, f64, f64, usize)> {
+    if matches.is_empty() {
+        return None;
+    }
+
+    struct Cluster {
+        starts: Vec<f64>,
+        ends: Vec<f64>,
+        scores: Vec<f64>,
+    }
+
+    let mut clusters: Vec<Cluster> = Vec::new();
+
+    for &(start, end, score) in matches {
+        let dur = end - start;
+        let mut added = false;
+        for c in &mut clusters {
+            let avg_start = c.starts.iter().sum::<f64>() / c.starts.len() as f64;
+            let avg_dur =
+                (c.ends.iter().sum::<f64>() - c.starts.iter().sum::<f64>()) / c.starts.len() as f64;
+            if (start - avg_start).abs() <= 2.5 && (dur - avg_dur).abs() <= 2.5 {
+                c.starts.push(start);
+                c.ends.push(end);
+                c.scores.push(score);
+                added = true;
+                break;
+            }
+        }
+        if !added {
+            clusters.push(Cluster {
+                starts: vec![start],
+                ends: vec![end],
+                scores: vec![score],
+            });
+        }
+    }
+
+    // Select the cluster with maximum votes, then highest average score
+    clusters
+        .into_iter()
+        .max_by(|a, b| {
+            a.starts.len().cmp(&b.starts.len()).then_with(|| {
+                let sa = a.scores.iter().sum::<f64>() / a.scores.len() as f64;
+                let sb = b.scores.iter().sum::<f64>() / b.scores.len() as f64;
+                sa.partial_cmp(&sb).unwrap_or(std::cmp::Ordering::Equal)
+            })
+        })
+        .map(|c| {
+            let count = c.starts.len();
+            let avg_start = c.starts.iter().sum::<f64>() / count as f64;
+            let avg_end = c.ends.iter().sum::<f64>() / count as f64;
+            let avg_score = c.scores.iter().sum::<f64>() / count as f64;
+            // Consensus boost: 2+ confirming episodes elevate confidence
+            let confidence = if count >= 2 {
+                (avg_score + 0.08 * (count.min(4) - 1) as f64).min(0.99)
+            } else {
+                avg_score
+            };
+            (avg_start, avg_end, confidence, count)
+        })
 }

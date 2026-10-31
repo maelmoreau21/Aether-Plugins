@@ -1,6 +1,9 @@
+#[cfg(not(target_arch = "wasm32"))]
 use aether_plugin_intro_skipper::{IntroSkipperPlugin, handle_intro_skipper_request};
+#[cfg(not(target_arch = "wasm32"))]
 use std::io::Read;
 
+#[cfg(not(target_arch = "wasm32"))]
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let plugin = IntroSkipperPlugin::new();
@@ -22,3 +25,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     Ok(())
 }
+
+#[cfg(target_arch = "wasm32")]
+fn main() {}

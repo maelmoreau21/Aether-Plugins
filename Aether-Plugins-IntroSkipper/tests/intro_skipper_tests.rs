@@ -1,6 +1,6 @@
 use aether_plugin_intro_skipper::{
-    ChapterClassifier, ChapterItem, DetectionMethod, EpisodeData, FingerprintMatcher,
-    IntroSkipperConfig, IntroSkipperPlugin, MarkerType, SeasonAnalyzer,
+    ChapterClassifier, ChapterItem, CreditsDetector, DetectionMethod, EpisodeData,
+    FingerprintMatcher, IntroSkipperConfig, IntroSkipperPlugin, MarkerType, SeasonAnalyzer,
     handle_intro_skipper_request,
 };
 
@@ -413,4 +413,192 @@ fn test_ipc_dispatch_operations() {
     assert_eq!(markers[0]["start"], 100.0);
     assert_eq!(markers[0]["end"], 190.0);
     assert_eq!(markers[0]["markerType"], "intro");
+}
+
+#[test]
+fn test_preview_and_recap_chapter_detection() {
+    let config = IntroSkipperConfig::default();
+    let classifier = ChapterClassifier::new(&config);
+
+    let chapters = vec![
+        ChapterItem {
+            start: 0.0,
+            end: Some(25.0),
+            title: "Previously on Aether".into(),
+        },
+        ChapterItem {
+            start: 25.0,
+            end: Some(115.0),
+            title: "Opening".into(),
+        },
+        ChapterItem {
+            start: 1300.0,
+            end: Some(1390.0),
+            title: "Closing".into(),
+        },
+        ChapterItem {
+            start: 1390.0,
+            end: Some(1405.0),
+            title: "Next episode preview".into(),
+        },
+    ];
+
+    let markers = classifier.parse_markers("ep-preview-test", &chapters, 1420.0);
+    assert_eq!(markers.len(), 4);
+    assert_eq!(markers[0].marker_type, MarkerType::Recap);
+    assert_eq!(markers[1].marker_type, MarkerType::Intro);
+    assert_eq!(markers[2].marker_type, MarkerType::Credits);
+    assert_eq!(markers[3].marker_type, MarkerType::Preview);
+    assert_eq!(markers[3].start, 1390.0);
+    assert_eq!(markers[3].end, 1405.0);
+}
+
+#[test]
+fn test_mid_season_opening_change() {
+    let config = IntroSkipperConfig::default();
+    let analyzer = SeasonAnalyzer::new(&config);
+
+    // Helper to generate dynamic audio sequence (non-flat)
+    let gen_seq = |seed: u32, len: usize| -> Vec<u32> {
+        let mut val = seed;
+        (0..len)
+            .map(|_| {
+                val = val.wrapping_mul(1664525).wrapping_add(1013904223);
+                val ^ (val >> 11)
+            })
+            .collect()
+    };
+
+    // Opening A for episodes 1-2, Opening B for episodes 3-4
+    let theme_a = gen_seq(0xA1B2C3D4, 450);
+    let theme_b = gen_seq(0xDEADBEEF, 450);
+
+    let mut ep1_fps = gen_seq(0x1001, 100); // 10s cold open
+    ep1_fps.extend(theme_a.clone());
+    ep1_fps.extend(gen_seq(0x1002, 500));
+
+    let mut ep2_fps = gen_seq(0x2001, 200); // 20s cold open
+    ep2_fps.extend(theme_a.clone());
+    ep2_fps.extend(gen_seq(0x2002, 500));
+
+    let mut ep3_fps = gen_seq(0x3001, 50); // 5s cold open
+    ep3_fps.extend(theme_b.clone());
+    ep3_fps.extend(gen_seq(0x3002, 500));
+
+    let mut ep4_fps = gen_seq(0x4001, 150); // 15s cold open
+    ep4_fps.extend(theme_b.clone());
+    ep4_fps.extend(gen_seq(0x4002, 500));
+
+    let episodes = vec![
+        EpisodeData {
+            id: "ep-01".into(),
+            series_id: Some("anime-s1".into()),
+            season_number: Some(1),
+            duration: 1400.0,
+            fingerprints: Some(ep1_fps),
+            fingerprint_rate: Some(10.0),
+            ..Default::default()
+        },
+        EpisodeData {
+            id: "ep-02".into(),
+            series_id: Some("anime-s1".into()),
+            season_number: Some(1),
+            duration: 1400.0,
+            fingerprints: Some(ep2_fps),
+            fingerprint_rate: Some(10.0),
+            ..Default::default()
+        },
+        EpisodeData {
+            id: "ep-03".into(),
+            series_id: Some("anime-s1".into()),
+            season_number: Some(1),
+            duration: 1400.0,
+            fingerprints: Some(ep3_fps),
+            fingerprint_rate: Some(10.0),
+            ..Default::default()
+        },
+        EpisodeData {
+            id: "ep-04".into(),
+            series_id: Some("anime-s1".into()),
+            season_number: Some(1),
+            duration: 1400.0,
+            fingerprints: Some(ep4_fps),
+            fingerprint_rate: Some(10.0),
+            ..Default::default()
+        },
+    ];
+
+    let results = analyzer.analyze_season(&episodes);
+    assert_eq!(results.len(), 4);
+
+    // Ep 1 & 2 detected with Opening A offsets
+    assert!(results[0].intro.is_some());
+    let intro1 = results[0].intro.as_ref().unwrap();
+    assert!((intro1.start - 10.0).abs() < 1.0);
+    assert!((intro1.duration() - 45.0).abs() < 1.0);
+
+    assert!(results[1].intro.is_some());
+    let intro2 = results[1].intro.as_ref().unwrap();
+    assert!((intro2.start - 20.0).abs() < 1.0);
+    assert!((intro2.duration() - 45.0).abs() < 1.0);
+
+    // Ep 3 & 4 detected with Opening B offsets
+    assert!(results[2].intro.is_some());
+    let intro3 = results[2].intro.as_ref().unwrap();
+    assert!((intro3.start - 5.0).abs() < 1.5);
+    assert!((intro3.duration() - 45.0).abs() < 2.5);
+
+    assert!(results[3].intro.is_some());
+    let intro4 = results[3].intro.as_ref().unwrap();
+    assert!((intro4.start - 15.0).abs() < 1.5);
+    assert!((intro4.duration() - 45.0).abs() < 2.5);
+}
+
+#[test]
+fn test_post_credits_scene_detection() {
+    let config = IntroSkipperConfig::default();
+    let detector = CreditsDetector::new(&config);
+
+    let mut credits_theme = Vec::new();
+    for i in 0..600 {
+        credits_theme.push(0xCAFEF00D ^ (i as u32 * 41));
+    }
+
+    // Ep A: standard credits at the very end
+    let ep_a = EpisodeData {
+        id: "ep-a".into(),
+        duration: 1200.0,
+        tail_start: Some(1140.0),
+        tail_fingerprints: Some(credits_theme.clone()),
+        fingerprint_rate: Some(10.0),
+        ..Default::default()
+    };
+
+    // Ep B: has a 40-second post-credits scene! (Credits end at 1160, episode ends at 1200)
+    let mut ep_b_tail = credits_theme.clone();
+    ep_b_tail.extend(vec![0x12345678; 400]); // 40 seconds of post-credits scene audio
+
+    let ep_b = EpisodeData {
+        id: "ep-b".into(),
+        duration: 1200.0,
+        tail_start: Some(1100.0),
+        tail_fingerprints: Some(ep_b_tail),
+        fingerprint_rate: Some(10.0),
+        ..Default::default()
+    };
+
+    let result = detector.detect_tail_credits(&ep_a, &ep_b);
+    assert!(result.is_some());
+    let (marker_a, marker_b) = result.unwrap();
+
+    assert_eq!(marker_a.marker_type, MarkerType::Credits);
+    assert_eq!(marker_b.marker_type, MarkerType::Credits);
+
+    // Ep B post-credits scene: marker ends around 1160, leaving 40s before 1200
+    assert!((marker_b.start - 1100.0).abs() < 1.5);
+    assert!((marker_b.end - 1160.0).abs() < 1.5);
+    assert!(
+        ep_b.duration - marker_b.end >= 35.0,
+        "Post-credits scene preserved!"
+    );
 }

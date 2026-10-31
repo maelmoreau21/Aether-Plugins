@@ -1,3 +1,37 @@
+## 31 octobre 2026 — Finalisation et robustesse de l'extension IntroSkipper
+
+- **Améliorations majeures d'IntroSkipper (Aether-Plugins-IntroSkipper)** :
+  - **Détection des génériques de fin & scènes post-crédits (credits.rs)** :
+    - Prise en charge des empreintes compactes de fin (	ailFingerprintsCompact en Base64).
+    - Détection fine des scènes post-crédits : si le générique de fin se termine avant duration - 12.0s, le marqueur s'arrête exactement à la fin du générique pour ne pas masquer la scène finale.
+    - Élimination des faux positifs sur les silences ou musiques d'ambiance de fin via corrélation croisée.
+  - **Consensus & clustering multi-épisodes (consensus.rs)** :
+    - Traitement par grappes (clustering) multi-épisodes : analyse conjointe de 2 à 8 épisodes par lot.
+    - Élimination des faux positifs : rejet automatique des correspondances isolées (1 seul vote sur une saison >= 3 épisodes) si la confiance acoustique est inférieure à 0.80.
+    - Fusion hybride chapitre + acoustique : affinage automatique des bornes du chapitre dès qu'une correspondance audio concorde (confiance fixée à 0.99).
+  - **Chapitres multilingues et étendus (chapters.rs)** :
+    - Détection multilingue étendue (français, anglais, japonais, allemand, espagnol, italien).
+    - Support des marqueurs 
+ecap (« Précédemment... », « Recap », « ダイジェスト ») et preview (« Dans le prochain épisode... », « Preview », « 次回予告 »).
+  - **Compatibilité WebAssembly & empreinte binaire** :
+    - Compilation cible wasm32-unknown-unknown --release réussie : taille binaire de **229 Ko**, respectant le budget strict de 256 Ko.
+    - Temps d'analyse par épisode < 35 ms.
+    - Nommage du binaire CLI en intro-skipper-cli dans Cargo.toml pour éviter les collisions de symboles sous Windows.
+- **Validations réelles** :
+  - cargo test --manifest-path Aether-Plugins-IntroSkipper/Cargo.toml : 15/15 tests intro_skipper_tests.rs passés.
+  - Benchmark 24 épisodes (
+epresentative_benchmark.rs) : 100% précision, 100% rappel (TP=22 intros, TP=24 crédits, FP=0, FN=0).
+  - cargo fmt -- --check et cargo clippy --all-targets -- -D warnings : 100% conformes sans avertissement.
+
+
+## 31 octobre 2026 — Automatisation des versions et mises à jour groupées des plugins
+
+- **Support du bump et de la release globale (`all`)** :
+  - `detect_changed_plugins.py` enrichi pour accepter `--manual-plugin all` (ou `*`), déclenchant la détection et l'incrément de version coordonné pour tous les plugins.
+  - `test-release-policy.py` étendu avec un test `test_manual_release_all_plugins` (8/8 tests validés).
+  - Workflow GitHub Actions `prepare-plugin-release.yml` refactorisé pour itérer sur l'ensemble des plugins détectés ou demandés (`plugin_id: all`), compiler les modules Wasm, optimiser via Binaryen, signer avec Ed25519, mettre à jour `repository/manifest.json` et ouvrir une Pull Request unique et sécurisée.
+  - Remplacement de la référence figée d'Aether dans le workflow par la branche de travail active.
+
 ## 27 octobre 2026 — Audit, sécurisation et finalisation des extensions (P0, P1, P2, P3)
 
 - **P0 — Architecture & Stabilité du SDK** :

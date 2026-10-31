@@ -15,6 +15,10 @@ min-server-version = "0.1.0"
 max-server-version = "1.0.0"
 banner = "assets/banner.svg"
 
+[[bin]]
+name = "intro-skipper-cli"
+path = "src/main.rs"
+
 [lib]
 crate-type = ["cdylib", "rlib"]
 

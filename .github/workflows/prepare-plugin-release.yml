@@ -4,10 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       plugin_id:
-        description: 'Identifiant du plugin à préparer'
+        description: 'Identifiant du plugin à préparer (ou "all" pour tous)'
         required: true
         type: choice
         options:
+          - all
           - tmdb
           - imdb
           - omdb
@@ -16,6 +17,7 @@ on:
           - discogs
           - lrclib
           - intro-skipper
+        default: all
       bump_type:
         description: 'Type d’incrément pour cette release'
         required: true
@@ -49,11 +51,11 @@ jobs:
             exit 1
           fi
 
-      - name: Checkout Aether (version figée des outils de signature)
+      - name: Checkout Aether (outils de signature)
         uses: actions/checkout@v4
         with:
           repository: ${{ github.repository_owner }}/Aether
-          ref: 74377be769fb9e2e1d5d2f6257b8dca5cf4e251e
+          ref: ${{ (github.base_ref == 'main' || github.ref_name == 'main') && 'main' || 'develop' }}
           path: Aether
 
       - name: Checkout Aether-Plugins (full history)
@@ -68,7 +70,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Déterminer la version et vérifier l’immutabilité
+      - name: Déterminer les versions et vérifier l’immutabilité
         id: detect
         run: |
           cd Aether-Plugins
@@ -84,29 +86,30 @@ jobs:
             exit 1
           fi
 
-          PLUGIN_NAME=$(jq -r '.[0].name' detected.json)
-          PLUGIN_DIR=$(jq -r '.[0].dir' detected.json)
-          PLUGIN_TAG=$(jq -r '.[0].tag' detected.json)
-          NEXT_VER=$(jq -r '.[0].next_version' detected.json)
-          SHORT_ID=$(jq -r '.[0].tag_prefix' detected.json)
-          PKG_EXISTS=$(jq -r '.[0].package_already_exists' detected.json)
+          for row in $(jq -r '.[] | @base64' detected.json); do
+            _jq() { echo "$row" | base64 --decode | jq -r "$1"; }
+            EXISTS=$(_jq '.package_already_exists')
+            VER=$(_jq '.next_version')
+            NAME=$(_jq '.name')
+            if [ "$EXISTS" = "true" ]; then
+              echo "::error::Le paquet pour $NAME ($VER) existe déjà dans repository/packages/. Refus d'écrasement."
+              exit 1
+            fi
+          done
 
-          if [ "$PKG_EXISTS" = "true" ]; then
-            echo "::error::Le paquet pour la version $NEXT_VER existe déjà dans repository/packages/. Refus d'écrasement."
-            exit 1
+          FIRST_ID=$(jq -r '.[0].id' detected.json)
+          FIRST_VER=$(jq -r '.[0].next_version' detected.json)
+          if [ "$COUNT" -eq 1 ]; then
+            BRANCH_TAG="$FIRST_ID-v$FIRST_VER"
+          else
+            BRANCH_TAG="all-$(date +%Y%m%d%H%M%S)"
           fi
-
-          {
-            echo "plugin_name=$PLUGIN_NAME"
-            echo "plugin_dir=$PLUGIN_DIR"
-            echo "plugin_tag=$PLUGIN_TAG"
-            echo "next_ver=$NEXT_VER"
-            echo "short_id=$SHORT_ID"
-          } >> "$GITHUB_OUTPUT"
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "branch_tag=$BRANCH_TAG" >> "$GITHUB_OUTPUT"
 
       - name: Configurer la branche de release
         env:
-          BRANCH_NAME: release/${{ github.event.inputs.plugin_id }}-v${{ steps.detect.outputs.next_ver }}
+          BRANCH_NAME: release/${{ steps.detect.outputs.branch_tag }}
         run: |
           cd Aether-Plugins
           git checkout -b "$BRANCH_NAME"
@@ -129,66 +132,51 @@ jobs:
           cd Aether
           cargo build --locked --release -p media-poc --bin media-extension-pack --bin media-extension-worker
 
-      - name: Mettre à jour la version dans Cargo.toml du plugin
-        run: |
-          cd Aether-Plugins/${{ steps.detect.outputs.plugin_dir }}
-          sed -i 's/^version = ".*"/version = "${{ steps.detect.outputs.next_ver }}"/' Cargo.toml
-          git diff Cargo.toml
-          cd ..
-          # Actualise la version du paquet local dans le lockfile avant --locked.
-          cargo metadata --format-version 1 > /dev/null
-
-      - name: Compiler le module WebAssembly
-        run: |
-          cd Aether-Plugins
-          cargo build --locked --release --lib -p ${{ steps.detect.outputs.plugin_name }} --target wasm32-unknown-unknown
-          cargo build --locked --release --bin ${{ steps.detect.outputs.plugin_name }} -p ${{ steps.detect.outputs.plugin_name }}
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '24'
 
-      - name: Optimiser le module Wasm avant signature
-        env:
-          PLUGIN_CRATE: ${{ steps.detect.outputs.plugin_name }}
-        run: |
-          cd Aether-Plugins
-          npm ci --ignore-scripts
-          node scripts/optimize-wasm.mjs "target/wasm32-unknown-unknown/release/${PLUGIN_CRATE//-/_}.wasm"
-
-      - name: Valider le module Wasm
-        run: |
-          cd Aether-Plugins
-          node scripts/test-wasm.cjs target/wasm32-unknown-unknown/release "${{ steps.detect.outputs.plugin_name }}"
-
-      - name: Préparer la clé de signature privée
+      - name: Mettre à jour les versions et compiler les paquets
         env:
           ED25519_PRIVATE_KEY: ${{ secrets.ED25519_PRIVATE_KEY }}
         run: |
+          cd Aether-Plugins
           mkdir -p "$HOME/.aether_keys"
           echo -n "$ED25519_PRIVATE_KEY" | base64 -d > "$HOME/.aether_keys/private.key"
           chmod 600 "$HOME/.aether_keys/private.key"
 
-      - name: Générer le manifeste et signer le paquet
-        run: |
-          cd Aether-Plugins
-          CRATE="${{ steps.detect.outputs.plugin_name }}"
-          SHORT="${{ steps.detect.outputs.short_id }}"
-          NEXT_VER="${{ steps.detect.outputs.next_ver }}"
-          WASM_PATH="target/wasm32-unknown-unknown/release/${CRATE//-/_}.wasm"
+          npm ci --ignore-scripts
 
-          "./target/release/$CRATE" --manifest > "target/$SHORT.raw.manifest.json"
-          WASM_HASH=$(sha256sum "$WASM_PATH" | awk '{print $1}')
+          for row in $(jq -r '.[] | @base64' detected.json); do
+            _jq() { echo "$row" | base64 --decode | jq -r "$1"; }
+            CRATE=$(_jq '.name')
+            PDIR=$(_jq '.dir')
+            NEXT_VER=$(_jq '.next_version')
+            SHORT=$(_jq '.tag_prefix')
 
-          python3 -c "
+            echo "=== Traitement de $CRATE (version $NEXT_VER) ==="
+            sed -i 's/^version = ".*"/version = "'"$NEXT_VER"'"/' "$PDIR/Cargo.toml"
+            cargo metadata --format-version 1 > /dev/null
+
+            cargo build --locked --release --lib -p "$CRATE" --target wasm32-unknown-unknown
+            cargo build --locked --release --bin "$CRATE" -p "$CRATE"
+
+            WASM_PATH="target/wasm32-unknown-unknown/release/${CRATE//-/_}.wasm"
+            node scripts/optimize-wasm.mjs "$WASM_PATH"
+            node scripts/test-wasm.cjs target/wasm32-unknown-unknown/release "$CRATE"
+
+            "./target/release/$CRATE" --manifest > "target/$SHORT.raw.manifest.json"
+            WASM_HASH=$(sha256sum "$WASM_PATH" | awk '{print $1}')
+
+            python3 -c "
           import json
           from pathlib import Path
           with open('target/$SHORT.raw.manifest.json', 'r', encoding='utf-8') as f:
               m = json.load(f)
           banner = m.get('banner')
           if banner and banner.startswith('assets/'):
-              m['banner'] = Path('${{ steps.detect.outputs.plugin_dir }}', banner).read_text(encoding='utf-8')
+              m['banner'] = Path('$PDIR', banner).read_text(encoding='utf-8')
           m['apiVersion'] = 1
           m['version'] = '$NEXT_VER'
           m['checksum'] = '$WASM_HASH'
@@ -197,25 +185,20 @@ jobs:
               json.dump(m, f, indent=2)
           "
 
-          ../Aether/target/release/media-extension-pack pack \
-            "target/$SHORT.manifest.json" \
-            "$WASM_PATH" \
-            "$HOME/.aether_keys/private.key" \
-            "${{ github.repository_owner }}" \
-            "repository/packages/$SHORT-$NEXT_VER.package.json"
+            PKG_PATH="repository/packages/$SHORT-$NEXT_VER.package.json"
+            ../Aether/target/release/media-extension-pack pack \
+              "target/$SHORT.manifest.json" \
+              "$WASM_PATH" \
+              "$HOME/.aether_keys/private.key" \
+              "${{ github.repository_owner }}" \
+              "$PKG_PATH"
 
-      - name: Mettre à jour repository/manifest.json
-        run: |
-          cd Aether-Plugins
-          SHORT="${{ steps.detect.outputs.short_id }}"
-          NEXT_VER="${{ steps.detect.outputs.next_ver }}"
-          PKG_PATH="repository/packages/$SHORT-$NEXT_VER.package.json"
-
-          python3 scripts/update_catalog_entry.py \
-            --package-path "$PKG_PATH" \
-            --public-key-path "repository/publisher-public.txt" \
-            --base-url "https://raw.githubusercontent.com/${{ github.repository }}/main/repository/packages/" \
-            --manifest-path "repository/manifest.json"
+            python3 scripts/update_catalog_entry.py \
+              --package-path "$PKG_PATH" \
+              --public-key-path "repository/publisher-public.txt" \
+              --base-url "https://raw.githubusercontent.com/${{ github.repository }}/main/repository/packages/" \
+              --manifest-path "repository/manifest.json"
+          done
 
       - name: Vérifier l'intégrité du catalogue et des signatures
         run: |
@@ -227,27 +210,26 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PLUGIN_ID: ${{ github.event.inputs.plugin_id }}
-          NEXT_VER: ${{ steps.detect.outputs.next_ver }}
-          BRANCH_NAME: release/${{ github.event.inputs.plugin_id }}-v${{ steps.detect.outputs.next_ver }}
+          BRANCH_NAME: release/${{ steps.detect.outputs.branch_tag }}
         run: |
           cd Aether-Plugins
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           git add Cargo.lock Aether-Plugins-*/Cargo.toml repository/manifest.json repository/packages/*.package.json
-          git commit -m "chore(release): prepare $PLUGIN_ID v$NEXT_VER [skip ci]"
+          git commit -m "chore(release): prepare plugins release ($PLUGIN_ID) [skip ci]"
           git push origin "$BRANCH_NAME"
 
           # shellcheck disable=SC2016 # Markdown backticks are literal in single quotes.
           printf '%s\n' \
-            "Préparation automatisée de la release pour l'extension **$PLUGIN_ID** en version **$NEXT_VER**." \
+            "Préparation automatisée de la release pour **$PLUGIN_ID**." \
             '' \
-            '- Paquet signé avec Ed25519' \
+            '- Paquets signés avec Ed25519' \
             '- Intégrité Wasm et ABI vérifiées' \
-            '- Entrée du catalogue mise à jour dans `repository/manifest.json`' \
+            '- Entrées du catalogue mises à jour dans `repository/manifest.json`' \
             '- Respect strict des branches protégées (pas de push direct sur main).' > pr-body.md
           gh pr create \
             --base main \
             --head "$BRANCH_NAME" \
-            --title "chore(release): release $PLUGIN_ID v$NEXT_VER" \
+            --title "chore(release): release plugins ($PLUGIN_ID)" \
             --body-file pr-body.md

@@ -312,8 +312,8 @@ du plugin. Le téléchargement GitHub et l’upload stockent les images sur le s
 
 ### 1. Principes de Versioning des Plugins
 - **Version indépendante** : Chaque plugin situé dans un sous-dossier `Aether-Plugins-*` possède son propre numéro de version Semantic Versioning `MAJOR.MINOR.PATCH` dans son `Cargo.toml`.
-- **Publication manuelle** : Aucun push ou merge ne cree de nouvelle version. Dans Actions, ouvrir `Release Plugin`, puis `Run workflow` sur `main` et choisir uniquement le plugin a publier.
-- **Increment explicite** : `PATCH` par defaut (`0.1.0 -> 0.1.1`), `MINOR` (`0.1.0 -> 0.2.0`) ou `MAJOR` (`0.1.0 -> 1.0.0`). Les autres plugins ne sont pas publies, meme si leurs sources ont change.
+- **Publication unitaire ou globale** : Dans Actions, ouvrir `Préparer la release d'un plugin (PR contrôlée)`, puis `Run workflow` sur `main` et choisir un plugin spécifique ou `all` pour préparer tous les plugins modifiés.
+- **Increment explicite** : `PATCH` par défaut (`0.1.0 -> 0.1.1`), `MINOR` (`0.1.0 -> 0.2.0`) ou `MAJOR` (`0.1.0 -> 1.0.0`). Avec `all`, chaque plugin est incrémenté de façon autonome et groupée dans une seule PR sécurisée.
 
 ### 2. Configuration Sécurisée de la Signature en CI
 Pour permettre la signature automatique Ed25519 lors des publications sur `main` :

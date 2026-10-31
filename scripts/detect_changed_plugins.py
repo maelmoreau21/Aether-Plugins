@@ -180,7 +180,7 @@ def main():
         bump_type = "PATCH" if channel == "main" else "MINOR"
         reason = ""
 
-        if manual_plugin and (manual_plugin == p_id or manual_plugin == p_dir or manual_plugin == crate_name):
+        if manual_plugin and (manual_plugin in ["all", "*"] or manual_plugin == p_id or manual_plugin == p_dir or manual_plugin == crate_name):
             is_triggered = True
             bump_type = manual_bump if manual_bump in ["MAJOR", "MINOR", "PATCH"] else "PATCH"
             reason = f"Manual dispatch requested ({bump_type})"
