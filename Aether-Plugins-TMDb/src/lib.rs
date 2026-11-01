@@ -269,7 +269,13 @@ impl MetadataProviderPlugin for TmdbPlugin {
             }
         }
 
-        let data: TmdbSearchResponse = self.fetch_json(endpoint, &params, config).await?;
+        let mut data: TmdbSearchResponse = self.fetch_json(endpoint, &params, config).await?;
+
+        // A wrong or release-year-offset filter must not hide the right title: retry without it.
+        if data.results.is_empty() && year_str.is_some() {
+            let relaxed = [("query", query.title.as_str()), ("language", language)];
+            data = self.fetch_json(endpoint, &relaxed, config).await?;
+        }
 
         let items = data
             .results
