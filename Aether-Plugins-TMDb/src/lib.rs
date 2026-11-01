@@ -221,10 +221,10 @@ impl MetadataProviderPlugin for TmdbPlugin {
                 },
                 ConfigField {
                     key: "api_key".into(),
-                    label: "Clé API TMDb".into(),
+                    label: "Clé API TMDb (optionnelle)".into(),
                     field_type: "password".into(),
-                    description: "Clé API TMDb v3 ou jeton d'accès v4 Bearer (obtenue sur themoviedb.org)".into(),
-                    required: true,
+                    description: "Clé API TMDb v3 ou jeton d'accès v4 Bearer (optionnelle : clé communautaire active par défaut si vide)".into(),
+                    required: false,
                     secret: true,
                     default_value: None,
                     options: vec![],
@@ -316,10 +316,48 @@ impl MetadataProviderPlugin for TmdbPlugin {
     ) -> Result<StructuredMetadata, PluginError> {
         let language = config.language.as_deref().unwrap_or("fr-FR");
         let is_tv = matches!(request.media_type, MediaType::TvShow | MediaType::Episode);
+        let mut id = request.id.trim().to_string();
+        if !id.bytes().all(|b| b.is_ascii_digit()) || id.is_empty() {
+            let imdb_candidate = if id.starts_with("tt") {
+                Some(id.as_str())
+            } else {
+                request.external_ids.get("imdb").map(String::as_str)
+            };
+            if let Some(imdb_id) = imdb_candidate {
+                let find_endpoint = format!("find/{imdb_id}");
+                if let Ok(find_val) = self
+                    .fetch_json::<serde_json::Value>(
+                        &find_endpoint,
+                        &[("external_source", "imdb_id")],
+                        config,
+                    )
+                    .await
+                {
+                    let candidate_id = if is_tv {
+                        find_val
+                            .get("tv_results")
+                            .and_then(|v| v.as_array())
+                            .and_then(|a| a.first())
+                            .and_then(|c| c.get("id"))
+                            .and_then(|i| i.as_u64())
+                    } else {
+                        find_val
+                            .get("movie_results")
+                            .and_then(|v| v.as_array())
+                            .and_then(|a| a.first())
+                            .and_then(|c| c.get("id"))
+                            .and_then(|i| i.as_u64())
+                    };
+                    if let Some(cid) = candidate_id {
+                        id = cid.to_string();
+                    }
+                }
+            }
+        }
         let endpoint = if is_tv {
-            format!("tv/{}", request.id)
+            format!("tv/{id}")
         } else {
-            format!("movie/{}", request.id)
+            format!("movie/{id}")
         };
 
         let params = [
@@ -696,15 +734,54 @@ impl MetadataProviderPlugin for TmdbPlugin {
         config: &ProviderConfig,
     ) -> Result<Vec<MediaImage>, PluginError> {
         let is_tv = matches!(request.media_type, MediaType::TvShow | MediaType::Episode);
-        let id = if request.id.trim().is_empty() {
+        let mut id = if request.id.trim().is_empty() {
             request
                 .external_ids
                 .get("tmdb")
                 .map(String::as_str)
                 .unwrap_or("")
+                .to_string()
         } else {
-            request.id.as_str()
+            request.id.trim().to_string()
         };
+
+        if (!id.bytes().all(|b| b.is_ascii_digit()) || id.is_empty())
+            && let Some(imdb_id) = request
+                .external_ids
+                .get("imdb")
+                .map(String::as_str)
+                .or_else(|| request.id.starts_with("tt").then_some(request.id.as_str()))
+        {
+            let find_endpoint = format!("find/{imdb_id}");
+            if let Ok(find_val) = self
+                .fetch_json::<serde_json::Value>(
+                    &find_endpoint,
+                    &[("external_source", "imdb_id")],
+                    config,
+                )
+                .await
+            {
+                let candidate_id = if is_tv {
+                    find_val
+                        .get("tv_results")
+                        .and_then(|v| v.as_array())
+                        .and_then(|a| a.first())
+                        .and_then(|c| c.get("id"))
+                        .and_then(|i| i.as_u64())
+                } else {
+                    find_val
+                        .get("movie_results")
+                        .and_then(|v| v.as_array())
+                        .and_then(|a| a.first())
+                        .and_then(|c| c.get("id"))
+                        .and_then(|i| i.as_u64())
+                };
+                if let Some(cid) = candidate_id {
+                    id = cid.to_string();
+                }
+            }
+        }
+
         if id.is_empty() || !id.bytes().all(|b| b.is_ascii_digit()) {
             return Err(PluginError::new(
                 "missing_id",
