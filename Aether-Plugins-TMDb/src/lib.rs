@@ -462,10 +462,7 @@ impl MetadataProviderPlugin for TmdbPlugin {
 
         let params = [
             ("language", language),
-            (
-                "append_to_response",
-                "credits,external_ids",
-            ),
+            ("append_to_response", "credits,external_ids"),
         ];
 
         let val: serde_json::Value = self.fetch_json(&endpoint, &params, config).await?;
