@@ -65,7 +65,7 @@ dependencies = [
 
 [[package]]
 name = "aether-plugin-intro-skipper"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "aether-plugin-api",
  "async-trait",

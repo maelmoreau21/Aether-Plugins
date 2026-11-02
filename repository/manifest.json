@@ -191,7 +191,7 @@
         "apiVersion": 1,
         "id": "intro-skipper",
         "name": "Intro Skipper",
-        "version": "0.1.0",
+        "version": "0.1.1",
         "description": "Détection automatique ultra-rapide des introductions et génériques de fin par empreintes audio et chapitres",
         "author": "Aether Team",
         "license": "AGPL-3.0-only",
@@ -203,7 +203,7 @@
         "targetAbi": "1.0",
         "minServerVersion": "0.1.0",
         "maxServerVersion": "1.0.0",
-        "checksum": "55c06e16d4711bf436460cb435520f0063919a6dda17786f9a0ba8720ab95ee4",
+        "checksum": "f61542c9f0df8bd867163258b62f528aff73f633f530bfcbf25b73aaae644974",
         "banner": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 800 240\" width=\"800\" height=\"240\">\n  <defs>\n    <linearGradient id=\"skipGrad\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\">\n      <stop offset=\"0%\" stop-color=\"#06b6d4\"/>\n      <stop offset=\"50%\" stop-color=\"#3b82f6\"/>\n      <stop offset=\"100%\" stop-color=\"#8b5cf6\"/>\n    </linearGradient>\n  </defs>\n  <rect width=\"800\" height=\"240\" fill=\"#0b0f19\"/>\n  <!-- Decorative waveform bars in background -->\n  <g opacity=\"0.12\" fill=\"#38bdf8\">\n    <rect x=\"50\" y=\"80\" width=\"8\" height=\"80\" rx=\"4\"/>\n    <rect x=\"70\" y=\"60\" width=\"8\" height=\"120\" rx=\"4\"/>\n    <rect x=\"90\" y=\"90\" width=\"8\" height=\"60\" rx=\"4\"/>\n    <rect x=\"110\" y=\"45\" width=\"8\" height=\"150\" rx=\"4\"/>\n    <rect x=\"130\" y=\"75\" width=\"8\" height=\"90\" rx=\"4\"/>\n    <rect x=\"670\" y=\"70\" width=\"8\" height=\"100\" rx=\"4\"/>\n    <rect x=\"690\" y=\"50\" width=\"8\" height=\"140\" rx=\"4\"/>\n    <rect x=\"710\" y=\"85\" width=\"8\" height=\"70\" rx=\"4\"/>\n    <rect x=\"730\" y=\"60\" width=\"8\" height=\"120\" rx=\"4\"/>\n  </g>\n  <!-- Central branding group -->\n  <g transform=\"translate(140, 60)\">\n    <!-- Fast-forward / Skip icon with gradient circle -->\n    <circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"url(#skipGrad)\"/>\n    <!-- Double forward arrow with vertical bar -->\n    <path d=\"M 40,40 L 60,60 L 40,80 Z\" fill=\"#ffffff\"/>\n    <path d=\"M 60,40 L 80,60 L 60,80 Z\" fill=\"#ffffff\"/>\n    <rect x=\"83\" y=\"40\" width=\"5\" height=\"40\" rx=\"2\" fill=\"#ffffff\"/>\n    <!-- Brand Title and subtitle -->\n    <text x=\"145\" y=\"65\" font-family=\"system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif\" font-weight=\"800\" font-size=\"52\" fill=\"#ffffff\" letter-spacing=\"1\">Intro Skipper</text>\n    <text x=\"148\" y=\"95\" font-family=\"system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif\" font-weight=\"500\" font-size=\"18\" fill=\"#94a3b8\" letter-spacing=\"2\">DÉTECTION AUDIO &amp; CHAPITRES</text>\n  </g>\n</svg>\n",
         "configSchema": [
           {
@@ -234,6 +234,15 @@
             "secret": false
           },
           {
+            "key": "max_credits_duration",
+            "label": "Durée maximale du générique de fin (s)",
+            "description": "De la durée minimale à 300 secondes. Limite les marqueurs par chapitres et empreintes ; n'allonge pas l'extraction audio du Node.",
+            "fieldType": "number",
+            "defaultValue": "300",
+            "required": false,
+            "secret": false
+          },
+          {
             "key": "similarity_threshold",
             "label": "Seuil de similarité audio",
             "description": "Seuil de corrélation acoustique (0.70 à 0.90 recommandé)",
@@ -243,9 +252,18 @@
             "secret": false
           },
           {
+            "key": "search_window_start",
+            "label": "Début de recherche acoustique de l'intro (s)",
+            "description": "Ignorer l'audio avant cette position (0 à moins de 600 s), par exemple un résumé récurrent. La fenêtre doit contenir la durée minimale d'intro.",
+            "fieldType": "number",
+            "defaultValue": "0",
+            "required": false,
+            "secret": false
+          },
+          {
             "key": "search_window_end",
             "label": "Fenêtre de recherche intro (s)",
-            "description": "Rechercher l'intro dans les X premières secondes de l'épisode (600s = 10 min)",
+            "description": "Fin de la fenêtre acoustique, plafond 600 secondes. La recherche reste limitée aux empreintes fournies (Node actuel : environ 290 s). Les chapitres nommés restent indépendants.",
             "fieldType": "number",
             "defaultValue": "600",
             "required": false,
@@ -331,8 +349,8 @@
       },
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
-      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/packages/intro-skipper-0.1.0.package.json",
-      "packageSha256": "bcfc070908c199dc6595c4104c296b8c4d8813994ed9d8126d80352fbc4b4844"
+      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/packages/intro-skipper-0.1.1.package.json",
+      "packageSha256": "2f8546d456c17ff46b5ec41e3e435df8823d46b4d558407da23e25f13af347c6"
     },
     {
       "manifest": {
