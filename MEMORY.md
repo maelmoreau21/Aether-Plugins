@@ -1,3 +1,13 @@
+## 2 novembre 2026 — Conservation des anciennes versions signées
+
+- Le contrôle du catalogue comparait le nombre total de fichiers au nombre
+  d'entrées actives : publication de huit paquets avec sept anciennes versions
+  conservées échouait sur `15 != 8` malgré les signatures valides.
+- Les anciens paquets restent conservés et sont aussi vérifiés : signature,
+  SHA-256, taille, encodage et unicité id/version. Les paquets actifs restent
+  contrôlés contre les empreintes et URLs du catalogue.
+- Quatre régressions ciblées et catalogue local validés. Test ajouté à la CI.
+
 ## 2 novembre 2026 — Manifeste signé compatible Core
 
 - Les workflows de publication transmettaient le manifeste interne du fournisseur

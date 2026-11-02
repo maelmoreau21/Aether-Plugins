@@ -109,7 +109,9 @@ jobs:
 
       - name: Verify signed repository packages
         working-directory: Aether-Plugins
-        run: node scripts/test-repository.cjs --allow-development
+        run: |
+          node scripts/test-repository.cjs --allow-development
+          node --test scripts/test-repository-history.cjs
 
       - name: Verify release asset discovery
         working-directory: Aether-Plugins
