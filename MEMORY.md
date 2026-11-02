@@ -1,3 +1,17 @@
+## 2 novembre 2026 — Paquets develop automatiques
+
+- Après CI verte sur push develop : calcul depuis le dernier catalogue, incrément
+  PATCH si nécessaire, compilation/signature, catalogue develop, GitHub prerelease.
+  Les tags seuls ont été remplacés par des paquets réellement installables.
+- Manifestes numériques pour compatibilité Core ; suffixe bêta porté par le tag.
+  Pas d'écrasement de paquet ni push forcé. Stable main garde sa préparation contrôlée.
+- Détection du nom du binaire réel (dont intro-skipper-cli) dans les deux workflows.
+  Core bêta suit le catalogue develop pour le dépôt officiel préconfiguré.
+- TMDb details : ne demande plus le lot de toutes les traductions et images avec
+  les crédits ; affiches principales via poster_path, recherche images séparée.
+- Vérifié : 8 règles de release, plan de versions et Actionlint. Signature et
+  publication GitHub non déclenchées ; secret production existant requis.
+
 ## 2 novembre 2026 — Dependabot et résolution indépendante du SDK
 
 - La CI plugins du commit `cba7c7e` est verte (run `41446201445`). L'échec

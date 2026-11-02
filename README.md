@@ -1,12 +1,18 @@
-## Versions publiees sur decision explicite - 25 octobre 2026
+## Publication automatique de développement
 
-Un push ou une fusion sur main/develop ne declenche plus de release numerotee.
-Les workflows CI et les images Docker develop/latest continuent leur parcours
-habituel, avec un identifiant de commit distinct. Pour publier une version,
-ouvrir GitHub Actions, choisir Release (Aether) ou Release Plugin (extensions),
-Run workflow sur main, puis PATCH, MINOR ou MAJOR. PATCH est le choix par defaut.
-Une nouvelle release publiee garde un numero unique ; les versions deja publiees
-ne sont pas ecrasees. Chaque plugin garde son versionnement independant.
+Un push sur `develop` déclenche, après réussite de la CI, la détection des plugins
+modifiés depuis le dernier catalogue, l'incrément PATCH si nécessaire, la
+compilation et la signature de leurs paquets, puis la mise à jour du catalogue
+`develop` et une GitHub Release marquée bêta. Le numéro du paquet reste numérique
+(ex. `0.1.2`) pour respecter le contrat du Core ; le tag finit par `-beta`.
+Le secret existant `ED25519_PRIVATE_KEY` de l'environnement `production` est requis.
+Les versions déjà signées ne sont jamais écrasées et aucun push forcé n'est utilisé.
+
+Catalogue bêta :
+`https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/manifest.json`.
+Les versions stables sur `main` gardent le parcours de préparation contrôlée,
+comme les versions stables d'Aether. Les tags seuls ne constituent plus une
+publication de développement : les paquets installables sont effectivement produits.
 
 ## Compilation Wasm et limite de taille
 

@@ -464,7 +464,7 @@ impl MetadataProviderPlugin for TmdbPlugin {
             ("language", language),
             (
                 "append_to_response",
-                "credits,external_ids,images,translations",
+                "credits,external_ids",
             ),
         ];
 

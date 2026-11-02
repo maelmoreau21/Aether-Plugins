@@ -160,13 +160,15 @@ jobs:
             cargo metadata --format-version 1 > /dev/null
 
             cargo build --locked --release --lib -p "$CRATE" --target wasm32-unknown-unknown
-            cargo build --locked --release --bin "$CRATE" -p "$CRATE"
+            BINARY=$(cargo metadata --no-deps --format-version 1 | jq -r --arg name "$CRATE" '.packages[] | select(.name==$name) | .targets[] | select(.kind | index("bin")) | .name' | head -n 1)
+            test -n "$BINARY"
+            cargo build --locked --release --bin "$BINARY" -p "$CRATE"
 
             WASM_PATH="target/wasm32-unknown-unknown/release/${CRATE//-/_}.wasm"
             node scripts/optimize-wasm.mjs "$WASM_PATH"
             node scripts/test-wasm.cjs target/wasm32-unknown-unknown/release "$CRATE"
 
-            "./target/release/$CRATE" --manifest > "target/$SHORT.raw.manifest.json"
+            "./target/release/$BINARY" --manifest > "target/$SHORT.raw.manifest.json"
             WASM_HASH=$(sha256sum "$WASM_PATH" | awk '{print $1}')
 
             python3 -c "

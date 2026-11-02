@@ -1,0 +1,179 @@
+name: Publier les plugins de develop
+on:
+  workflow_call:
+permissions:
+  contents: write
+concurrency:
+  group: publish-plugins-develop
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/Aether
+          ref: develop
+          path: Aether
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          path: Aether-Plugins
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Planifier les changements depuis le dernier catalogue publié
+        working-directory: Aether-Plugins
+        id: plan
+        run: |
+          python scripts/plan-auto-release.py > detected.json
+          echo "count=$(jq length detected.json)" >> "$GITHUB_OUTPUT"
+      - name: Exiger la clé de signature
+        if: steps.plan.outputs.count != '0'
+        env:
+          ED25519_PRIVATE_KEY: ${{ secrets.ED25519_PRIVATE_KEY }}
+        run: |
+          if [ -z "$ED25519_PRIVATE_KEY" ]; then
+            echo '::error::ED25519_PRIVATE_KEY est requis dans les secrets production pour publier les plugins signés.'
+            exit 1
+          fi
+      - name: Set up Rust
+        if: steps.plan.outputs.count != '0'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Cache Cargo Dependencies
+        if: steps.plan.outputs.count != '0'
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            Aether-Plugins -> target
+            Aether -> target
+
+      - name: Compiler les outils de signature Aether Core
+        if: steps.plan.outputs.count != '0'
+        run: |
+          cd Aether
+          cargo build --locked --release -p media-poc --bin media-extension-pack
+
+      - name: Set up Node.js
+        if: steps.plan.outputs.count != '0'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Mettre à jour les versions et compiler les paquets
+        if: steps.plan.outputs.count != '0'
+        env:
+          ED25519_PRIVATE_KEY: ${{ secrets.ED25519_PRIVATE_KEY }}
+        run: |
+          cd Aether-Plugins
+          mkdir -p "$HOME/.aether_keys"
+          echo -n "$ED25519_PRIVATE_KEY" | base64 -d > "$HOME/.aether_keys/private.key"
+          chmod 600 "$HOME/.aether_keys/private.key"
+
+          npm ci --ignore-scripts
+
+          for row in $(jq -r '.[] | @base64' detected.json); do
+            _jq() { echo "$row" | base64 --decode | jq -r "$1"; }
+            CRATE=$(_jq '.name')
+            PDIR=$(_jq '.dir')
+            NEXT_VER=$(_jq '.next_version')
+            SHORT=$(_jq '.tag_prefix')
+
+            echo "=== Traitement de $CRATE (version $NEXT_VER) ==="
+            sed -i 's/^version = ".*"/version = "'"$NEXT_VER"'"/' "$PDIR/Cargo.toml"
+            cargo metadata --format-version 1 > /dev/null
+
+            cargo build --locked --release --lib -p "$CRATE" --target wasm32-unknown-unknown
+            BINARY=$(cargo metadata --no-deps --format-version 1 | jq -r --arg name "$CRATE" '.packages[] | select(.name==$name) | .targets[] | select(.kind | index("bin")) | .name' | head -n 1)
+            test -n "$BINARY"
+            cargo build --locked --release --bin "$BINARY" -p "$CRATE"
+
+            WASM_PATH="target/wasm32-unknown-unknown/release/${CRATE//-/_}.wasm"
+            node scripts/optimize-wasm.mjs "$WASM_PATH"
+            node scripts/test-wasm.cjs target/wasm32-unknown-unknown/release "$CRATE"
+
+            "./target/release/$BINARY" --manifest > "target/$SHORT.raw.manifest.json"
+            WASM_HASH=$(sha256sum "$WASM_PATH" | awk '{print $1}')
+
+            python3 -c "
+          import json
+          from pathlib import Path
+          with open('target/$SHORT.raw.manifest.json', 'r', encoding='utf-8') as f:
+              m = json.load(f)
+          banner = m.get('banner')
+          if banner and banner.startswith('assets/'):
+              m['banner'] = Path('$PDIR', banner).read_text(encoding='utf-8')
+          m['apiVersion'] = 1
+          m['version'] = '$NEXT_VER'
+          m['checksum'] = '$WASM_HASH'
+          m['repository'] = '${{ github.server_url }}/${{ github.repository }}'
+          with open('target/$SHORT.manifest.json', 'w', encoding='utf-8') as f:
+              json.dump(m, f, indent=2)
+          "
+
+            PKG_PATH="repository/packages/$SHORT-$NEXT_VER.package.json"
+            ../Aether/target/release/media-extension-pack pack \
+              "target/$SHORT.manifest.json" \
+              "$WASM_PATH" \
+              "$HOME/.aether_keys/private.key" \
+              "${{ github.repository_owner }}" \
+              "$PKG_PATH"
+
+            python3 scripts/update_catalog_entry.py \
+              --package-path "$PKG_PATH" \
+              --public-key-path "repository/publisher-public.txt" \
+              --base-url "https://raw.githubusercontent.com/${{ github.repository }}/develop/repository/packages/" \
+              --manifest-path "repository/manifest.json"
+          done
+
+      - name: Aligner les URLs du catalogue sur develop
+        if: steps.plan.outputs.count != '0'
+        working-directory: Aether-Plugins
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('repository/manifest.json')
+          m=json.loads(p.read_text())
+          for e in m['extensions']:
+              e['packageUrl']=e['packageUrl'].replace('/main/repository/packages/','/develop/repository/packages/')
+          p.write_text(json.dumps(m,ensure_ascii=False,indent=2)+'\n')
+          PY
+
+      - name: Vérifier l'intégrité du catalogue et des signatures
+        if: steps.plan.outputs.count != '0'
+        run: |
+          cd Aether-Plugins
+          node scripts/test-manifests.cjs --allow-unpublished
+          node scripts/test-repository.cjs repository "https://raw.githubusercontent.com/${{ github.repository }}/develop/repository/packages/"
+
+      - name: Publier versions, paquets signés et releases bêta
+        if: steps.plan.outputs.count != '0'
+        working-directory: Aether-Plugins
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add Cargo.lock Aether-Plugins-*/Cargo.toml repository/manifest.json repository/packages/*.package.json
+          git commit -m 'chore(release): publish plugins develop [skip ci]'
+          git push origin HEAD:develop
+          COMMIT=$(git rev-parse HEAD)
+          while IFS= read -r row; do
+            TAG=$(echo "$row" | jq -r '.tag_prefix+"-v"+.next_version+"-beta"')
+            FILE=$(echo "$row" | jq -r '"repository/packages/"+.tag_prefix+"-"+.next_version+".package.json"')
+            if ! gh release view "$TAG" >/dev/null 2>&1; then
+              gh release create "$TAG" --target "$COMMIT" --prerelease --title "$TAG" --generate-notes "$FILE"
+            fi
+          done < <(jq -c '.[]' detected.json)
+      - name: Supprimer la clé temporaire
+        if: always()
+        run: rm -f "$HOME/.aether_keys/private.key"

@@ -1,7 +1,9 @@
 // Offline integrity/signature verification of the exact files served by the repository URL.
 const fs=require('node:fs');const path=require('node:path');const assert=require('node:assert/strict');const crypto=require('node:crypto');
-const root=path.resolve(process.argv[2] || path.join(__dirname,'../repository'));
-const base=process.argv[3] || 'https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/';
+const args=process.argv.slice(2).filter(a=>a!=='--allow-development');
+const allowDevelopment=process.argv.includes('--allow-development');
+const root=path.resolve(args[0] || path.join(__dirname,'../repository'));
+const base=args[1] || 'https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/';
 const bytes=fs.readFileSync(path.join(root,'manifest.json'));
 assert(bytes.length<=256*1024);const catalogue=JSON.parse(bytes);assert.equal(catalogue.apiVersion,1);
 assert(catalogue.extensions.length>0 && catalogue.extensions.length<=100);
@@ -15,7 +17,9 @@ for(const entry of catalogue.extensions){
   const filename=decodeURIComponent(path.posix.basename(url.pathname));assert(/^[a-z0-9][a-z0-9._-]*\.package\.json$/.test(filename));
   const file=path.join(root,'packages',filename);
   assert(path.basename(file).endsWith(`-${entry.manifest.version}.package.json`));
-  assert.equal(url.href,new URL(encodeURIComponent(filename),base).href);
+  const allowed=[new URL(encodeURIComponent(filename),base).href];
+  if(allowDevelopment)allowed.push(new URL(encodeURIComponent(filename),base.replace('/main/repository/packages/','/develop/repository/packages/')).href);
+  assert(allowed.includes(url.href),'Unexpected package URL');
   const raw=fs.readFileSync(file);assert(raw.length<=400000);
   assert.equal(crypto.createHash('sha256').update(raw).digest('hex'),entry.packageSha256);
   const pkg=JSON.parse(raw);assert.deepEqual(pkg.manifest,entry.manifest);assert.equal(pkg.publisherId,entry.publisherId);
