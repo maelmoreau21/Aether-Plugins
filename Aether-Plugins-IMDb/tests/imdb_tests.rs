@@ -217,6 +217,22 @@ async fn test_imdb_details_mock() {
     assert_eq!(details.provider, "imdb");
     assert_eq!(details.provider_id, "tt0816692");
     assert_eq!(details.title.as_deref(), Some("Interstellar"));
+    let identified = plugin
+        .search(
+            SearchQuery {
+                title: "Titre local incorrect".into(),
+                year: Some(1900),
+                media_type: MediaType::Movie,
+                language: None,
+                external_ids: [("imdb".into(), "tt0816692".into())].into(),
+            },
+            &config,
+        )
+        .await
+        .unwrap();
+    assert_eq!(identified.len(), 1);
+    assert_eq!(identified[0].id, "tt0816692");
+    assert_eq!(identified[0].title, "Interstellar");
     assert_eq!(details.original_title.as_deref(), Some("Interstellaire"));
     assert_eq!(details.year, Some(2014));
     assert_eq!(details.runtime_minutes, Some(169)); // 2 hours 49 mins = 169 mins

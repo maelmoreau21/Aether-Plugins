@@ -1,4 +1,4 @@
-﻿//! MusicBrainz music metadata provider extension for Aether (releases and cover art).
+//! MusicBrainz music metadata provider extension for Aether (releases and cover art).
 //!
 //! The Aether extension contract has no dedicated music media type yet: the plugin ignores
 //! `media_type` and treats every query as an album (MusicBrainz *release*) search. An
@@ -159,7 +159,7 @@ impl MetadataProviderPlugin for MusicBrainzPlugin {
             permissions: vec!["metadata.read".into(),"metadata.write".into(),"images".into()],
             id: "musicbrainz".into(),
             name: "MusicBrainz".into(),
-            version: "0.1.0".into(),
+            version: env!("CARGO_PKG_VERSION").into(),
             category: "Metadata".into(),
             provider: "MusicBrainz".into(),
             http_hosts: vec!["musicbrainz.org".into(), "coverartarchive.org".into()],
@@ -178,7 +178,7 @@ impl MetadataProviderPlugin for MusicBrainzPlugin {
             ],
             supported_media_types: vec![MediaType::Music],
             default_priority: 50,
-            config_schema: vec![ConfigField {
+            config_schema: vec![aether_plugin_api::provider_timeout_field(),ConfigField {
                 key: "base_url".into(),
                 label: "Adresse du fournisseur".into(),
                 field_type: "text".into(),
@@ -224,6 +224,7 @@ impl MetadataProviderPlugin for MusicBrainzPlugin {
                 SearchResultItem {
                     id: r.id,
                     title: r.title,
+                    artist: (!artists.is_empty()).then(|| artists.join(", ")),
                     original_title: None,
                     year: r.date.as_deref().and_then(year_of),
                     media_type: query.media_type,
@@ -343,5 +344,10 @@ media_extension_sdk::extension!(handle_musicbrainz_extension_request);
 pub fn handle_musicbrainz_extension_request(
     req: aether_plugin_api::ExtensionRequest,
 ) -> aether_plugin_api::ExtensionResponse {
-    aether_plugin_api::http::handle_extension(&MusicBrainzPlugin::new(), req)
+    let search = matches!(req.operation.as_str(), "metadata.search" | "search");
+    let mut response = aether_plugin_api::http::handle_extension(&MusicBrainzPlugin::new(), req);
+    if search {
+        aether_plugin_api::http::promote_music_artist(&mut response);
+    }
+    response
 }

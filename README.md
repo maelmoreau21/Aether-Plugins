@@ -1,12 +1,18 @@
-## Versions publiees sur decision explicite - 25 octobre 2026
+## Publication automatique de développement
 
-Un push ou une fusion sur main/develop ne declenche plus de release numerotee.
-Les workflows CI et les images Docker develop/latest continuent leur parcours
-habituel, avec un identifiant de commit distinct. Pour publier une version,
-ouvrir GitHub Actions, choisir Release (Aether) ou Release Plugin (extensions),
-Run workflow sur main, puis PATCH, MINOR ou MAJOR. PATCH est le choix par defaut.
-Une nouvelle release publiee garde un numero unique ; les versions deja publiees
-ne sont pas ecrasees. Chaque plugin garde son versionnement independant.
+Un push sur `develop` déclenche, après réussite de la CI, la détection des plugins
+modifiés depuis le dernier catalogue, l'incrément PATCH si nécessaire, la
+compilation et la signature de leurs paquets, puis la mise à jour du catalogue
+`develop` et une GitHub Release marquée bêta. Le numéro du paquet reste numérique
+(ex. `0.1.2`) pour respecter le contrat du Core ; le tag finit par `-beta`.
+Le secret existant `ED25519_PRIVATE_KEY` de l'environnement `production` est requis.
+Les versions déjà signées ne sont jamais écrasées et aucun push forcé n'est utilisé.
+
+Catalogue bêta :
+`https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/manifest.json`.
+Les versions stables sur `main` gardent le parcours de préparation contrôlée,
+comme les versions stables d'Aether. Les tags seuls ne constituent plus une
+publication de développement : les paquets installables sont effectivement produits.
 
 ## Compilation Wasm et limite de taille
 
@@ -61,7 +67,7 @@ https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/ma
 
 Les fichiers `repository/manifest.json`, `repository/packages/*.package.json` et
 `repository/publisher-public.txt` forment le catalogue public : TMDb, IMDb,
-fanart.tv, OMDb, MusicBrainz, Discogs, LRCLIB et avatars. Ce lien devient disponible après publication de ces fichiers
+fanart.tv, OMDb, MusicBrainz, Discogs et LRCLIB. Ce lien devient disponible après publication de ces fichiers
 sur la branche `main` de ce dépôt. Les modifications locales ne le publient pas.
 Aether préconfigure cette URL une seule fois. L’administrateur peut retirer le
 dépôt ; il ne réapparaît pas au redémarrage et les plugins installés sont conservés.
@@ -130,9 +136,9 @@ silencieuse. Une rotation de clé exige un nouvel identifiant d’éditeur.
 
 ## Guide local détaillé
 
-Ce dépôt contient les sources Rust des fournisseurs TMDb, IMDb, fanart.tv, OMDb, MusicBrainz, Discogs, LRCLIB et des
-avatars. Le serveur Aether reste dans le dépôt voisin `Aether`. Les dépendances
-locales supposent cette disposition :
+Ce dépôt contient les sources Rust des fournisseurs TMDb, IMDb, fanart.tv, OMDb, MusicBrainz, Discogs et LRCLIB. La compilation des extensions ne dépend pas d'un checkout local
+d'Aether : le SDK est téléchargé par Cargo à une révision Git précise. Pour les
+outils de signature locaux et les exemples ci-dessous, placer le serveur voisin :
 
 ```text
 GitHub/
@@ -156,7 +162,7 @@ n'est compilée dans le Core. Leurs manifestes déclarent `httpHosts`, domaines 
 autorisés couverts par la signature du paquet et affichés avant activation. La
 configuration et l'authentification fournisseur restent dans chaque extension.
 `Build-LocalPackage.ps1` copie ces domaines et demande `metadata.read`/`metadata.write`/`images`
-pour les fournisseurs, ou seulement `avatars` pour `-Plugin avatar`.
+pour les fournisseurs.
 Après mise à jour du Core, recréez et réinstallez les anciens paquets réseau pour
 déclarer ces droits ; ne modifiez jamais un paquet déjà signé. Aucun domaine n'est
 autorisé automatiquement d'après l'identifiant d'une extension.
@@ -166,9 +172,7 @@ et de leur application. L’année, le type film/série et les identifiants exis
 viennent du catalogue. fanart.tv nécessite un identifiant TMDb/IMDb pour les films
 ou TVDB pour les séries ; il ne recherche pas par titre. Les anciens paquets
 doivent être reconstruits et signés pour recevoir la permission `images`.
-Les packs d’avatars activés sont disponibles dans les paramètres du compte.
-Le Core transmet une variante explicite : le module Wasm ne dépend pas de
-l’horloge système pour générer l’avatar.
+Les avatars et la rotation des affiches sont des fonctions natives d’Aether.
 
 ## 2. Préparer sa clé de signature
 
@@ -199,7 +203,7 @@ Set-Location C:\Users\Mael\Documents\GitHub\Aether-Plugins
 
 Le script compile le module Wasm optimisé pour la taille, extrait le manifeste,
 calcule son empreinte et appelle l’outil officiel de signature. Il crée
-`artifacts/tmdb.package.json`. Pour IMDb ou fanart.tv, remplacer `tmdb` par `imdb`, `fanart`, `omdb`, `musicbrainz`, `discogs`, `lrclib` ou `avatar`. Les clés des fournisseurs ne sont jamais demandées par le script et
+`artifacts/tmdb.package.json`. Pour IMDb ou fanart.tv, remplacer `tmdb` par `imdb`, `fanart`, `omdb`, `musicbrainz`, `discogs` ou `lrclib`. Les clés des fournisseurs ne sont jamais demandées par le script et
 ne figurent pas dans le paquet. En cas de recompilation, fournir un nouveau
 `-OutputDirectory` : un paquet existant n’est pas écrasé.
 
@@ -254,13 +258,29 @@ sauvegardes.
 ## Développement et validation
 
 ```powershell
-cargo test -j 1
+cargo test --locked -j 1
 cargo fmt --all --check
-cargo clippy --all-targets -j 1 -- -D warnings
+cargo clippy --locked --all-targets -j 1 -- -D warnings
 ```
 
-Le SDK officiel est `../Aether/crates/extension-sdk`; `aether-plugin-api` le
-réexporte et fournit le contrat des fournisseurs. Le broker du Core autorise
+Le SDK `media-extension-sdk` version `0.1.0` est figé au commit Aether public
+`8f3373803a30d11e8c2c9d97ca5bfcf4bf70fe07`, avec Rust 1.99 minimum ;
+`Cargo.lock` fixe les dépendances transitives. `aether-plugin-api` le réexporte.
+La révision est un instantané public : les évolutions ultérieures du Core ou du
+SDK ne sont pas incluses et exigent une mise à jour coordonnée du commit, du
+lockfile et des tests d'ABI avant publication.
+
+Pour développer contre un SDK local, créer un fichier TOML hors du dépôt :
+
+```toml
+[patch."https://github.com/maelmoreau21/Aether.git"]
+media-extension-sdk = { path = "C:/chemin/vers/Aether/crates/extension-sdk" }
+```
+
+Passer ce fichier explicitement avec `cargo --config C:/chemin/sdk-local.toml
+test -j 1`. Cette surcharge est réservée au développement : elle peut modifier
+le lockfile et n'est pas reproductible ; ne pas l'utiliser pour une release.
+Le broker du Core autorise
 uniquement les hôtes HTTPS prévus pour ces fournisseurs. Les tests locaux/mocks
 ne constituent pas une validation réelle des clés ou comptes externes.
 
@@ -271,14 +291,10 @@ Ajoutez un dépôt HTTPS, installez, configurez et activez. Les signatures et le
 empreintes restent vérifiées ; elles n’attestent pas que l’auteur est fiable.
 [Créer son propre plugin sans modifier Aether](CREATING_PLUGINS.md).
 
-La configuration Avatars inclut désormais un import de collections GitHub géré
-par Core : saisir un lien de dépôt, parcourir, sélectionner un dossier et un nom,
-puis importer. Le réglage de chemin disque `custom_pack_path`, inutilisable dans
-le sandbox Wasm, a été retiré du nouveau manifeste. Les PNG/JPEG/WebP sont
-normalisés et stockés hors médias ; les utilisateurs choisissent les images
-dans leur profil. Les générateurs SVG historiques restent disponibles.
+Les collections d’avatars sont gérées nativement dans Aether : import GitHub ou
+envoi de PNG/JPEG/WebP, stockage hors médias et choix dans le profil.
 
-Les huit paquets de `repository/` sont régénérés depuis des manifestes UTF-8.
+Les paquets de `repository/` sont régénérés depuis des manifestes UTF-8.
 Pour la signature de cette génération, la clé privée durable est toujours hors
 Git, dans `%LOCALAPPDATA%/MediaExtensionSigning/catalog-v1.pk8` ; seul son public
 correspondant est dans `repository/publisher-public.txt`. Le catalogue n’exige
@@ -302,8 +318,8 @@ du plugin. Le téléchargement GitHub et l’upload stockent les images sur le s
 
 ### 1. Principes de Versioning des Plugins
 - **Version indépendante** : Chaque plugin situé dans un sous-dossier `Aether-Plugins-*` possède son propre numéro de version Semantic Versioning `MAJOR.MINOR.PATCH` dans son `Cargo.toml`.
-- **Publication manuelle** : Aucun push ou merge ne cree de nouvelle version. Dans Actions, ouvrir `Release Plugin`, puis `Run workflow` sur `main` et choisir uniquement le plugin a publier.
-- **Increment explicite** : `PATCH` par defaut (`0.1.0 -> 0.1.1`), `MINOR` (`0.1.0 -> 0.2.0`) ou `MAJOR` (`0.1.0 -> 1.0.0`). Les autres plugins ne sont pas publies, meme si leurs sources ont change.
+- **Publication unitaire ou globale** : Dans Actions, ouvrir `Préparer la release d'un plugin (PR contrôlée)`, puis `Run workflow` sur `main` et choisir un plugin spécifique ou `all` pour préparer tous les plugins modifiés.
+- **Increment explicite** : `PATCH` par défaut (`0.1.0 -> 0.1.1`), `MINOR` (`0.1.0 -> 0.2.0`) ou `MAJOR` (`0.1.0 -> 1.0.0`). Avec `all`, chaque plugin est incrémenté de façon autonome et groupée dans une seule PR sécurisée.
 
 ### 2. Configuration Sécurisée de la Signature en CI
 Pour permettre la signature automatique Ed25519 lors des publications sur `main` :

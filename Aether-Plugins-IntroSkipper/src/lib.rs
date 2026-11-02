@@ -32,7 +32,7 @@ impl IntroSkipperPlugin {
             version: "0.1.0".into(),
             category: "Playback".into(),
             provider: "Intro Skipper".into(),
-            permissions: vec!["metadata.read".into()],
+            permissions: vec!["playback.markers".into()],
             http_hosts: Vec::new(), // Zero external network access required - pure local analysis
             description: "Détection automatique ultra-rapide des introductions et génériques de fin par empreintes audio et chapitres".into(),
             author: "Aether Team".into(),
@@ -77,6 +77,16 @@ impl IntroSkipperPlugin {
                     options: Vec::new(),
                 },
                 ConfigField {
+                    key: "max_credits_duration".into(),
+                    label: "Durée maximale du générique de fin (s)".into(),
+                    description: "De la durée minimale à 300 secondes. Limite les marqueurs par chapitres et empreintes ; n'allonge pas l'extraction audio du Node.".into(),
+                    field_type: "number".into(),
+                    default_value: Some("300".into()),
+                    required: false,
+                    secret: false,
+                    options: Vec::new(),
+                },
+                ConfigField {
                     key: "similarity_threshold".into(),
                     label: "Seuil de similarité audio".into(),
                     description: "Seuil de corrélation acoustique (0.70 à 0.90 recommandé)".into(),
@@ -87,9 +97,19 @@ impl IntroSkipperPlugin {
                     options: Vec::new(),
                 },
                 ConfigField {
+                    key: "search_window_start".into(),
+                    label: "Début de recherche acoustique de l'intro (s)".into(),
+                    description: "Ignorer l'audio avant cette position (0 à moins de 600 s), par exemple un résumé récurrent. La fenêtre doit contenir la durée minimale d'intro.".into(),
+                    field_type: "number".into(),
+                    default_value: Some("0".into()),
+                    required: false,
+                    secret: false,
+                    options: Vec::new(),
+                },
+                ConfigField {
                     key: "search_window_end".into(),
                     label: "Fenêtre de recherche intro (s)".into(),
-                    description: "Rechercher l'intro dans les X premières secondes de l'épisode (600s = 10 min)".into(),
+                    description: "Fin de la fenêtre acoustique, plafond 600 secondes. La recherche reste limitée aux empreintes fournies (Node actuel : environ 290 s). Les chapitres nommés restent indépendants.".into(),
                     field_type: "number".into(),
                     default_value: Some("600".into()),
                     required: false,
@@ -158,23 +178,85 @@ pub fn handle_intro_skipper_request(
     plugin: &IntroSkipperPlugin,
     req: media_extension_sdk::ExtensionRequest,
 ) -> media_extension_sdk::ExtensionResponse {
+    if req.api_version != 1 {
+        return media_extension_sdk::ExtensionResponse {
+            api_version: 1,
+            result: serde_json::json!({ "error": "unsupported_api_version" }),
+        };
+    }
     let config = if let Some(cfg_val) = req.input.get("config") {
-        let provider_config: ProviderConfig =
+        let mut provider_config: ProviderConfig =
             serde_json::from_value(cfg_val.clone()).unwrap_or_default();
+        if let Some(settings) = cfg_val.as_object() {
+            for (key, value) in settings {
+                if let Some(value) = value.as_str() {
+                    provider_config.extra.insert(key.clone(), value.to_owned());
+                } else if value.is_boolean() || value.is_number() {
+                    provider_config.extra.insert(key.clone(), value.to_string());
+                }
+            }
+        }
         IntroSkipperConfig::from_provider_config(&provider_config)
     } else {
         IntroSkipperConfig::default()
     };
 
+    if let Err(error) = config.validate() {
+        return media_extension_sdk::ExtensionResponse {
+            api_version: 1,
+            result: serde_json::json!({"error": error}),
+        };
+    }
+
     let result_json = match req.operation.as_str() {
         "manifest" => serde_json::to_value(plugin.manifest()).unwrap_or_default(),
 
         "intro.detect" | "markers.detect" => {
-            let episodes: Vec<EpisodeData> = req
+            let mut episodes: Vec<EpisodeData> = req
                 .input
                 .get("episodes")
                 .and_then(|v| serde_json::from_value(v.clone()).ok())
                 .unwrap_or_default();
+            for (episode, raw) in episodes
+                .iter_mut()
+                .zip(req.input["episodes"].as_array().into_iter().flatten())
+            {
+                use base64::Engine;
+                if let Some(compact) = raw["fingerprintsCompact"].as_str() {
+                    episode.fingerprints = base64::engine::general_purpose::STANDARD
+                        .decode(compact)
+                        .ok()
+                        .filter(|bytes| bytes.len() <= 24_000 && bytes.len() % 4 == 0)
+                        .map(|bytes| {
+                            bytes
+                                .as_chunks::<4>()
+                                .0
+                                .iter()
+                                .map(|word| u32::from_le_bytes(*word))
+                                .collect()
+                        });
+                }
+                if let Some(compact_tail) = raw["tailFingerprintsCompact"].as_str() {
+                    episode.tail_fingerprints = base64::engine::general_purpose::STANDARD
+                        .decode(compact_tail)
+                        .ok()
+                        .filter(|bytes| bytes.len() <= 24_000 && bytes.len() % 4 == 0)
+                        .map(|bytes| {
+                            bytes
+                                .as_chunks::<4>()
+                                .0
+                                .iter()
+                                .map(|word| u32::from_le_bytes(*word))
+                                .collect()
+                        });
+                }
+                if let Some(start) = raw["tailStart"]
+                    .as_f64()
+                    .filter(|s| s.is_finite() && *s >= 0.0)
+                {
+                    episode.tail_start = Some(start);
+                }
+            }
 
             let analyzer = SeasonAnalyzer::new(&config);
             let results = analyzer.analyze_season(&episodes);
@@ -200,6 +282,12 @@ pub fn handle_intro_skipper_request(
         }
 
         "intro.parse_chapters" => {
+            if !config.enable_chapter_detection {
+                return media_extension_sdk::ExtensionResponse {
+                    api_version: 1,
+                    result: serde_json::json!([]),
+                };
+            }
             let episode_id = req
                 .input
                 .get("episodeId")

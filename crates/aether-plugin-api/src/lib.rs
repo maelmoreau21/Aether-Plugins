@@ -53,6 +53,20 @@ fn default_target_abi() -> String {
     "1.0".into()
 }
 
+/// Common option consumed by both native HTTP and the Wasm HTTP broker.
+pub fn provider_timeout_field() -> ConfigField {
+    ConfigField {
+        key: "timeout_secs".into(),
+        label: "Délai de réponse (secondes)".into(),
+        description: "Durée maximale de chaque requête au fournisseur (1 à 120 secondes)".into(),
+        field_type: "number".into(),
+        required: false,
+        secret: false,
+        default_value: Some("10".into()),
+        options: vec![],
+    }
+}
+
 /// Provider Configuration passed at runtime
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -234,9 +248,59 @@ impl ProviderConfig {
                 ("user_key", "userKey"),
                 ("base_url", "baseUrl"),
                 ("timeout_secs", "timeoutSecs"),
+                ("fallback_languages", "fallbackLanguages"),
+                ("include_neutral", "includeNeutral"),
             ] {
                 if let Some(value) = fields.remove(form) {
                     fields.entry(wire).or_insert(value);
+                }
+            }
+            // Number inputs/defaults may arrive as strings from the admin form.
+            // One malformed optional field must not discard valid credentials.
+            if let Some(timeout) = fields.get("timeoutSecs") {
+                let seconds = timeout
+                    .as_u64()
+                    .or_else(|| timeout.as_str().and_then(|v| v.parse::<u64>().ok()));
+                fields.remove("timeoutSecs");
+                if let Some(seconds) = seconds {
+                    fields.insert(
+                        "timeoutSecs".into(),
+                        serde_json::json!(seconds.clamp(1, 120)),
+                    );
+                }
+            }
+            // Provider-specific form fields are flat in the signed schema. Preserve
+            // them in `extra` instead of silently losing every custom setting.
+            let known = [
+                "apiKey",
+                "userKey",
+                "baseUrl",
+                "timeoutSecs",
+                "language",
+                "fallbackLanguages",
+                "languages",
+                "includeNeutral",
+                "extra",
+            ];
+            let custom: Vec<_> = fields
+                .iter()
+                .filter(|(key, _)| !known.contains(&key.as_str()))
+                .filter_map(|(key, value)| match value {
+                    serde_json::Value::String(v) => {
+                        Some((key.clone(), serde_json::Value::String(v.clone())))
+                    }
+                    serde_json::Value::Bool(_) | serde_json::Value::Number(_) => {
+                        Some((key.clone(), serde_json::Value::String(value.to_string())))
+                    }
+                    _ => None,
+                })
+                .collect();
+            let extra = fields
+                .entry("extra")
+                .or_insert_with(|| serde_json::json!({}));
+            if let Some(extra) = extra.as_object_mut() {
+                for (key, value) in custom {
+                    extra.insert(key, value);
                 }
             }
         }
@@ -315,6 +379,24 @@ pub trait MetadataProviderPlugin: Send + Sync {
         request: ImagesRequest,
         config: &ProviderConfig,
     ) -> Result<Vec<MediaImage>, PluginError>;
+}
+
+/// Build the unique search candidate obtained from an authoritative provider ID.
+pub fn identified_search_result(
+    metadata: StructuredMetadata,
+    media_type: MediaType,
+) -> SearchResultItem {
+    SearchResultItem {
+        id: metadata.provider_id,
+        title: metadata.title.unwrap_or_default(),
+        artist: None,
+        original_title: metadata.original_title,
+        year: metadata.year,
+        media_type,
+        overview: metadata.synopsis,
+        poster_url: metadata.posters.first().map(|image| image.url.clone()),
+        score: metadata.ratings.first().map(|rating| rating.value),
+    }
 }
 
 /// Dispatcher handling incoming JSON requests from host callers
@@ -462,5 +544,27 @@ mod extension_config_tests {
             ProviderConfig::from_extension_input(&serde_json::json!({})),
             ProviderConfig::default()
         );
+    }
+
+    #[test]
+    fn preserves_custom_form_options_and_image_aliases() {
+        let config = ProviderConfig::from_extension_input(&serde_json::json!({"config": {
+            "api_key": "synthetic", "include_adult": true, "limit": 20,
+            "timeout_secs": "15",
+            "fallback_languages": ["en"], "include_neutral": false,
+            "extra": {"legacy": "kept"}
+        }}));
+        assert_eq!(config.api_key.as_deref(), Some("synthetic"));
+        assert_eq!(config.timeout_secs, Some(15));
+        assert_eq!(config.extra["include_adult"], "true");
+        assert_eq!(config.extra["limit"], "20");
+        assert_eq!(config.extra["legacy"], "kept");
+        assert_eq!(config.fallback_languages, ["en"]);
+        assert_eq!(config.include_neutral, Some(false));
+        let malformed = ProviderConfig::from_extension_input(&serde_json::json!({"config": {
+            "api_key": "synthetic", "timeout_secs": "invalid"
+        }}));
+        assert_eq!(malformed.api_key.as_deref(), Some("synthetic"));
+        assert_eq!(malformed.timeout_secs, None);
     }
 }

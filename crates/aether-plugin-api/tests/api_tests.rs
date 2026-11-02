@@ -46,6 +46,7 @@ impl MetadataProviderPlugin for MockPlugin {
             overview: Some("Mock overview".into()),
             poster_url: Some("https://example.com/poster.jpg".into()),
             score: Some(8.5),
+            artist: None,
         }])
     }
 
@@ -109,6 +110,8 @@ impl MetadataProviderPlugin for MockPlugin {
                 is_primary: true,
             }],
             images: vec![],
+            seasons: vec![],
+            translations: Default::default(),
         })
     }
 
@@ -350,4 +353,49 @@ fn oversized_image_response_preserves_roles_and_languages_within_host_limits() {
             }
         }
     }
+}
+
+#[tokio::test]
+async fn handle_extension_rejects_unsupported_api_version() {
+    let req = aether_plugin_api::ExtensionRequest {
+        api_version: 99,
+        operation: "manifest".into(),
+        input: serde_json::Value::Null,
+    };
+    let res = aether_plugin_api::http::handle_extension(&MockPlugin, req);
+    assert_eq!(res.api_version, API_VERSION);
+    assert_eq!(res.result["error"], "unsupported_api_version");
+}
+
+#[tokio::test]
+async fn handle_extension_proposes_metadata_when_unique() {
+    let req = aether_plugin_api::ExtensionRequest {
+        api_version: 1,
+        operation: "metadata.propose".into(),
+        input: serde_json::json!({
+            "title": "Interstellar",
+            "year": 2014,
+            "mediaType": "movie"
+        }),
+    };
+    let res = aether_plugin_api::http::handle_extension(&MockPlugin, req);
+    assert_eq!(res.api_version, API_VERSION);
+    assert_eq!(res.result["title"], "Interstellar");
+    assert_eq!(res.result["summary"], "Mock overview");
+}
+
+#[test]
+fn music_artist_is_emitted_as_a_structured_field() {
+    let mut response = aether_plugin_api::ExtensionResponse {
+        api_version: 1,
+        result: serde_json::json!([
+            {"id":"1","title":"Album","mediaType":"music","overview":"Artist"},
+            {"id":"2","title":"Unknown","mediaType":"music"},
+            {"id":"3","title":"Film","mediaType":"movie","overview":"Synopsis"}
+        ]),
+    };
+    aether_plugin_api::http::promote_music_artist(&mut response);
+    assert_eq!(response.result[0]["artist"], "Artist");
+    assert!(response.result[1].get("artist").is_none());
+    assert!(response.result[2].get("artist").is_none());
 }

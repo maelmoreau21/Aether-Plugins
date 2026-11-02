@@ -22,12 +22,6 @@ import re
 
 PLUGINS_MAP = [
     {
-        "id": "avatars",
-        "crate_name": "aether-plugin-avatar",
-        "dir": "Aether-Plugins-Avatar",
-        "tag_prefix": "avatar"
-    },
-    {
         "id": "discogs",
         "crate_name": "aether-plugin-discogs",
         "dir": "Aether-Plugins-Discogs",
@@ -192,7 +186,7 @@ def main():
         bump_type = "PATCH" if channel == "main" else "MINOR"
         reason = ""
 
-        if manual_plugin and (manual_plugin == p_id or manual_plugin == p_dir or manual_plugin == crate_name):
+        if manual_plugin and (manual_plugin in ["all", "*"] or manual_plugin == p_id or manual_plugin == p_dir or manual_plugin == crate_name):
             is_triggered = True
             bump_type = manual_bump if manual_bump in ["MAJOR", "MINOR", "PATCH"] else "PATCH"
             if channel == "main" and p_id not in published_ids and current_ver == "0.1.0":

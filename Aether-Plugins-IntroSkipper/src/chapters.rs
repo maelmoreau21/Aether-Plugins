@@ -63,8 +63,35 @@ impl<'a> ChapterClassifier<'a> {
         let clean = clean_text(title);
         matches!(
             clean.as_str(),
-            "recap" | "previously" | "previously on" | "precedemment" | "resume"
-        )
+            "recap" | "previously" | "previously on" | "precedemment" | "resume" | "rappel"
+        ) || clean.starts_with("previously ")
+            || clean.starts_with("precedemment ")
+            || clean.starts_with("resume ")
+            || clean.starts_with("recap ")
+    }
+
+    /// Check if chapter title matches preview/next episode patterns
+    pub fn is_preview_title(title: &str) -> bool {
+        let clean = clean_text(title);
+        matches!(
+            clean.as_str(),
+            "preview"
+                | "next"
+                | "next episode"
+                | "next time"
+                | "prochain episode"
+                | "prochainement"
+                | "a suivre"
+                | "apercu"
+                | "tease"
+                | "teaser"
+                | "jikai"
+        ) || clean.starts_with("preview ")
+            || clean.starts_with("prochain episode")
+            || clean.starts_with("next episode")
+            || clean.starts_with("next time")
+            || clean.ends_with(" preview")
+            || clean.contains("preview")
     }
 
     /// Parse markers from an episode's chapter list
@@ -124,6 +151,15 @@ impl<'a> ChapterClassifier<'a> {
                     start,
                     end,
                     marker_type: MarkerType::Recap,
+                    confidence: 0.95,
+                    method: DetectionMethod::Chapter,
+                });
+            } else if Self::is_preview_title(&chapter.title) && (3.0..=120.0).contains(&duration) {
+                markers.push(IntroMarker {
+                    id: format!("{episode_id}-preview-chap-{i}"),
+                    start,
+                    end,
+                    marker_type: MarkerType::Preview,
                     confidence: 0.95,
                     method: DetectionMethod::Chapter,
                 });

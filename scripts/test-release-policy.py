@@ -120,5 +120,16 @@ class PluginsReleasePolicyTests(unittest.TestCase):
                     self.assertEqual(entries[0]["id"], "tmdb")
                     self.assertEqual(entries[0]["next_version"], expected)
 
+    # Manuel : dispatch pour tous les plugins (all)
+    def test_manual_release_all_plugins(self):
+        for bump, expected in [("PATCH", "1.2.4"), ("MINOR", "1.3.0"), ("MAJOR", "2.0.0")]:
+            with self.subTest(bump=bump):
+                with patch.object(release, "get_current_cargo_version", return_value="1.2.3"):
+                    entries = self.run_detect(["--manual-plugin", "all", "--manual-bump", bump, "--channel", "main"])
+                    self.assertEqual(len(entries), len(release.PLUGINS_MAP))
+                    for entry in entries:
+                        self.assertEqual(entry["next_version"], expected)
+                        self.assertEqual(entry["bump_type"], bump)
+
 if __name__ == "__main__":
     unittest.main()

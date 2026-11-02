@@ -65,6 +65,8 @@ pub struct ChapterItem {
 pub struct EpisodeData {
     pub id: String,
     #[serde(default)]
+    pub series_id: Option<String>,
+    #[serde(default)]
     pub title: Option<String>,
     #[serde(default)]
     pub season_number: Option<u32>,
@@ -75,6 +77,10 @@ pub struct EpisodeData {
     pub fingerprints: Option<Vec<u32>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fingerprint_rate: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tail_fingerprints: Option<Vec<u32>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tail_start: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chapters: Option<Vec<ChapterItem>>,
 }
@@ -115,42 +121,48 @@ impl Default for IntroSkipperConfig {
 }
 
 impl IntroSkipperConfig {
+    /// Settings are bounded independently of the supplied fingerprint length.
+    /// Invalid settings fail before fingerprint comparisons.
+    pub fn validate(&self) -> Result<(), &'static str> {
+        if ![
+            self.min_intro_duration,
+            self.max_intro_duration,
+            self.min_credits_duration,
+            self.max_credits_duration,
+            self.search_window_start,
+            self.search_window_end,
+            self.similarity_threshold,
+        ]
+        .iter()
+        .all(|value| value.is_finite())
+            || !(1.0..=600.0).contains(&self.min_intro_duration)
+            || !(self.min_intro_duration..=600.0).contains(&self.max_intro_duration)
+            || !(1.0..=300.0).contains(&self.min_credits_duration)
+            || !(self.min_credits_duration..=300.0).contains(&self.max_credits_duration)
+            || !(0.0..600.0).contains(&self.search_window_start)
+            || !(self.search_window_start..=600.0).contains(&self.search_window_end)
+            || self.search_window_end - self.search_window_start < self.min_intro_duration
+            || !(0.5..=1.0).contains(&self.similarity_threshold)
+        {
+            return Err("invalid_detection_config");
+        }
+        Ok(())
+    }
+
     pub fn from_provider_config(cfg: &aether_plugin_api::ProviderConfig) -> Self {
         let mut base = Self::default();
-        if let Some(val) = cfg
-            .extra
-            .get("min_intro_duration")
-            .and_then(|s| s.parse().ok())
-        {
-            base.min_intro_duration = val;
-        }
-        if let Some(val) = cfg
-            .extra
-            .get("max_intro_duration")
-            .and_then(|s| s.parse().ok())
-        {
-            base.max_intro_duration = val;
-        }
-        if let Some(val) = cfg
-            .extra
-            .get("min_credits_duration")
-            .and_then(|s| s.parse().ok())
-        {
-            base.min_credits_duration = val;
-        }
-        if let Some(val) = cfg
-            .extra
-            .get("similarity_threshold")
-            .and_then(|s| s.parse().ok())
-        {
-            base.similarity_threshold = val;
-        }
-        if let Some(val) = cfg
-            .extra
-            .get("search_window_end")
-            .and_then(|s| s.parse().ok())
-        {
-            base.search_window_end = val;
+        for (key, value) in [
+            ("min_intro_duration", &mut base.min_intro_duration),
+            ("max_intro_duration", &mut base.max_intro_duration),
+            ("min_credits_duration", &mut base.min_credits_duration),
+            ("max_credits_duration", &mut base.max_credits_duration),
+            ("similarity_threshold", &mut base.similarity_threshold),
+            ("search_window_start", &mut base.search_window_start),
+            ("search_window_end", &mut base.search_window_end),
+        ] {
+            if let Some(raw) = cfg.extra.get(key) {
+                *value = raw.parse().unwrap_or(f64::NAN);
+            }
         }
         if let Some(val) = cfg
             .extra

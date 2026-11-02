@@ -163,7 +163,7 @@ impl MetadataProviderPlugin for DiscogsPlugin {
             permissions: vec!["metadata.read".into(),"metadata.write".into(),"images".into()],
             id: "discogs".into(),
             name: "Discogs".into(),
-            version: "0.1.0".into(),
+            version: env!("CARGO_PKG_VERSION").into(),
             category: "Metadata".into(),
             provider: "Discogs".into(),
             http_hosts: vec!["api.discogs.com".into()],
@@ -182,7 +182,7 @@ impl MetadataProviderPlugin for DiscogsPlugin {
             ],
             supported_media_types: vec![MediaType::Music],
             default_priority: 55,
-            config_schema: vec![
+            config_schema: vec![aether_plugin_api::provider_timeout_field(),
                 ConfigField {
                     key: "api_key".into(),
                     label: "Jeton personnel Discogs".into(),
@@ -241,6 +241,7 @@ impl MetadataProviderPlugin for DiscogsPlugin {
                 SearchResultItem {
                     id: e.id.to_string(),
                     title,
+                    artist: artist.clone(),
                     original_title: None,
                     year: e.year.as_deref().and_then(|y| y.parse().ok()),
                     media_type: query.media_type,
@@ -318,5 +319,10 @@ media_extension_sdk::extension!(handle_discogs_extension_request);
 pub fn handle_discogs_extension_request(
     req: aether_plugin_api::ExtensionRequest,
 ) -> aether_plugin_api::ExtensionResponse {
-    aether_plugin_api::http::handle_extension(&DiscogsPlugin::new(), req)
+    let search = matches!(req.operation.as_str(), "metadata.search" | "search");
+    let mut response = aether_plugin_api::http::handle_extension(&DiscogsPlugin::new(), req);
+    if search {
+        aether_plugin_api::http::promote_music_artist(&mut response);
+    }
+    response
 }

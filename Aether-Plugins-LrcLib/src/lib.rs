@@ -208,7 +208,7 @@ impl MetadataProviderPlugin for LrcLibPlugin {
             ],
             id: "lrclib".into(),
             name: "LRCLIB".into(),
-            version: "0.1.0".into(),
+            version: env!("CARGO_PKG_VERSION").into(),
             category: "Lyrics".into(),
             provider: "LRCLIB".into(),
             http_hosts: vec!["lrclib.net".into()],
@@ -228,17 +228,20 @@ impl MetadataProviderPlugin for LrcLibPlugin {
             ],
             supported_media_types: vec![MediaType::Music],
             default_priority: 50,
-            config_schema: vec![ConfigField {
-                key: "base_url".into(),
-                label: "Adresse du fournisseur".into(),
-                field_type: "text".into(),
-                description: "Instance LRCLIB auto-hébergée (par défaut https://lrclib.net/api)"
-                    .into(),
-                required: false,
-                secret: false,
-                default_value: Some(DEFAULT_BASE_URL.into()),
-                options: vec![],
-            }],
+            config_schema: vec![
+                aether_plugin_api::provider_timeout_field(),
+                ConfigField {
+                    key: "base_url".into(),
+                    label: "Adresse du fournisseur".into(),
+                    field_type: "text".into(),
+                    description:
+                        "Instance LRCLIB auto-hébergée (par défaut https://lrclib.net/api)".into(),
+                    required: false,
+                    secret: false,
+                    default_value: Some(DEFAULT_BASE_URL.into()),
+                    options: vec![],
+                },
+            ],
         }
     }
 
@@ -259,6 +262,7 @@ impl MetadataProviderPlugin for LrcLibPlugin {
             .map(|l| SearchResultItem {
                 id: l.id.to_string(),
                 title: l.track_name,
+                artist: Some(l.artist_name.clone()),
                 original_title: None,
                 year: None,
                 media_type: query.media_type,
@@ -337,6 +341,12 @@ media_extension_sdk::extension!(handle_lrclib_extension_request);
 pub fn handle_lrclib_extension_request(
     req: aether_plugin_api::ExtensionRequest,
 ) -> aether_plugin_api::ExtensionResponse {
+    if req.api_version != aether_plugin_api::API_VERSION {
+        return aether_plugin_api::ExtensionResponse {
+            api_version: aether_plugin_api::API_VERSION,
+            result: serde_json::json!({"error": "unsupported_api_version"}),
+        };
+    }
     if req.operation == "lyrics.get" {
         let config = ProviderConfig::from_extension_input(&req.input);
         let result = match serde_json::from_value::<LyricsRequest>(req.input) {

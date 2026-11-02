@@ -4,7 +4,6 @@
 
 ## Plugin(s) concerné(s)
 
-- [ ] Avatar
 - [ ] IMDb
 - [ ] TMDb
 - [ ] fanart.tv

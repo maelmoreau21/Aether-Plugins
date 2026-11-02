@@ -146,11 +146,38 @@ fn error_result(error: &PluginError) -> serde_json::Value {
     serde_json::json!({"error": error.code, "message": error.message})
 }
 
+/// Promote the credited artist returned by a music provider to the optional
+/// structured search field expected by recent Core versions. Call only for
+/// providers whose search `overview` is explicitly the credited artist.
+pub fn promote_music_artist(response: &mut ExtensionResponse) {
+    let Some(items) = response.result.as_array_mut() else {
+        return;
+    };
+    for item in items {
+        if item["mediaType"].as_str() != Some("music") {
+            continue;
+        }
+        let artist = item["overview"]
+            .as_str()
+            .filter(|value| !value.trim().is_empty())
+            .map(str::to_owned);
+        if let Some(artist) = artist {
+            item["artist"] = serde_json::json!(artist);
+        }
+    }
+}
+
 /// Generic guest entry point shared by metadata provider plugins.
 pub fn handle_extension<P: MetadataProviderPlugin>(
     plugin: &P,
     req: ExtensionRequest,
 ) -> ExtensionResponse {
+    if req.api_version != crate::API_VERSION {
+        return ExtensionResponse {
+            api_version: crate::API_VERSION,
+            result: serde_json::json!({"error": "unsupported_api_version"}),
+        };
+    }
     let config = ProviderConfig::from_extension_input(&req.input);
     let result = match req.operation.as_str() {
         "manifest" => serde_json::to_value(plugin.manifest()).unwrap_or_default(),
@@ -177,6 +204,50 @@ pub fn handle_extension<P: MetadataProviderPlugin>(
             },
             Err(_) => serde_json::json!({"error": "invalid_images_input"}),
         },
+        "metadata.propose" => {
+            let title = req
+                .input
+                .get("title")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let query = SearchQuery {
+                title,
+                year: req
+                    .input
+                    .get("year")
+                    .and_then(|v| v.as_u64())
+                    .and_then(|v| u16::try_from(v).ok()),
+                media_type: req
+                    .input
+                    .get("mediaType")
+                    .cloned()
+                    .and_then(|v| serde_json::from_value(v).ok())
+                    .unwrap_or(crate::MediaType::Movie),
+                language: config.language.clone().or_else(|| Some("fr-FR".into())),
+                external_ids: req
+                    .input
+                    .get("externalIds")
+                    .cloned()
+                    .and_then(|v| serde_json::from_value(v).ok())
+                    .unwrap_or_default(),
+            };
+            match block_on_guest(plugin.search(query, &config)) {
+                Ok(items) => {
+                    if items.len() == 1 {
+                        let first = &items[0];
+                        let proposal = crate::MetadataProposal {
+                            title: first.title.clone(),
+                            summary: first.overview.clone().unwrap_or_default(),
+                        };
+                        serde_json::to_value(proposal).unwrap_or_default()
+                    } else {
+                        serde_json::json!({"error": if items.is_empty() { "not_found" } else { "ambiguous_match" }})
+                    }
+                }
+                Err(e) => error_result(&e),
+            }
+        }
         _ => serde_json::json!({"error": "unsupported_operation"}),
     };
     ExtensionResponse {

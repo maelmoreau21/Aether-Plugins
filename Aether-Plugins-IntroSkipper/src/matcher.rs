@@ -28,12 +28,32 @@ impl<'a> FingerprintMatcher<'a> {
         1.0 - (diff as f64 / 32.0)
     }
 
+    /// Check whether a fingerprint slice is silent or degenerate (less than 8 unique words).
+    /// Executed in O(1) space without heap allocation.
+    #[inline]
+    pub fn is_silent_or_flat(slice: &[u32]) -> bool {
+        if slice.is_empty() {
+            return true;
+        }
+        let mut unique = [0u32; 8];
+        let mut count = 0;
+        for &word in slice.iter().take(8192) {
+            if !unique[..count].contains(&word) {
+                unique[count] = word;
+                count += 1;
+                if count >= 8 {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
     /// Match two fingerprint sequences and find common repeated audio segment
     pub fn find_best_match(&self, a: &[u32], b: &[u32]) -> Option<FingerprintMatch> {
         if a.is_empty() || b.is_empty() {
             return None;
         }
-
         // Limit search to configured search window (e.g. first 10 minutes)
         let max_frames_search = (self.config.search_window_end * self.rate).round() as usize;
         let start_frame_search = (self.config.search_window_start * self.rate).round() as usize;
@@ -47,6 +67,11 @@ impl<'a> FingerprintMatcher<'a> {
 
         let slice_a = &a[start_frame_search..a_end];
         let slice_b = &b[start_frame_search..b_end];
+        // Inspect the searched region: unrelated audio outside the configured
+        // window must not make a silent window eligible for matching.
+        if Self::is_silent_or_flat(slice_a) || Self::is_silent_or_flat(slice_b) {
+            return None;
+        }
 
         let min_match_frames = (self.config.min_intro_duration * self.rate).round() as usize;
         let max_match_frames = (self.config.max_intro_duration * self.rate).round() as usize;
@@ -55,20 +80,27 @@ impl<'a> FingerprintMatcher<'a> {
             return None;
         }
 
-        // Phase 1: Diagonal histogram accumulation (subsampled for ultra-fast candidate spotting)
-        // Step size 2 or 3 gives 4x-9x speedup while retaining 99.8% detection accuracy
-        let step = if slice_a.len() > 1000 && slice_b.len() > 1000 {
-            2
-        } else {
-            1
-        };
+        // Four independent byte bands index the second episode (4 * 256 = 1024 flat buckets).
+        // Candidate pairs are still checked with the full Hamming distance; no audio is skipped.
+        let mut bands: Vec<Vec<usize>> = vec![Vec::new(); 1024];
+        for (j, &word) in slice_b.iter().enumerate() {
+            for band in 0..4_usize {
+                let byte = ((word >> (band * 8)) & 0xFF) as usize;
+                let key = (band << 8) | byte;
+                bands[key].push(j);
+            }
+        }
         let mut diagonal_hits: HashMap<i64, u32> = HashMap::with_capacity(256);
-
-        for (i, &fa) in slice_a.iter().enumerate().step_by(step) {
-            for (j, &fb) in slice_b.iter().enumerate().step_by(step) {
-                if (fa ^ fb).count_ones() <= COARSE_MAX_HAMMING {
-                    let diag = (i as i64) - (j as i64);
-                    *diagonal_hits.entry(diag).or_insert(0) += 1;
+        let mut seen = vec![usize::MAX; slice_b.len()];
+        for (i, &fa) in slice_a.iter().enumerate() {
+            for band in 0..4_usize {
+                let byte = ((fa >> (band * 8)) & 0xFF) as usize;
+                let key = (band << 8) | byte;
+                for &j in &bands[key] {
+                    if seen[j] != i && (fa ^ slice_b[j]).count_ones() <= COARSE_MAX_HAMMING {
+                        seen[j] = i;
+                        *diagonal_hits.entry(i as i64 - j as i64).or_insert(0) += 1;
+                    }
                 }
             }
         }
@@ -78,7 +110,7 @@ impl<'a> FingerprintMatcher<'a> {
         }
 
         // Phase 2: Filter the top candidate diagonals
-        let min_hits_threshold = (min_match_frames / step) as u32 / 3;
+        let min_hits_threshold = min_match_frames as u32 / 3;
         let mut candidates: Vec<(i64, u32)> = diagonal_hits
             .into_iter()
             .filter(|&(_, hits)| hits >= min_hits_threshold)

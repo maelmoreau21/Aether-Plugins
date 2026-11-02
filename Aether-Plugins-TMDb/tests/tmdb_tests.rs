@@ -13,6 +13,138 @@ fn test_tmdb_manifest() {
     assert!(manifest.capabilities.len() >= 3);
 }
 
+// The fixture deliberately returns a different title/year from the filename:
+// provider IDs identify the movie even when local naming is inaccurate.
+async fn identification_fixture() -> (
+    ProviderConfig,
+    tokio::task::JoinHandle<()>,
+    std::sync::Arc<std::sync::Mutex<Vec<String>>>,
+) {
+    use http_body_util::Full;
+    use hyper::{Request, Response, body::Bytes, server::conn::http1, service::service_fn};
+    use hyper_util::rt::TokioIo;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let requests = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let captured = requests.clone();
+    let server = tokio::spawn(async move {
+        loop {
+            let (stream, _) = listener.accept().await.unwrap();
+            let captured = captured.clone();
+            tokio::spawn(async move {
+                http1::Builder::new().serve_connection(TokioIo::new(stream), service_fn(move |req: Request<hyper::body::Incoming>| {
+                    captured.lock().unwrap().push(req.uri().to_string());
+                    async move {
+                        let body = match req.uri().path() {
+                            "/movie/42" => r#"{"id":42,"title":"Titre français","release_date":"1999-01-01"}"#,
+                            "/find/tt0000042" => r#"{"movie_results":[{"id":42}]}"#,
+                            "/find/tt0000099" => r#"{"movie_results":[]}"#,
+                            "/search/movie" if req.uri().query().unwrap_or_default().contains("year=") => r#"{"results":[]}"#,
+                            "/search/movie" => r#"{"results":[{"id":42,"title":"Titre français","release_date":"1999-01-01"}]}"#,
+                            path => panic!("Unexpected route: {path}"),
+                        };
+                        Ok::<_, std::convert::Infallible>(Response::new(Full::new(Bytes::from(body))))
+                    }
+                })).await.unwrap();
+            });
+        }
+    });
+    (
+        ProviderConfig {
+            api_key: Some("fixture".into()),
+            base_url: Some(format!("http://{address}")),
+            ..Default::default()
+        },
+        server,
+        requests,
+    )
+}
+
+#[tokio::test]
+async fn known_ids_bypass_title_search_and_report_external_lookup_failure() {
+    let (config, server, requests) = identification_fixture().await;
+    for (provider, id) in [("tmdb", "42"), ("imdb", "tt0000042")] {
+        let results = TmdbPlugin::new()
+            .search(
+                SearchQuery {
+                    title: "Incorrect local title".into(),
+                    year: Some(2026),
+                    media_type: MediaType::Movie,
+                    language: None,
+                    external_ids: [(provider.into(), id.into())].into(),
+                },
+                &config,
+            )
+            .await
+            .unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].id, "42");
+        assert_eq!(results[0].title, "Titre français");
+    }
+    let error = TmdbPlugin::new()
+        .details(
+            DetailsRequest {
+                id: "tt0000099".into(),
+                media_type: MediaType::Movie,
+                external_ids: Default::default(),
+            },
+            &config,
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, "not_found");
+    assert!(
+        requests
+            .lock()
+            .unwrap()
+            .iter()
+            .all(|uri| !uri.contains("search/"))
+    );
+    server.abort();
+}
+
+#[tokio::test]
+async fn title_search_retries_without_year_and_keeps_custom_settings() {
+    let (mut config, server, requests) = identification_fixture().await;
+    config.extra.insert("include_adult".into(), "true".into());
+    let results = TmdbPlugin::new()
+        .search(
+            SearchQuery {
+                title: "Titre".into(),
+                year: Some(2000),
+                media_type: MediaType::Movie,
+                language: None,
+                external_ids: Default::default(),
+            },
+            &config,
+        )
+        .await
+        .unwrap();
+    assert_eq!(results[0].id, "42");
+    let requests = requests.lock().unwrap();
+    assert_eq!(requests.len(), 2);
+    assert!(
+        requests
+            .iter()
+            .all(|uri| uri.contains("include_adult=true"))
+    );
+    assert!(requests[0].contains("year=2000"));
+    assert!(!requests[1].contains("year="));
+    server.abort();
+}
+
+#[test]
+fn test_tmdb_unsupported_api_version() {
+    let req = media_extension_sdk::ExtensionRequest {
+        api_version: 2,
+        operation: "manifest".into(),
+        input: serde_json::Value::Null,
+    };
+    let res = aether_plugin_tmdb::handle_tmdb_extension_request(req);
+    assert_eq!(res.api_version, 1);
+    assert_eq!(res.result["error"], "unsupported_api_version");
+}
+
 #[tokio::test]
 async fn test_tmdb_missing_api_key() {
     let plugin = TmdbPlugin::new();

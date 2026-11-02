@@ -154,3 +154,27 @@ async fn invalid_and_unknown_ids_are_typed_errors() {
         .unwrap_err();
     assert_eq!(err.code, "not_found");
 }
+
+#[tokio::test]
+async fn extension_search_returns_structured_music_artist() {
+    let addr = serve(mock).await;
+    let query = SearchQuery {
+        title: "OK Computer".into(),
+        year: None,
+        media_type: MediaType::Music,
+        language: None,
+        external_ids: [("artist".to_string(), "Radiohead".to_string())].into(),
+    };
+    let results = DiscogsPlugin::new()
+        .search(query, &config(addr, Some("tok")))
+        .await
+        .unwrap();
+    let mut response = aether_plugin_api::ExtensionResponse {
+        api_version: 1,
+        result: serde_json::to_value(results).unwrap(),
+    };
+    aether_plugin_api::http::promote_music_artist(&mut response);
+    assert_eq!(response.result[0]["artist"], "Radiohead");
+    assert_eq!(response.result[0]["title"], "OK Computer");
+    assert_eq!(response.result[0]["mediaType"], "music");
+}

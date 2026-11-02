@@ -10,6 +10,19 @@ fn test_fanart_manifest() {
     assert_eq!(manifest.id, "fanart-tv");
     assert_eq!(manifest.provider, "fanart.tv");
     assert_eq!(manifest.default_priority, 60);
+    let user_key = manifest
+        .config_schema
+        .iter()
+        .find(|field| field.key == "user_key")
+        .unwrap();
+    assert!(user_key.secret);
+    assert!(!user_key.required);
+    assert!(
+        manifest
+            .config_schema
+            .iter()
+            .any(|field| field.key == "timeout_secs")
+    );
     assert!(
         manifest
             .capabilities
@@ -75,6 +88,7 @@ async fn test_fanart_movie_details_mock() {
                         service_fn(|req: Request<hyper::body::Incoming>| async move {
                             let path = req.uri().path();
                             if path.contains("/movies/27205") {
+                                assert_eq!(req.headers().get("user-key").unwrap(), "personal-fixture");
                                 let mock_json = r#"{
                                     "name": "Inception",
                                     "tmdb_id": "27205",
@@ -122,6 +136,7 @@ async fn test_fanart_movie_details_mock() {
     let plugin = FanartTvPlugin::new();
     let config = ProviderConfig {
         api_key: Some("mock-fanart-key".into()),
+        user_key: Some("personal-fixture".into()),
         base_url: Some(format!("http://{addr}")),
         ..Default::default()
     };

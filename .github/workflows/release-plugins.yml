@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -36,18 +37,24 @@ jobs:
         id: release_check
         run: |
           set -euo pipefail
-          BEFORE_SHA="${{ github.event.before }}"
-          if [ -z "$BEFORE_SHA" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
-            BEFORE_SHA="HEAD^"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            node scripts/discover-plugin-releases.cjs \
+              "https://raw.githubusercontent.com/${{ github.repository }}/main/repository/packages/" \
+              > discovered_releases.json
+          else
+            BEFORE_SHA="${{ github.event.before }}"
+            if [ -z "$BEFORE_SHA" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+              BEFORE_SHA="HEAD^"
+            fi
+            git diff --name-only "$BEFORE_SHA" HEAD -- repository/packages/ |
+              jq -R -s 'split("\n") | map(select(length > 0))' > changed_packages.json
+            node scripts/discover-plugin-releases.cjs \
+              "https://raw.githubusercontent.com/${{ github.repository }}/main/repository/packages/" \
+              > all_releases.json
+            jq --slurpfile changed changed_packages.json \
+              '[.[] | select(.pkgFile as $file | $changed[0] | index($file))]' \
+              all_releases.json > discovered_releases.json
           fi
-          git diff --name-only "$BEFORE_SHA" HEAD -- repository/packages/ |
-            jq -R -s 'split("\n") | map(select(length > 0))' > changed_packages.json
-          node scripts/discover-plugin-releases.cjs \
-            "https://raw.githubusercontent.com/${{ github.repository }}/main/repository/packages/" \
-            > all_releases.json
-          jq --slurpfile changed changed_packages.json \
-            '[.[] | select(.pkgFile as $file | $changed[0] | index($file))]' \
-            all_releases.json > discovered_releases.json
           cat discovered_releases.json
 
       - name: Créer les tags Git et Releases GitHub pour chaque paquet validé
