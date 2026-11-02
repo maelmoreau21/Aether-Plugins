@@ -165,3 +165,16 @@ epresentative_benchmark.rs) : 100% précision, 100% rappel (TP=22 intros, TP=24 
   d'être ignoré. La relance peut reprendre après la création du tag sans
   dupliquer une GitHub Release. Vérification locale par test ciblé et tests de
   catalogue ; aucune publication réelle n'a été déclenchée.
+
+## 2 novembre 2026 — Test de découverte des releases sur develop
+
+- Le test utilisait toujours les URLs `main` et la version fanart `0.1.0`, alors
+  que le catalogue de développement référence désormais ses paquets `develop`.
+  Le test vérifie les entrées actives avec une liste explicite des bases
+  `main`/`develop` et lit la version courante ; des fixtures indépendantes
+  vérifient chaque branche, les anciennes versions, les paquets manquants,
+  domaines étrangers, mauvaise branche/version, query/fragment et tags doublons.
+- Le résolveur de publication reste strict sur la base fournie ; contrôles de
+  signatures et paquets publiés inchangés. Validation ciblée uniquement :
+  `node --test scripts/test-discover-plugin-releases.cjs`, 4 tests réussis.
+  Aucun build Rust/Wasm, push ni publication. Nouvelle CI distante à confirmer.
