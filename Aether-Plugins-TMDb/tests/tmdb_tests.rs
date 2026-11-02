@@ -204,6 +204,7 @@ async fn test_tmdb_details_mock_server() {
                             if path.contains("/movie/438631") {
                                 let mock_json = r#"{
                                     "id": 438631,
+                                    "belongs_to_collection": {"id": 726871, "name": "Dune Collection"},
                                     "title": "Dune",
                                     "original_title": "Dune",
                                     "tagline": "Beyond fear, destiny awaits.",
@@ -279,6 +280,8 @@ async fn test_tmdb_details_mock_server() {
 
     assert_eq!(details.provider, "tmdb");
     assert_eq!(details.provider_id, "438631");
+    assert_eq!(details.collection.as_ref().unwrap().id, "tmdb:726871");
+    assert_eq!(details.collection.as_ref().unwrap().name, "Dune Collection");
     assert_eq!(details.title.as_deref(), Some("Dune"));
     assert_eq!(details.year, Some(2021));
     assert_eq!(details.runtime_minutes, Some(155));

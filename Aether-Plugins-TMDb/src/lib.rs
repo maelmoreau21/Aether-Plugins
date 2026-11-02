@@ -796,7 +796,15 @@ impl MetadataProviderPlugin for TmdbPlugin {
             }
         }
 
+        let collection = val.get("belongs_to_collection").and_then(|collection| {
+            let id = collection.get("id")?.as_u64()?;
+            let name = collection.get("name")?.as_str()?.trim();
+            (!name.is_empty() && name.len() <= 300).then(|| aether_plugin_api::MetadataCollection {
+                id: format!("tmdb:{id}"), name: name.to_owned(),
+            })
+        });
         Ok(StructuredMetadata {
+            collection,
             provider: "tmdb".into(),
             provider_id: id,
             external_ids,

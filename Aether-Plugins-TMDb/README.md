@@ -26,3 +26,23 @@ Extension Rust officielle fournissant les métadonnées et affiches depuis l'API
 # Fiche détaillée (ID TMDb)
 ./target/release/aether-plugin-tmdb.exe details --id 438631 --api-key "VOTRE_CLE"
 ```
+
+
+### Collections (développement, 2 novembre 2026)
+
+Les détails de film transmettent `belongs_to_collection` sous la forme
+`collection: {id: "tmdb:<id>", name: "..."}`. Core peut en déduire les collections
+accessibles lorsque l'option de bibliothèque est activée. Aucun appel à l'API
+collection n'est nécessaire ; les films absents du catalogue ne sont pas ajoutés.
+
+Ce champ utilise le SDK Core local mis à jour. Avant publication, la révision Git
+`media-extension-sdk` du workspace doit pointer vers le commit qui le contient.
+Le test de parsing ciblé peut être exécuté en développement sans changer cette
+révision :
+
+```powershell
+cargo test -p aether-plugin-tmdb --test tmdb_tests test_tmdb_details_mock_server --config 'patch."https://github.com/maelmoreau21/Aether.git".media-extension-sdk.path="C:/Users/Mael/Documents/GitHub/Aether/Aether/crates/extension-sdk"'
+```
+
+Cette fixture HTTP locale ne valide ni un compte TMDb réel ni le module signé
+installé sur un NAS.
