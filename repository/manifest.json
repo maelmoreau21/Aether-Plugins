@@ -56,7 +56,7 @@
       },
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
-      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/packages/discogs-0.1.1.package.json",
+      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/discogs-0.1.1.package.json",
       "packageSha256": "451542e6403ea40db4a97d3a5f2395e0dcd7ebf34d9042df4e0e4ad15a4578ee"
     },
     {
@@ -123,7 +123,7 @@
       },
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
-      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/packages/fanart-0.1.1.package.json",
+      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/fanart-0.1.1.package.json",
       "packageSha256": "355937f3a045897c9b3905f16e9028214d6abf5646f2f841b6c53bd0b4581e49"
     },
     {
@@ -183,7 +183,7 @@
       },
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
-      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/packages/imdb-0.1.1.package.json",
+      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/imdb-0.1.1.package.json",
       "packageSha256": "6e2bcacfdbf7852dad1fbea389480f76779a1a3e660d150edb7cffc556122f03"
     },
     {
@@ -349,7 +349,7 @@
       },
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
-      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/packages/intro-skipper-0.1.1.package.json",
+      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/intro-skipper-0.1.1.package.json",
       "packageSha256": "2f8546d456c17ff46b5ec41e3e435df8823d46b4d558407da23e25f13af347c6"
     },
     {
@@ -399,7 +399,7 @@
       },
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
-      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/packages/lrclib-0.1.1.package.json",
+      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/lrclib-0.1.1.package.json",
       "packageSha256": "4946f9db9851dcafcb12cb7a23a2a05485f2664b70fc749ab930f8c0619f2826"
     },
     {
@@ -450,7 +450,7 @@
       },
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
-      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/packages/musicbrainz-0.1.1.package.json",
+      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/musicbrainz-0.1.1.package.json",
       "packageSha256": "45f2dcbeca7775ee4feaedb6ccffb98d0821f77fcf00f918429c38b2db82e0f1"
     },
     {
@@ -508,7 +508,7 @@
       },
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
-      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/packages/omdb-0.1.1.package.json",
+      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/omdb-0.1.1.package.json",
       "packageSha256": "5e9bea3f83040bc7288fc4dbbb47a7bf2c2a939506b495a303f866d669f0351e"
     },
     {
@@ -713,7 +713,7 @@
       },
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
-      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/packages/tmdb-0.1.1.package.json",
+      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/tmdb-0.1.1.package.json",
       "packageSha256": "a2b1329fa1abe2b522b564d3d5fe7af978b2b533b9d764efc618204d1d0f3be7"
     }
   ]
