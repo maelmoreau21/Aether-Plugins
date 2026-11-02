@@ -77,6 +77,16 @@ impl IntroSkipperPlugin {
                     options: Vec::new(),
                 },
                 ConfigField {
+                    key: "max_credits_duration".into(),
+                    label: "Durée maximale du générique de fin (s)".into(),
+                    description: "De la durée minimale à 300 secondes. Limite les marqueurs par chapitres et empreintes ; n'allonge pas l'extraction audio du Node.".into(),
+                    field_type: "number".into(),
+                    default_value: Some("300".into()),
+                    required: false,
+                    secret: false,
+                    options: Vec::new(),
+                },
+                ConfigField {
                     key: "similarity_threshold".into(),
                     label: "Seuil de similarité audio".into(),
                     description: "Seuil de corrélation acoustique (0.70 à 0.90 recommandé)".into(),
@@ -87,9 +97,19 @@ impl IntroSkipperPlugin {
                     options: Vec::new(),
                 },
                 ConfigField {
+                    key: "search_window_start".into(),
+                    label: "Début de recherche acoustique de l'intro (s)".into(),
+                    description: "Ignorer l'audio avant cette position (0 à moins de 600 s), par exemple un résumé récurrent. La fenêtre doit contenir la durée minimale d'intro.".into(),
+                    field_type: "number".into(),
+                    default_value: Some("0".into()),
+                    required: false,
+                    secret: false,
+                    options: Vec::new(),
+                },
+                ConfigField {
                     key: "search_window_end".into(),
                     label: "Fenêtre de recherche intro (s)".into(),
-                    description: "Rechercher l'intro dans les X premières secondes de l'épisode (600s = 10 min)".into(),
+                    description: "Fin de la fenêtre acoustique, plafond 600 secondes. La recherche reste limitée aux empreintes fournies (Node actuel : environ 290 s). Les chapitres nommés restent indépendants.".into(),
                     field_type: "number".into(),
                     default_value: Some("600".into()),
                     required: false,
@@ -181,6 +201,13 @@ pub fn handle_intro_skipper_request(
         IntroSkipperConfig::default()
     };
 
+    if let Err(error) = config.validate() {
+        return media_extension_sdk::ExtensionResponse {
+            api_version: 1,
+            result: serde_json::json!({"error": error}),
+        };
+    }
+
     let result_json = match req.operation.as_str() {
         "manifest" => serde_json::to_value(plugin.manifest()).unwrap_or_default(),
 
@@ -255,6 +282,12 @@ pub fn handle_intro_skipper_request(
         }
 
         "intro.parse_chapters" => {
+            if !config.enable_chapter_detection {
+                return media_extension_sdk::ExtensionResponse {
+                    api_version: 1,
+                    result: serde_json::json!([]),
+                };
+            }
             let episode_id = req
                 .input
                 .get("episodeId")

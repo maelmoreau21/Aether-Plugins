@@ -5,6 +5,84 @@ use aether_plugin_intro_skipper::{
 };
 
 #[test]
+fn detection_settings_bound_search_and_chapter_credits() {
+    let request = |operation: &str, input| {
+        handle_intro_skipper_request(
+            &IntroSkipperPlugin::new(),
+            media_extension_sdk::ExtensionRequest {
+                api_version: 1,
+                operation: operation.into(),
+                input,
+            },
+        )
+        .result
+    };
+    let chapters = serde_json::json!({"episodeId":"a","duration":1200,"chapters":[{"title":"Credits","start":1000,"end":1100}],"config":{"max_credits_duration":"60"}});
+    assert_eq!(
+        request("intro.parse_chapters", chapters.clone()),
+        serde_json::json!([])
+    );
+    let mut allowed = chapters.clone();
+    allowed["config"]["max_credits_duration"] = serde_json::json!(120);
+    assert_eq!(
+        request("intro.parse_chapters", allowed.clone())
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    allowed["config"]["enable_chapter_detection"] = serde_json::json!(false);
+    assert_eq!(
+        request("intro.parse_chapters", allowed),
+        serde_json::json!([])
+    );
+
+    let theme: Vec<u32> = (0..200_u32).map(|i| i.wrapping_mul(0x1f2e3d4c)).collect();
+    let input = serde_json::json!({"a":theme,"b":theme,"rate":10,"config":{"min_intro_duration":10,"search_window_start":0,"search_window_end":40}});
+    assert!(request("intro.match_fingerprints", input.clone()).is_object());
+    let mut excluded = input;
+    excluded["config"]["search_window_start"] = serde_json::json!(25);
+    assert!(request("intro.match_fingerprints", excluded).is_null());
+
+    for config in [
+        serde_json::json!({"max_credits_duration":301}),
+        serde_json::json!({"min_intro_duration":90,"max_intro_duration":30}),
+        serde_json::json!({"search_window_start":100,"search_window_end":80}),
+        serde_json::json!({"similarity_threshold":"NaN"}),
+        serde_json::json!({"search_window_start":"not-a-number"}),
+    ] {
+        assert_eq!(
+            request(
+                "intro.detect",
+                serde_json::json!({"episodes":[],"config":config})
+            )["error"],
+            "invalid_detection_config"
+        );
+    }
+    let schema = IntroSkipperPlugin::new().manifest().config_schema;
+    for key in ["max_credits_duration", "search_window_start"] {
+        assert!(schema.iter().any(|field| field.key == key));
+    }
+}
+
+#[test]
+fn silent_search_window_rejected_even_with_varied_audio_outside_it() {
+    let config = IntroSkipperConfig {
+        min_intro_duration: 5.0,
+        search_window_end: 10.0,
+        ..Default::default()
+    };
+    let words: Vec<u32> = std::iter::repeat_n(0, 100)
+        .chain((0..200_u32).map(|i| i.wrapping_mul(0x1f2e3d4c)))
+        .collect();
+    assert!(
+        FingerprintMatcher::new(&config, Some(10.0))
+            .find_best_match(&words, &words)
+            .is_none()
+    );
+}
+
+#[test]
 fn compact_host_fingerprints_detect_intro_without_false_credits() {
     use base64::Engine;
     let theme: Vec<u32> = (0..300_u32).map(|i| i.wrapping_mul(0x1f2e3d4c)).collect();

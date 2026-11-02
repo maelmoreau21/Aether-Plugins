@@ -54,12 +54,6 @@ impl<'a> FingerprintMatcher<'a> {
         if a.is_empty() || b.is_empty() {
             return None;
         }
-        // Flat/silent fingerprints match almost anything and are a common
-        // source of convincing but entirely false intro markers.
-        if Self::is_silent_or_flat(a) || Self::is_silent_or_flat(b) {
-            return None;
-        }
-
         // Limit search to configured search window (e.g. first 10 minutes)
         let max_frames_search = (self.config.search_window_end * self.rate).round() as usize;
         let start_frame_search = (self.config.search_window_start * self.rate).round() as usize;
@@ -73,6 +67,11 @@ impl<'a> FingerprintMatcher<'a> {
 
         let slice_a = &a[start_frame_search..a_end];
         let slice_b = &b[start_frame_search..b_end];
+        // Inspect the searched region: unrelated audio outside the configured
+        // window must not make a silent window eligible for matching.
+        if Self::is_silent_or_flat(slice_a) || Self::is_silent_or_flat(slice_b) {
+            return None;
+        }
 
         let min_match_frames = (self.config.min_intro_duration * self.rate).round() as usize;
         let max_match_frames = (self.config.max_intro_duration * self.rate).round() as usize;
