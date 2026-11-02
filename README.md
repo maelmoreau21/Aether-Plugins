@@ -258,7 +258,7 @@ cargo clippy --locked --all-targets -j 1 -- -D warnings
 ```
 
 Le SDK `media-extension-sdk` version `0.1.0` est figé au commit Aether public
-`74377be769fb9e2e1d5d2f6257b8dca5cf4e251e`, avec Rust 1.99 minimum ;
+`8f3373803a30d11e8c2c9d97ca5bfcf4bf70fe07`, avec Rust 1.99 minimum ;
 `Cargo.lock` fixe les dépendances transitives. `aether-plugin-api` le réexporte.
 La révision est un instantané public : les évolutions ultérieures du Core ou du
 SDK ne sont pas incluses et exigent une mise à jour coordonnée du commit, du

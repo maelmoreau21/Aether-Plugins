@@ -1,3 +1,21 @@
+## 2 novembre 2026 — Dependabot et résolution indépendante du SDK
+
+- La CI plugins du commit `cba7c7e` est verte (run `41446201445`). L'échec
+  distinct de Dependabot Cargo (run `41381973942`) venait du chemin externe
+  `../Aether/crates/extension-sdk/Cargo.toml`, absent dans son checkout.
+- Le SDK est désormais une dépendance Git à la révision exacte publique
+  `8f3373803a30d11e8c2c9d97ca5bfcf4bf70fe07`. Le lockfile ne change que sa
+  provenance. README et modèle de plugin utilisent la même révision.
+  Une surcharge locale reste possible explicitement pour le développement.
+- Suppression des deux checkouts Aether qui masquaient cette dépendance externe
+  dans la CI plugins ; la préparation des releases garde ses outils de signature.
+- Validation réelle : résolution `cargo metadata --locked --offline` dans une
+  copie temporaire isolée sans dossier voisin Aether ; source SDK Git confirmée.
+  `cargo check -p aether-plugin-api -j 1` et ses cinq tests unitaires réussis,
+  huit tests de politique de release, cohérence des manifestes avec versions
+  non publiées, Actionlint 1.7.12 et contrôle du diff réussis.
+- Correctifs locaux ; aucun nouveau run GitHub, push ou publication exécuté.
+
 ## 31 octobre 2026 — Finalisation et robustesse de l'extension IntroSkipper
 
 - **Améliorations majeures d'IntroSkipper (Aether-Plugins-IntroSkipper)** :

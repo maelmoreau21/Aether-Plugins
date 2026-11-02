@@ -807,6 +807,7 @@ checksum = "4050469837a6ff301cd14c1f8f24f88549e6d548f24f64e2148eb0f72cebc51f"
 [[package]]
 name = "media-extension-sdk"
 version = "0.1.0"
+source = "git+https://github.com/maelmoreau21/Aether.git?rev=8f3373803a30d11e8c2c9d97ca5bfcf4bf70fe07#8f3373803a30d11e8c2c9d97ca5bfcf4bf70fe07"
 dependencies = [
  "serde",
  "serde_json",
