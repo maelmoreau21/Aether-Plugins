@@ -193,7 +193,7 @@ impl MetadataProviderPlugin for FanartTvPlugin {
             permissions: vec!["metadata.read".into(),"metadata.write".into(),"images".into()],
             id: "fanart-tv".into(),
             name: "fanart.tv".into(),
-            version: "0.1.0".into(),
+            version: env!("CARGO_PKG_VERSION").into(),
             category: "Artwork".into(),
             provider: "fanart.tv".into(),
             http_hosts: vec!["webservice.fanart.tv".into(), "assets.fanart.tv".into()],
@@ -217,6 +217,18 @@ impl MetadataProviderPlugin for FanartTvPlugin {
             ],
             default_priority: 60,
             config_schema: vec![
+                ConfigField {
+                    key: "user_key".into(), label: "Clé personnelle fanart.tv".into(),
+                    description: "Clé personnelle facultative du compte fanart.tv, en complément de la clé application".into(),
+                    field_type: "password".into(), required: false, secret: true,
+                    default_value: None, options: vec![],
+                },
+                ConfigField {
+                    key: "base_url".into(), label: "Adresse du fournisseur".into(),
+                    description: "Adresse de l’API fanart.tv".into(),
+                    field_type: "text".into(), required: false, secret: false,
+                    default_value: Some(DEFAULT_BASE_URL.into()), options: vec![],
+                },aether_plugin_api::provider_timeout_field(),
                 ConfigField {
                     key: "api_key".into(),
                     label: "API Key".into(),

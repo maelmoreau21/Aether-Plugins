@@ -159,7 +159,7 @@ impl MetadataProviderPlugin for MusicBrainzPlugin {
             permissions: vec!["metadata.read".into(),"metadata.write".into(),"images".into()],
             id: "musicbrainz".into(),
             name: "MusicBrainz".into(),
-            version: "0.1.0".into(),
+            version: env!("CARGO_PKG_VERSION").into(),
             category: "Metadata".into(),
             provider: "MusicBrainz".into(),
             http_hosts: vec!["musicbrainz.org".into(), "coverartarchive.org".into()],
@@ -178,7 +178,7 @@ impl MetadataProviderPlugin for MusicBrainzPlugin {
             ],
             supported_media_types: vec![MediaType::Music],
             default_priority: 50,
-            config_schema: vec![ConfigField {
+            config_schema: vec![aether_plugin_api::provider_timeout_field(),ConfigField {
                 key: "base_url".into(),
                 label: "Adresse du fournisseur".into(),
                 field_type: "text".into(),

@@ -163,7 +163,7 @@ impl MetadataProviderPlugin for DiscogsPlugin {
             permissions: vec!["metadata.read".into(),"metadata.write".into(),"images".into()],
             id: "discogs".into(),
             name: "Discogs".into(),
-            version: "0.1.0".into(),
+            version: env!("CARGO_PKG_VERSION").into(),
             category: "Metadata".into(),
             provider: "Discogs".into(),
             http_hosts: vec!["api.discogs.com".into()],
@@ -182,7 +182,7 @@ impl MetadataProviderPlugin for DiscogsPlugin {
             ],
             supported_media_types: vec![MediaType::Music],
             default_priority: 55,
-            config_schema: vec![
+            config_schema: vec![aether_plugin_api::provider_timeout_field(),
                 ConfigField {
                     key: "api_key".into(),
                     label: "Jeton personnel Discogs".into(),

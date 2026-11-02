@@ -177,7 +177,7 @@ impl MetadataProviderPlugin for OmdbPlugin {
             ],
             id: "omdb".into(),
             name: "OMDb".into(),
-            version: "0.1.0".into(),
+            version: env!("CARGO_PKG_VERSION").into(),
             category: "Metadata".into(),
             provider: "OMDb".into(),
             http_hosts: vec!["www.omdbapi.com".into()],
@@ -198,6 +198,16 @@ impl MetadataProviderPlugin for OmdbPlugin {
             supported_media_types: vec![MediaType::Movie, MediaType::TvShow, MediaType::Episode],
             default_priority: 50,
             config_schema: vec![
+                ConfigField {
+                    key: "timeout_secs".into(),
+                    label: "Délai de réponse (secondes)".into(),
+                    description: "Durée maximale de chaque requête au fournisseur".into(),
+                    field_type: "number".into(),
+                    required: false,
+                    secret: false,
+                    default_value: Some("10".into()),
+                    options: vec![],
+                },
                 ConfigField {
                     key: "api_key".into(),
                     label: "Clé API OMDb".into(),
@@ -227,6 +237,26 @@ impl MetadataProviderPlugin for OmdbPlugin {
         query: SearchQuery,
         config: &ProviderConfig,
     ) -> Result<Vec<SearchResultItem>, PluginError> {
+        if let Some(id) = query
+            .external_ids
+            .get("imdb")
+            .filter(|id| !id.trim().is_empty())
+        {
+            let metadata = self
+                .details(
+                    DetailsRequest {
+                        id: id.clone(),
+                        media_type: query.media_type,
+                        external_ids: query.external_ids.clone(),
+                    },
+                    config,
+                )
+                .await?;
+            return Ok(vec![aether_plugin_api::identified_search_result(
+                metadata,
+                query.media_type,
+            )]);
+        }
         let key = Self::resolve_api_key(config)?;
         let mut url = format!(
             "{}/?apikey={}&s={}",

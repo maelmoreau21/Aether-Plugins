@@ -30,6 +30,71 @@ impl TmdbPlugin {
         Self
     }
 
+    async fn resolve_id(
+        &self,
+        id: &str,
+        external_ids: &BTreeMap<String, String>,
+        media_type: MediaType,
+        config: &ProviderConfig,
+    ) -> Result<String, PluginError> {
+        let numeric = |s: &str| {
+            !s.is_empty()
+                && s.bytes().all(|b| b.is_ascii_digit())
+                && s.parse::<u64>().is_ok_and(|n| n > 0)
+        };
+        if let Some(tmdb) = external_ids
+            .get("tmdb")
+            .map(|s| s.trim())
+            .filter(|s| numeric(s))
+        {
+            return Ok(tmdb.to_owned());
+        }
+        let id = id.trim();
+        if numeric(id) {
+            return Ok(id.to_owned());
+        }
+        let external = external_ids
+            .get("imdb")
+            .map(|s| (s.trim(), "imdb_id"))
+            .or_else(|| id.starts_with("tt").then_some((id, "imdb_id")))
+            .or_else(|| external_ids.get("tvdb").map(|s| (s.trim(), "tvdb_id")));
+        let Some((external, source)) = external else {
+            return Err(PluginError::new(
+                "invalid_tmdb_id",
+                "A valid TMDb, IMDb or TVDB identifier is required",
+            ));
+        };
+        if (source == "imdb_id" && (!external.starts_with("tt") || !numeric(&external[2..])))
+            || (source == "tvdb_id" && !numeric(external))
+        {
+            return Err(PluginError::new(
+                "invalid_external_id",
+                "Invalid external identifier",
+            ));
+        }
+        let found: serde_json::Value = self
+            .fetch_json(
+                &format!("find/{external}"),
+                &[("external_source", source)],
+                config,
+            )
+            .await?;
+        let key = if matches!(media_type, MediaType::TvShow | MediaType::Episode) {
+            "tv_results"
+        } else {
+            "movie_results"
+        };
+        found
+            .get(key)
+            .and_then(|v| v.as_array())
+            .and_then(|v| v.first())
+            .and_then(|v| v.get("id"))
+            .and_then(|v| v.as_u64())
+            .filter(|id| *id > 0)
+            .map(|id| id.to_string())
+            .ok_or_else(|| PluginError::not_found(external))
+    }
+
     fn resolve_api_key<'a>(
         &self,
         config: &'a ProviderConfig,
@@ -184,7 +249,7 @@ impl MetadataProviderPlugin for TmdbPlugin {
             permissions: vec!["metadata.read".into(),"metadata.write".into(),"images".into()],
             id: "tmdb".into(),
             name: "TMDb (The Movie Database)".into(),
-            version: "0.1.0".into(),
+            version: env!("CARGO_PKG_VERSION").into(),
             category: "Metadata".into(),
             provider: "tmdb".into(),
             http_hosts: vec!["api.themoviedb.org".into(), "image.tmdb.org".into()],
@@ -210,6 +275,18 @@ impl MetadataProviderPlugin for TmdbPlugin {
             default_priority: 100,
             config_schema: vec![
                 ConfigField {
+                    key: "timeout_secs".into(), label: "Délai de réponse (secondes)".into(),
+                    description: "Durée maximale de chaque requête au fournisseur".into(),
+                    field_type: "number".into(), required: false, secret: false,
+                    default_value: Some("10".into()), options: vec![],
+                },
+                ConfigField {
+                    key: "language".into(), label: "Langue des métadonnées".into(),
+                    description: "Code de langue des titres et descriptions (par exemple fr-FR)".into(),
+                    field_type: "text".into(), required: false, secret: false,
+                    default_value: Some("fr-FR".into()), options: vec![],
+                },
+                ConfigField {
                     key: "base_url".into(),
                     label: "Adresse du fournisseur".into(),
                     description: "Adresse officielle du fournisseur, modifiable si nécessaire".into(),
@@ -221,9 +298,9 @@ impl MetadataProviderPlugin for TmdbPlugin {
                 },
                 ConfigField {
                     key: "api_key".into(),
-                    label: "Clé API TMDb (optionnelle)".into(),
+                    label: "Clé API TMDb".into(),
                     field_type: "password".into(),
-                    description: "Clé API TMDb v3 ou jeton d'accès v4 Bearer (optionnelle : clé communautaire active par défaut si vide)".into(),
+                    description: "Clé API TMDb v3 ou jeton d'accès v4 Bearer ; le serveur peut fournir une clé par défaut".into(),
                     required: false,
                     secret: true,
                     default_value: None,
@@ -249,6 +326,36 @@ impl MetadataProviderPlugin for TmdbPlugin {
         query: SearchQuery,
         config: &ProviderConfig,
     ) -> Result<Vec<SearchResultItem>, PluginError> {
+        // Jellyfin resolves known provider IDs before attempting any title search.
+        // A localized NFO title must never replace an authoritative identifier.
+        if ["tmdb", "imdb", "tvdb"].iter().any(|key| {
+            query
+                .external_ids
+                .get(*key)
+                .is_some_and(|v| !v.trim().is_empty())
+        }) {
+            let meta = self
+                .details(
+                    DetailsRequest {
+                        id: String::new(),
+                        media_type: query.media_type,
+                        external_ids: query.external_ids.clone(),
+                    },
+                    config,
+                )
+                .await?;
+            return Ok(vec![SearchResultItem {
+                id: meta.provider_id,
+                title: meta.title.unwrap_or_else(|| query.title.clone()),
+                artist: None,
+                original_title: meta.original_title,
+                year: meta.year,
+                media_type: query.media_type,
+                overview: meta.synopsis,
+                poster_url: meta.posters.first().map(|image| image.url.clone()),
+                score: meta.ratings.first().map(|rating| rating.value),
+            }]);
+        }
         let language = query
             .language
             .as_deref()
@@ -258,7 +365,20 @@ impl MetadataProviderPlugin for TmdbPlugin {
         let is_tv = matches!(query.media_type, MediaType::TvShow | MediaType::Episode);
         let endpoint = if is_tv { "search/tv" } else { "search/movie" };
 
-        let mut params = vec![("query", query.title.as_str()), ("language", language)];
+        let adult = if config
+            .extra
+            .get("include_adult")
+            .is_some_and(|v| v == "true")
+        {
+            "true"
+        } else {
+            "false"
+        };
+        let mut params = vec![
+            ("query", query.title.as_str()),
+            ("language", language),
+            ("include_adult", adult),
+        ];
 
         let year_str = query.year.map(|y| y.to_string());
         if let Some(y) = &year_str {
@@ -273,7 +393,11 @@ impl MetadataProviderPlugin for TmdbPlugin {
 
         // A wrong or release-year-offset filter must not hide the right title: retry without it.
         if data.results.is_empty() && year_str.is_some() {
-            let relaxed = [("query", query.title.as_str()), ("language", language)];
+            let relaxed = [
+                ("query", query.title.as_str()),
+                ("language", language),
+                ("include_adult", adult),
+            ];
             data = self.fetch_json(endpoint, &relaxed, config).await?;
         }
 
@@ -322,44 +446,14 @@ impl MetadataProviderPlugin for TmdbPlugin {
     ) -> Result<StructuredMetadata, PluginError> {
         let language = config.language.as_deref().unwrap_or("fr-FR");
         let is_tv = matches!(request.media_type, MediaType::TvShow | MediaType::Episode);
-        let mut id = request.id.trim().to_string();
-        if !id.bytes().all(|b| b.is_ascii_digit()) || id.is_empty() {
-            let imdb_candidate = if id.starts_with("tt") {
-                Some(id.as_str())
-            } else {
-                request.external_ids.get("imdb").map(String::as_str)
-            };
-            if let Some(imdb_id) = imdb_candidate {
-                let find_endpoint = format!("find/{imdb_id}");
-                if let Ok(find_val) = self
-                    .fetch_json::<serde_json::Value>(
-                        &find_endpoint,
-                        &[("external_source", "imdb_id")],
-                        config,
-                    )
-                    .await
-                {
-                    let candidate_id = if is_tv {
-                        find_val
-                            .get("tv_results")
-                            .and_then(|v| v.as_array())
-                            .and_then(|a| a.first())
-                            .and_then(|c| c.get("id"))
-                            .and_then(|i| i.as_u64())
-                    } else {
-                        find_val
-                            .get("movie_results")
-                            .and_then(|v| v.as_array())
-                            .and_then(|a| a.first())
-                            .and_then(|c| c.get("id"))
-                            .and_then(|i| i.as_u64())
-                    };
-                    if let Some(cid) = candidate_id {
-                        id = cid.to_string();
-                    }
-                }
-            }
-        }
+        let id = self
+            .resolve_id(
+                &request.id,
+                &request.external_ids,
+                request.media_type,
+                config,
+            )
+            .await?;
         let endpoint = if is_tv {
             format!("tv/{id}")
         } else {
@@ -485,7 +579,7 @@ impl MetadataProviderPlugin for TmdbPlugin {
         }
 
         let mut external_ids = BTreeMap::new();
-        external_ids.insert("tmdb".into(), request.id.clone());
+        external_ids.insert("tmdb".into(), id.clone());
         if let Some(ext) = val.get("external_ids") {
             if let Some(imdb) = ext.get("imdb_id").and_then(|v| v.as_str()) {
                 external_ids.insert("imdb".into(), imdb.to_string());
@@ -707,7 +801,7 @@ impl MetadataProviderPlugin for TmdbPlugin {
 
         Ok(StructuredMetadata {
             provider: "tmdb".into(),
-            provider_id: request.id,
+            provider_id: id,
             external_ids,
             title,
             original_title,
@@ -740,60 +834,14 @@ impl MetadataProviderPlugin for TmdbPlugin {
         config: &ProviderConfig,
     ) -> Result<Vec<MediaImage>, PluginError> {
         let is_tv = matches!(request.media_type, MediaType::TvShow | MediaType::Episode);
-        let mut id = if request.id.trim().is_empty() {
-            request
-                .external_ids
-                .get("tmdb")
-                .map(String::as_str)
-                .unwrap_or("")
-                .to_string()
-        } else {
-            request.id.trim().to_string()
-        };
-
-        if (!id.bytes().all(|b| b.is_ascii_digit()) || id.is_empty())
-            && let Some(imdb_id) = request
-                .external_ids
-                .get("imdb")
-                .map(String::as_str)
-                .or_else(|| request.id.starts_with("tt").then_some(request.id.as_str()))
-        {
-            let find_endpoint = format!("find/{imdb_id}");
-            if let Ok(find_val) = self
-                .fetch_json::<serde_json::Value>(
-                    &find_endpoint,
-                    &[("external_source", "imdb_id")],
-                    config,
-                )
-                .await
-            {
-                let candidate_id = if is_tv {
-                    find_val
-                        .get("tv_results")
-                        .and_then(|v| v.as_array())
-                        .and_then(|a| a.first())
-                        .and_then(|c| c.get("id"))
-                        .and_then(|i| i.as_u64())
-                } else {
-                    find_val
-                        .get("movie_results")
-                        .and_then(|v| v.as_array())
-                        .and_then(|a| a.first())
-                        .and_then(|c| c.get("id"))
-                        .and_then(|i| i.as_u64())
-                };
-                if let Some(cid) = candidate_id {
-                    id = cid.to_string();
-                }
-            }
-        }
-
-        if id.is_empty() || !id.bytes().all(|b| b.is_ascii_digit()) {
-            return Err(PluginError::new(
-                "missing_id",
-                "TMDb images require a numeric TMDb identifier",
-            ));
-        }
+        let id = self
+            .resolve_id(
+                &request.id,
+                &request.external_ids,
+                request.media_type,
+                config,
+            )
+            .await?;
         let endpoint = if is_tv {
             format!("tv/{id}/images")
         } else {

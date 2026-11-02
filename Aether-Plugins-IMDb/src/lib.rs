@@ -170,7 +170,7 @@ impl MetadataProviderPlugin for ImdbPlugin {
             permissions: vec!["metadata.read".into(),"metadata.write".into(),"images".into()],
             id: "imdb".into(),
             name: "IMDb (Internet Movie Database)".into(),
-            version: "0.1.0".into(),
+            version: env!("CARGO_PKG_VERSION").into(),
             category: "Metadata".into(),
             provider: "imdb".into(),
             http_hosts: vec!["v3.sg.media-imdb.com".into(), "imdb.com".into(), "www.imdb.com".into()],
@@ -195,6 +195,12 @@ impl MetadataProviderPlugin for ImdbPlugin {
             ],
             default_priority: 80,
             config_schema: vec![
+                ConfigField {
+                    key: "timeout_secs".into(), label: "Délai de réponse (secondes)".into(),
+                    description: "Durée maximale de chaque requête au fournisseur".into(),
+                    field_type: "number".into(), required: false, secret: false,
+                    default_value: Some("10".into()), options: vec![],
+                },
                 ConfigField {
                     key: "api_key".into(),
                     label: "Clé API (optionnelle)".into(),
@@ -225,6 +231,26 @@ impl MetadataProviderPlugin for ImdbPlugin {
         query: SearchQuery,
         config: &ProviderConfig,
     ) -> Result<Vec<SearchResultItem>, PluginError> {
+        if let Some(id) = query
+            .external_ids
+            .get("imdb")
+            .filter(|id| !id.trim().is_empty())
+        {
+            let metadata = self
+                .details(
+                    DetailsRequest {
+                        id: id.clone(),
+                        media_type: query.media_type,
+                        external_ids: query.external_ids.clone(),
+                    },
+                    config,
+                )
+                .await?;
+            return Ok(vec![aether_plugin_api::identified_search_result(
+                metadata,
+                query.media_type,
+            )]);
+        }
         let normalized = self.normalize_query(&query.title);
         if normalized.is_empty() {
             return Ok(Vec::new());
@@ -315,6 +341,15 @@ impl MetadataProviderPlugin for ImdbPlugin {
                 ),
             ));
         };
+        if !imdb_id.starts_with("tt")
+            || imdb_id.len() <= 2
+            || !imdb_id[2..].bytes().all(|b| b.is_ascii_digit())
+        {
+            return Err(PluginError::new(
+                "invalid_imdb_id",
+                "IMDb identifiers must contain tt followed by digits",
+            ));
+        }
 
         let base_url = config
             .base_url

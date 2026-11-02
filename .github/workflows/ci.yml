@@ -107,9 +107,17 @@ jobs:
 
       - name: Validate WebAssembly Modules (Size, ABI & Smoke tests)
         working-directory: Aether-Plugins
-        run: node scripts/test-wasm.cjs
+        run: |
+          node scripts/test-wasm.cjs
+          node scripts/test-metadata-wasm.cjs
 
-      - name: Verify repository manifest consistency
+      - name: Verify development sources and published catalogue (unpublished versions allowed)
+        if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
+        working-directory: Aether-Plugins
+        run: node scripts/test-manifests.cjs --allow-unpublished
+
+      - name: Verify published source and catalogue version parity on main
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         working-directory: Aether-Plugins
         run: node scripts/test-manifests.cjs
 

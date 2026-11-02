@@ -5,6 +5,7 @@ const path = require('node:path');
 const assert = require('node:assert/strict');
 
 const root = path.resolve(__dirname, '..');
+const allowUnpublished = process.argv.slice(2).includes('--allow-unpublished');
 const repoDir = path.join(root, 'repository');
 const manifestPath = path.join(repoDir, 'manifest.json');
 
@@ -53,11 +54,22 @@ for (const { dir, id, optionalInRepository } of pluginDirs) {
   }
   assert(ext, `Extension '${id}' (from ${dir}) missing in repository/manifest.json`);
 
-  assert.equal(
-    ext.manifest.version,
-    expectedVersion,
-    `Version mismatch for '${id}': Cargo.toml has ${expectedVersion}, manifest.json has ${ext.manifest.version}`
-  );
+  // Sources may contain the next unpublished patch. The catalogue's signed
+  // artifacts remain immutable until publication; never rewrite them to make
+  // a local development version appear published.
+  if (ext.manifest.version !== expectedVersion) {
+    assert(allowUnpublished,
+      `Version mismatch for '${id}': source ${expectedVersion}, catalogue ${ext.manifest.version}. Use --allow-unpublished only for local preparation; publication is pending.`);
+    const stable = version => {
+      assert(/^\d+\.\d+\.\d+$/.test(version), `Unsupported version: ${version}`);
+      return version.split('.').map(Number);
+    };
+    const source = stable(expectedVersion), published = stable(ext.manifest.version);
+    const firstDifference = source.findIndex((value, index) => value !== published[index]);
+    assert(firstDifference >= 0 && source[firstDifference] > published[firstDifference],
+      `Source version for '${id}' (${expectedVersion}) must not precede published ${ext.manifest.version}`);
+    console.log(`  - ${id}: source ${expectedVersion}, catalogue publié ${ext.manifest.version} (publication en attente)`);
+  }
 
   // Validate permissions and hosts
   assert(
@@ -83,7 +95,7 @@ for (const { dir, id, optionalInRepository } of pluginDirs) {
     `Corresponding package file not found: ${pkgFile}`
   );
 
-  console.log(`  ✓ ${id}@${expectedVersion} (${dir} -> ${packageFileName}): workspace and repository synchronized`);
+  console.log(`  ✓ ${id}: source ${expectedVersion}, catalogue ${ext.manifest.version} (${dir} -> ${packageFileName})`);
 }
 
-console.log('All plugins and manifest entries are strictly synchronized!');
+console.log('Plugin sources and published catalogue are consistent; pending versions are reported above.');

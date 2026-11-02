@@ -208,7 +208,7 @@ impl MetadataProviderPlugin for LrcLibPlugin {
             ],
             id: "lrclib".into(),
             name: "LRCLIB".into(),
-            version: "0.1.0".into(),
+            version: env!("CARGO_PKG_VERSION").into(),
             category: "Lyrics".into(),
             provider: "LRCLIB".into(),
             http_hosts: vec!["lrclib.net".into()],
@@ -228,17 +228,20 @@ impl MetadataProviderPlugin for LrcLibPlugin {
             ],
             supported_media_types: vec![MediaType::Music],
             default_priority: 50,
-            config_schema: vec![ConfigField {
-                key: "base_url".into(),
-                label: "Adresse du fournisseur".into(),
-                field_type: "text".into(),
-                description: "Instance LRCLIB auto-hébergée (par défaut https://lrclib.net/api)"
-                    .into(),
-                required: false,
-                secret: false,
-                default_value: Some(DEFAULT_BASE_URL.into()),
-                options: vec![],
-            }],
+            config_schema: vec![
+                aether_plugin_api::provider_timeout_field(),
+                ConfigField {
+                    key: "base_url".into(),
+                    label: "Adresse du fournisseur".into(),
+                    field_type: "text".into(),
+                    description:
+                        "Instance LRCLIB auto-hébergée (par défaut https://lrclib.net/api)".into(),
+                    required: false,
+                    secret: false,
+                    default_value: Some(DEFAULT_BASE_URL.into()),
+                    options: vec![],
+                },
+            ],
         }
     }
 

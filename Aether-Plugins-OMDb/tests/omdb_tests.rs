@@ -112,6 +112,22 @@ async fn details_and_images_are_structured() {
     let addr = serve(mock).await;
     let plugin = OmdbPlugin::new();
     let cfg = config(addr, "synthetic");
+    let identified = plugin
+        .search(
+            SearchQuery {
+                title: "Titre local incorrect".into(),
+                year: Some(1900),
+                media_type: MediaType::Movie,
+                language: None,
+                external_ids: [("imdb".into(), "tt0816692".into())].into(),
+            },
+            &cfg,
+        )
+        .await
+        .unwrap();
+    assert_eq!(identified.len(), 1);
+    assert_eq!(identified[0].id, "tt0816692");
+    assert_eq!(identified[0].title, "Interstellar");
     let d = plugin
         .details(
             DetailsRequest {
