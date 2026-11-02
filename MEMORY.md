@@ -1,3 +1,12 @@
+## 2 novembre 2026 — Clé du catalogue configurée dans GitHub
+
+- Échec du run `41493653249` : seul le secret Poster Rotator existait dans
+  l'environnement `production`. La clé locale `catalog-v1.pk8` a été vérifiée
+  contre la clé publique du catalogue, puis enregistrée comme secret GitHub
+  `ED25519_PRIVATE_KEY` dans Aether-Plugins/production, sans afficher sa valeur.
+- Seul le job de publication en échec a été relancé ; les jobs CI réussis n'ont
+  pas été relancés. Aucune nouvelle identité de signature n'a été créée.
+
 ## 2 novembre 2026 — Paquets develop automatiques
 
 - Après CI verte sur push develop : calcul depuis le dernier catalogue, incrément
