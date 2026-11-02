@@ -100,23 +100,11 @@ jobs:
             node scripts/test-wasm.cjs target/wasm32-unknown-unknown/release "$CRATE"
 
             "./target/release/$BINARY" --manifest > "target/$SHORT.raw.manifest.json"
-            WASM_HASH=$(sha256sum "$WASM_PATH" | awk '{print $1}')
-
-            python3 -c "
-          import json
-          from pathlib import Path
-          with open('target/$SHORT.raw.manifest.json', 'r', encoding='utf-8') as f:
-              m = json.load(f)
-          banner = m.get('banner')
-          if banner and banner.startswith('assets/'):
-              m['banner'] = Path('$PDIR', banner).read_text(encoding='utf-8')
-          m['apiVersion'] = 1
-          m['version'] = '$NEXT_VER'
-          m['checksum'] = '$WASM_HASH'
-          m['repository'] = '${{ github.server_url }}/${{ github.repository }}'
-          with open('target/$SHORT.manifest.json', 'w', encoding='utf-8') as f:
-              json.dump(m, f, indent=2)
-          "
+            python3 scripts/package-manifest.py \
+              --input "target/$SHORT.raw.manifest.json" \
+              --plugin-root "$PDIR" --version "$NEXT_VER" --wasm "$WASM_PATH" \
+              --repository "${{ github.server_url }}/${{ github.repository }}" \
+              --output "target/$SHORT.manifest.json"
 
             PKG_PATH="repository/packages/$SHORT-$NEXT_VER.package.json"
             ../Aether/target/release/media-extension-pack pack \

@@ -1,3 +1,14 @@
+## 2 novembre 2026 — Manifeste signé compatible Core
+
+- Les workflows de publication transmettaient le manifeste interne du fournisseur
+  au Core strict (`provider`, `capabilities`, `supportedMediaTypes`, `defaultPriority`
+  non reconnus). Les deux workflows utilisent maintenant `package-manifest.py`
+  pour produire explicitement le contrat signé, en conservant droits, domaines,
+  paramètres, versions et bannière et en calculant le SHA-256 du module.
+- Vérification ciblée : vrai manifeste Discogs, conversion puis signature par
+  media-extension-pack réussies ; Actionlint et diff propres. Aucun rebuild ni
+  suite de tests générale lancés. Correctif local, non poussé.
+
 ## 2 novembre 2026 — Clé du catalogue configurée dans GitHub
 
 - Échec du run `41493653249` : seul le secret Poster Rotator existait dans
