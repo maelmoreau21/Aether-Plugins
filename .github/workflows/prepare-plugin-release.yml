@@ -17,6 +17,7 @@ on:
           - discogs
           - lrclib
           - intro-skipper
+          - poster-rotator
         default: all
       bump_type:
         description: 'Type d’incrément pour cette release'
@@ -44,10 +45,16 @@ jobs:
     steps:
       - name: Vérifier la présence de la clé privée de signature
         env:
-          ED25519_PRIVATE_KEY: ${{ secrets.ED25519_PRIVATE_KEY }}
+          DEFAULT_SIGNING_KEY: ${{ secrets.ED25519_PRIVATE_KEY }}
+          POSTER_SIGNING_KEY: ${{ secrets.POSTER_ROTATOR_ED25519_PRIVATE_KEY }}
         run: |
-          if [ -z "$ED25519_PRIVATE_KEY" ]; then
-            echo "::error::Le secret ED25519_PRIVATE_KEY est requis pour signer le paquet. Opération annulée."
+          if [ "${{ github.event.inputs.plugin_id }}" = "poster-rotator" ]; then
+            SIGNING_KEY="${POSTER_SIGNING_KEY:-$DEFAULT_SIGNING_KEY}"
+          else
+            SIGNING_KEY="$DEFAULT_SIGNING_KEY"
+          fi
+          if [ -z "$SIGNING_KEY" ]; then
+            echo "::error::La clé privée de signature du plugin est absente dans l'environnement production."
             exit 1
           fi
 
@@ -139,12 +146,11 @@ jobs:
 
       - name: Mettre à jour les versions et compiler les paquets
         env:
-          ED25519_PRIVATE_KEY: ${{ secrets.ED25519_PRIVATE_KEY }}
+          DEFAULT_SIGNING_KEY: ${{ secrets.ED25519_PRIVATE_KEY }}
+          POSTER_SIGNING_KEY: ${{ secrets.POSTER_ROTATOR_ED25519_PRIVATE_KEY }}
         run: |
           cd Aether-Plugins
           mkdir -p "$HOME/.aether_keys"
-          echo -n "$ED25519_PRIVATE_KEY" | base64 -d > "$HOME/.aether_keys/private.key"
-          chmod 600 "$HOME/.aether_keys/private.key"
 
           npm ci --ignore-scripts
 
@@ -154,6 +160,7 @@ jobs:
             PDIR=$(_jq '.dir')
             NEXT_VER=$(_jq '.next_version')
             SHORT=$(_jq '.tag_prefix')
+            PLUGIN_ID=$(_jq '.id')
 
             echo "=== Traitement de $CRATE (version $NEXT_VER) ==="
             sed -i 's/^version = ".*"/version = "'"$NEXT_VER"'"/' "$PDIR/Cargo.toml"
@@ -175,17 +182,30 @@ jobs:
               --repository "${{ github.server_url }}/${{ github.repository }}" \
               --output "target/$SHORT.manifest.json"
 
+            if [ "$PLUGIN_ID" = "poster-rotator" ]; then
+              SIGNING_KEY="${POSTER_SIGNING_KEY:-$DEFAULT_SIGNING_KEY}"
+              PUBLISHER_ID="poster-rotator"
+              PUBLIC_KEY_PATH="repository/poster-rotator-public.txt"
+            else
+              SIGNING_KEY="$DEFAULT_SIGNING_KEY"
+              PUBLISHER_ID="${{ github.repository_owner }}"
+              PUBLIC_KEY_PATH="repository/publisher-public.txt"
+            fi
+
+            echo -n "$SIGNING_KEY" | base64 -d > "$HOME/.aether_keys/private.key"
+            chmod 600 "$HOME/.aether_keys/private.key"
+
             PKG_PATH="repository/packages/$SHORT-$NEXT_VER.package.json"
             ../Aether/target/release/media-extension-pack pack \
               "target/$SHORT.manifest.json" \
               "$WASM_PATH" \
               "$HOME/.aether_keys/private.key" \
-              "${{ github.repository_owner }}" \
+              "$PUBLISHER_ID" \
               "$PKG_PATH"
 
             python3 scripts/update_catalog_entry.py \
               --package-path "$PKG_PATH" \
-              --public-key-path "repository/publisher-public.txt" \
+              --public-key-path "$PUBLIC_KEY_PATH" \
               --base-url "https://raw.githubusercontent.com/${{ github.repository }}/main/repository/packages/" \
               --manifest-path "repository/manifest.json"
           done

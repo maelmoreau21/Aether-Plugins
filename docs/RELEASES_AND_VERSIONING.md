@@ -23,6 +23,7 @@ Tableau des correspondances :
 | `discogs` | `aether-plugin-discogs` | `Aether-Plugins-Discogs` | `discogs` |
 | `lrclib` | `aether-plugin-lrclib` | `Aether-Plugins-LrcLib` | `lrclib` |
 | `intro-skipper` | `aether-plugin-intro-skipper` | `Aether-Plugins-IntroSkipper` | `intro-skipper` |
+| `poster-rotator` | `aether-plugin-poster-rotator` | `Aether-Plugins-PosterRotator` | `poster-rotator` |
 
 ---
 

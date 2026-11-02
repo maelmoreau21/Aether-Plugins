@@ -64,6 +64,12 @@ PLUGINS_MAP = [
         "tag_prefix": "omdb"
     },
     {
+        "id": "poster-rotator",
+        "crate_name": "aether-plugin-poster-rotator",
+        "dir": "Aether-Plugins-PosterRotator",
+        "tag_prefix": "poster-rotator"
+    },
+    {
         "id": "tmdb",
         "crate_name": "aether-plugin-tmdb",
         "dir": "Aether-Plugins-TMDb",
@@ -183,6 +189,8 @@ def main():
         if manual_plugin and (manual_plugin in ["all", "*"] or manual_plugin == p_id or manual_plugin == p_dir or manual_plugin == crate_name):
             is_triggered = True
             bump_type = manual_bump if manual_bump in ["MAJOR", "MINOR", "PATCH"] else "PATCH"
+            if channel == "main" and p_id not in published_ids and current_ver == "0.1.0":
+                bump_type = "NONE"
             reason = f"Manual dispatch requested ({bump_type})"
         elif not manual_plugin:
             p_files = [path for path in changed_paths if path.startswith(p_dir + "/")]
@@ -214,7 +222,7 @@ def main():
                     if m:
                         existing_betas.append(int(m.group(1)))
                 existing_betas.sort()
-                
+
                 next_beta_idx = 0 if not existing_betas else (existing_betas[-1] + 1)
                 next_ver = f"{cycle_target}-beta.{next_beta_idx}"
                 tag_name = f"{tag_prefix}-v{next_ver}"
@@ -231,7 +239,7 @@ def main():
                     next_ver = f"{major}.{minor}.{patch + 1}"
                 else:
                     next_ver = current_ver
-                
+
                 tag_name = f"{tag_prefix}-v{next_ver}"
                 tag_exists = tag_name in all_tags
 
