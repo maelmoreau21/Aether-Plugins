@@ -383,6 +383,7 @@ impl MetadataProviderPlugin for FanartTvPlugin {
         }
 
         Ok(StructuredMetadata {
+            collection: None,
             provider: "fanart.tv".into(),
             provider_id: id,
             external_ids,

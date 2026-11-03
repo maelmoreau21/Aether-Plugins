@@ -24,6 +24,18 @@ function invoke(provider, operation, input, broker) {
 }
 
 const config = {api_key: 'synthetic', timeout_secs: '15', include_adult: true};
+for (const collection of [null, {id: 7, name: 'Fixture collection'}]) {
+  const result = invoke('tmdb', 'metadata.details', {id: '42', mediaType: 'movie', config}, request => {
+    const url = new URL(request.url);
+    assert.equal(url.pathname, '/3/movie/42');
+    return {id: 42, title: 'Fixture film', belongs_to_collection: collection};
+  });
+  if (collection) {
+    assert.deepEqual(result.collection, {id: 'tmdb:7', name: 'Fixture collection'});
+  } else {
+    assert.equal(result.collection, undefined, 'Legacy metadata must not acquire a made-up collection');
+  }
+}
 for (const externalIds of [{tmdb: '42'}, {imdb: 'tt0000042'}]) {
   const requests = [];
   const result = invoke('tmdb', 'metadata.search', {title: 'Incorrect local title', year: 1900, externalIds, config}, request => {
@@ -66,7 +78,7 @@ for (const provider of ['imdb', 'omdb']) {
   assert.equal(result[0].id, 'tt0000042');
   assert.equal(result[0].title, 'Titre français');
 }
-console.log('Metadata Wasm: TMDb IDs/title fallback/settings, IMDb and OMDb ID lookup passed (offline broker fixtures).');
+console.log('Metadata Wasm: TMDb optional collection/IDs/title fallback/settings, IMDb and OMDb ID lookup passed (offline broker fixtures).');
 
 for (const provider of ['fanart', 'discogs', 'musicbrainz', 'lrclib']) {
   const manifest = invoke(provider, 'manifest', {}, () => { throw new Error('Manifest must not fetch HTTP'); });

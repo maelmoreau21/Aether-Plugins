@@ -23,6 +23,7 @@ const pluginDirs = [
   { dir: 'Aether-Plugins-LrcLib', id: 'lrclib' },
   { dir: 'Aether-Plugins-MusicBrainz', id: 'musicbrainz' },
   { dir: 'Aether-Plugins-OMDb', id: 'omdb' },
+  { dir: 'Aether-Plugins-OpenSubtitles', id: 'opensubtitles', optionalInRepository: true },
   { dir: 'Aether-Plugins-TMDb', id: 'tmdb' },
   { dir: 'Aether-Plugins-IntroSkipper', id: 'intro-skipper', optionalInRepository: true },
   { dir: 'Aether-Plugins-PosterRotator', id: 'poster-rotator', optionalInRepository: true },

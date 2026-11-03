@@ -270,6 +270,7 @@ impl MetadataProviderPlugin for MusicBrainzPlugin {
             external_ids.insert("musicbrainz_release_group".to_string(), group.id.clone());
         }
         Ok(StructuredMetadata {
+            collection: None,
             provider: "musicbrainz".into(),
             provider_id: r.id,
             external_ids,

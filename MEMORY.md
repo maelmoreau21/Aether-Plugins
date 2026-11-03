@@ -1,3 +1,30 @@
+## 3 novembre 2026 — Fournisseur OpenSubtitles manuel local
+
+- Nouveau crate `aether-plugin-opensubtitles`, opérations JSON `subtitles.search`
+  et `subtitles.download`, permission signée `subtitles`, configuration privée
+  clé API/compte facultatif. SDK collections épinglé conservé.
+- Recherche identifiant puis titre, langues/forced/SDH, quota retourné et hôtes
+  API/VIP/CDN bornés. Aucun fichier média écrit ni téléchargement automatique.
+- 5 tests Rust, Clippy ciblé, build/smoke Wasm et vrai guest/broker hors ligne
+  réussis. CI raccordée sans déclenchement distant. Aucun service réel,
+  paquet signé, push ou déploiement validé.
+- Parcours Aether Core/interface/stockage distinct : ne pas déclarer la fonction
+  utilisateur complète sur ces seuls tests. Rapport : docs/OPENSUBTITLES_2026_11_03.md.
+
+## 3 novembre 2026 — SDK collections et déclarations de migration privées
+
+- Dépendance Git/lock alignée sur le commit Core publié
+  133896830c609a177e4c4c611084154d7e4aab5d. Les fournisseurs sans collections
+  et leur fixture API déclarent collection:None pour conserver leur compilation.
+- cargo check --workspace --all-targets et test TMDb test_tmdb_details_mock_server
+  réussis sans remplacement local du SDK. Pas de suite globale exécutée.
+- package-manifest.py conserve storageMigration avant signature ; régression
+  Python ciblée réussie et raccordée à la CI. Le modèle persistent-storage répond
+  lifecycle.verify sans broker ni mutation ; test natif ciblé réussi.
+- Fmt workspace/modèle et diff-check réussis. README TMDb et modèle mis à jour.
+  Aucun nouveau paquet signé, push ou déploiement pendant cette reprise.
+  Les services réels et la détection acoustique Intro restent à valider.
+
 ## 2 novembre 2026 — Conservation des anciennes versions signées
 
 - Le contrôle du catalogue comparait le nombre total de fichiers au nombre

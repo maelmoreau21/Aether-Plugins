@@ -25,6 +25,8 @@ jobs:
           python-version: '3.12'
       - name: Validate manual release version policy
         run: python scripts/test-release-policy.py
+      - name: Preserve signed private storage migrations
+        run: python scripts/test-package-manifest.py
 
   security-audit:
     name: Audit de sécurité (cargo audit)
@@ -96,6 +98,7 @@ jobs:
         run: |
           node scripts/test-wasm.cjs
           node scripts/test-metadata-wasm.cjs
+          node scripts/test-subtitles-wasm.cjs
 
       - name: Verify development sources and published catalogue (unpublished versions allowed)
         if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'

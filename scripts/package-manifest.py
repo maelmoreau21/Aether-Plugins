@@ -8,7 +8,7 @@ FIELDS = (
     "apiVersion", "id", "name", "version", "description", "author", "license",
     "repository", "permissions", "httpHosts", "category", "targetAbi",
     "minServerVersion", "maxServerVersion", "checksum", "banner", "changelog",
-    "releaseDate", "configSchema",
+    "releaseDate", "configSchema", "storageMigration",
 )
 
 def main():

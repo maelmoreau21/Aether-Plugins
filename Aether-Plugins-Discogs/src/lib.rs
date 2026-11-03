@@ -278,6 +278,7 @@ impl MetadataProviderPlugin for DiscogsPlugin {
         let mut genres = r.genres;
         genres.extend(r.styles);
         Ok(StructuredMetadata {
+            collection: None,
             provider: "discogs".into(),
             provider_id: r.id.to_string(),
             external_ids,

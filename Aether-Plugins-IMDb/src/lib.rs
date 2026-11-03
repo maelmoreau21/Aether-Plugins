@@ -445,6 +445,7 @@ impl MetadataProviderPlugin for ImdbPlugin {
         }
 
         Ok(StructuredMetadata {
+            collection: None,
             provider: "imdb".into(),
             provider_id: imdb_id,
             external_ids,
