@@ -121,6 +121,12 @@ class PluginsReleasePolicyTests(unittest.TestCase):
                     self.assertEqual(entries[0]["next_version"], expected)
 
     # Manuel : dispatch pour tous les plugins (all)
+    def test_manual_release_new_optional_providers(self):
+        for plugin_id in ["tvdb", "opensubtitles"]:
+            with self.subTest(plugin_id=plugin_id):
+                entries = self.run_detect(["--manual-plugin", plugin_id, "--manual-bump", "PATCH", "--channel", "main"])
+                self.assertEqual([entry["id"] for entry in entries], [plugin_id])
+
     def test_manual_release_all_plugins(self):
         for bump, expected in [("PATCH", "1.2.4"), ("MINOR", "1.3.0"), ("MAJOR", "2.0.0")]:
             with self.subTest(bump=bump):

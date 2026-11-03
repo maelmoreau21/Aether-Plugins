@@ -10,6 +10,8 @@ on:
         options:
           - all
           - tmdb
+          - tvdb
+          - opensubtitles
           - imdb
           - omdb
           - fanart-tv

@@ -22,6 +22,7 @@ const expectedPlugins = [
   'aether_plugin_opensubtitles',
   'aether_plugin_poster_rotator',
   'aether_plugin_tmdb',
+  'aether_plugin_tvdb',
 ];
 
 // CI requires all modules; release jobs explicitly select one crate.

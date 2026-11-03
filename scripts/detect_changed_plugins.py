@@ -22,6 +22,18 @@ import re
 
 PLUGINS_MAP = [
     {
+        "id": "tvdb",
+        "crate_name": "aether-plugin-tvdb",
+        "dir": "Aether-Plugins-TVDB",
+        "tag_prefix": "tvdb"
+    },
+    {
+        "id": "opensubtitles",
+        "crate_name": "aether-plugin-opensubtitles",
+        "dir": "Aether-Plugins-OpenSubtitles",
+        "tag_prefix": "opensubtitles"
+    },
+    {
         "id": "discogs",
         "crate_name": "aether-plugin-discogs",
         "dir": "Aether-Plugins-Discogs",

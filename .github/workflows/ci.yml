@@ -99,6 +99,7 @@ jobs:
           node scripts/test-wasm.cjs
           node scripts/test-metadata-wasm.cjs
           node scripts/test-subtitles-wasm.cjs
+          node scripts/test-tvdb-wasm.cjs
 
       - name: Verify development sources and published catalogue (unpublished versions allowed)
         if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'

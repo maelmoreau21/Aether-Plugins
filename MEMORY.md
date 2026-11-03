@@ -1,3 +1,18 @@
+## 3 novembre 2026 — Fournisseur TVDB et raccordements de publication locaux
+
+- Crate TVDB déjà présent dans le commit utilisateur7e5b13c conservé ; complément
+  local des listes Wasm/manifeste, CI guest et sélection de release (également
+  OpenSubtitles). SDK1338968, paquets signés et catalogue publié inchangés.
+- Identité TVDB puis IMDb, films/séries et épisodes par identité exacte,
+  traductions/repli et images types/hôtes explicites. Nom de base non attribué
+  au titre original ; recherches Unicode bornées60Kio.
+- 5 tests Rust, Clippy ciblé, build release, ABI/smoke et vrai guest/broker
+  synthétique réussis. Module optimisé248968octets ; brut298253 dépasse le
+  plafond, optimisation avant signature indispensable. Politique release9tests.
+- Aucun service réel/licence disponible présumé, fuel Wasmi sur détails réels,
+  application Core/NFO, PostgreSQL/NAS, CI distante, paquet signé ou déploiement
+  validé par ce lot. Rapport et limites : docs/TVDB_2026_11_03.md.
+
 ## 3 novembre 2026 — Fournisseur OpenSubtitles manuel local
 
 - Nouveau crate `aether-plugin-opensubtitles`, opérations JSON `subtitles.search`

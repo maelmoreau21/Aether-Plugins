@@ -31,7 +31,7 @@ node scripts/test-wasm.cjs
 ```
 
 La CI, les releases et `Build-LocalPackage.ps1` exécutent cette même optimisation.
-`test-wasm.cjs` exige les neuf modules par défaut, vérifie les imports autorisés
+`test-wasm.cjs` exige les onze modules par défaut, vérifie les imports autorisés
 et exécute chaque module via son ABI avec une opération inconnue sans réseau.
 Pour une release isolée, fournir le répertoire puis le nom de crate :
 `node scripts/test-wasm.cjs target/wasm32-unknown-unknown/release aether-plugin-imdb`.

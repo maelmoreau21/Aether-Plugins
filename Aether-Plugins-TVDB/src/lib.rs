@@ -294,7 +294,8 @@ fn metadata(record: &Value, id: &str) -> Result<StructuredMetadata, PluginError>
         provider_id: id.into(),
         external_ids: ids,
         title: text(record, "name", 128),
-        original_title: text(record, "name", 128),
+        // The API base name does not establish the title's original language.
+        original_title: None,
         synopsis: text(record, "overview", 2000),
         year: record["year"]
             .as_str()
@@ -337,15 +338,11 @@ fn metadata(record: &Value, id: &str) -> Result<StructuredMetadata, PluginError>
                     thumb_url: None,
                     order: person["sort"].as_u64().and_then(|v| u32::try_from(v).ok()),
                 }),
-                "director" => {
-                    if result.directors.len() < 16 && !result.directors.contains(&name) {
-                        result.directors.push(name);
-                    }
+                "director" if result.directors.len() < 16 && !result.directors.contains(&name) => {
+                    result.directors.push(name);
                 }
-                "writer" => {
-                    if result.writers.len() < 16 && !result.writers.contains(&name) {
-                        result.writers.push(name);
-                    }
+                "writer" if result.writers.len() < 16 && !result.writers.contains(&name) => {
+                    result.writers.push(name);
                 }
                 _ => {}
             }
@@ -510,7 +507,7 @@ impl MetadataProviderPlugin for TvdbPlugin {
             http_hosts:vec!["api4.thetvdb.com".into(),"artworks.thetvdb.com".into()],
             description:"TheTVDB API v4 optionnelle. Clé de projet autorisée requise ; PIN personnel si modèle financé par les abonnés.".into(),author:"Aether Team".into(),license:"AGPL-3.0-only".into(),target_abi:"1.0".into(),min_server_version:Some("0.1.0".into()),
             capabilities:vec![PluginCapability::Search,PluginCapability::Details,PluginCapability::Images],supported_media_types:vec![MediaType::Movie,MediaType::TvShow,MediaType::Episode],default_priority:70,
-            config_schema:vec![field("api_key","Clé API v4 de projet autorisée",true,true,None),ConfigField {key:"access_model".into(),label:"Modèle d'accès autorisé par TheTVDB".into(),field_type:"select".into(),required:true,options:vec![ConfigOption {label:"Licence de projet approuvée".into(),value:"licensed".into()},ConfigOption {label:"Abonnement utilisateur avec PIN personnel".into(),value:"user_supported".into()}],..Default::default()},field("subscriber_pin","PIN personnel (modèle abonnement uniquement)",true,false,None),field("fallback_language","Langue de repli (vide : langue originale uniquement)",false,false,Some("en")),aether_plugin_api::provider_timeout_field()],..Default::default()}
+            config_schema:vec![field("api_key","Clé API v4 de projet autorisée",true,true,None),ConfigField {key:"access_model".into(),label:"Modèle d'accès autorisé par TheTVDB".into(),field_type:"select".into(),required:true,options:vec![ConfigOption {label:"Licence de projet approuvée".into(),value:"licensed".into()},ConfigOption {label:"Abonnement utilisateur avec PIN personnel".into(),value:"user_supported".into()}],..Default::default()},field("subscriber_pin","PIN personnel (modèle abonnement uniquement)",true,false,None),field("fallback_language","Langue de repli (vide : valeur de base de l’API)",false,false,Some("en")),aether_plugin_api::provider_timeout_field()],..Default::default()}
     }
     async fn search(
         &self,
@@ -557,7 +554,7 @@ impl MetadataProviderPlugin for TvdbPlugin {
             .ok_or_else(|| failure("invalid_provider_response"))?;
         let langs = languages(&config)?;
         let mut seen = BTreeSet::new();
-        Ok(items
+        let candidates: Vec<SearchResultItem> = items
             .iter()
             .take(20)
             .filter_map(|v| {
@@ -580,7 +577,7 @@ impl MetadataProviderPlugin for TvdbPlugin {
                     id: id.into(),
                     title,
                     artist: None,
-                    original_title: text(v, "name", 128),
+                    original_title: None,
                     year: v["year"].as_str().and_then(|v| v.parse().ok()),
                     media_type: query.media_type,
                     overview,
@@ -588,7 +585,22 @@ impl MetadataProviderPlugin for TvdbPlugin {
                     score: None,
                 })
             })
-            .collect())
+            .collect();
+        // Reserve space for the ABI envelope even with long Unicode synopses.
+        let mut result = Vec::new();
+        let mut bytes = 2;
+        for item in candidates {
+            let size = serde_json::to_vec(&item)
+                .map_err(|_| failure("invalid_provider_response"))?
+                .len()
+                + 1;
+            if bytes + size > 60 * 1024 {
+                break;
+            }
+            bytes += size;
+            result.push(item);
+        }
+        Ok(result)
     }
     async fn details(
         &self,
