@@ -800,7 +800,8 @@ impl MetadataProviderPlugin for TmdbPlugin {
             let id = collection.get("id")?.as_u64()?;
             let name = collection.get("name")?.as_str()?.trim();
             (!name.is_empty() && name.len() <= 300).then(|| aether_plugin_api::MetadataCollection {
-                id: format!("tmdb:{id}"), name: name.to_owned(),
+                id: format!("tmdb:{id}"),
+                name: name.to_owned(),
             })
         });
         Ok(StructuredMetadata {
