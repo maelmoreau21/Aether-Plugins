@@ -36,19 +36,19 @@ function fixture(options = {}) {
     if (method === 'POST' && endpoint === '/releases') {
       const outcome = creates.shift();
       if (!outcome || outcome.committed) state.release = release();
-      if (outcome) throw new HttpError(outcome.status, method);
+      if (outcome) throw new HttpError(outcome.status, method, outcome);
       return state.release;
     }
     if (method === 'POST' && endpoint.startsWith('https://uploads.github.com/')) {
       assert.deepEqual(payload, bytes);
       const outcome = uploads.shift();
       if (!outcome || outcome.committed) state.assets = [outcome?.asset || asset()];
-      if (outcome) throw new HttpError(outcome.status, method);
+      if (outcome) throw new HttpError(outcome.status, method, outcome);
       return state.assets[0];
     }
     throw new Error(`Unexpected test request ${method} ${endpoint}`);
   };
-  return { state, publish: publisher(request, { attempts: 3,
+  return { state, publish: publisher(request, { attempts: 3, writeInterval: 0,
     sleep: async milliseconds => state.sleeps.push(milliseconds), log: () => {} }) };
 }
 const posts = state => state.calls.filter(call => call.method === 'POST');
@@ -193,4 +193,36 @@ test('API adapter rejects foreign URLs before sending credentials and hides resp
   assert.equal(called, 0);
   await assert.rejects(client('GET', '/releases'), error =>
     /HTTP 403/.test(error.message) && !/sensitive|never-print/.test(error.message));
+});
+
+test('secondary rate limits wait for GitHub delay while plain 403 stays permanent', async () => {
+  const limited = fixture({ creates: [{ status: 403, rateLimited: true, retryAfter: 61_000 }] });
+  await limited.publish(item, bytes);
+  assert.deepEqual(limited.state.sleeps, [61_000]);
+  assert.equal(posts(limited.state).filter(call => call.endpoint === '/releases').length, 2);
+  const denied = fixture({ creates: [{ status: 403 }] });
+  await assert.rejects(denied.publish(item, bytes), /HTTP 403/);
+  assert.equal(posts(denied.state).length, 1);
+});
+
+test('API adapter detects rate limits and surfaces only a bounded API message', async () => {
+  const headers = new Map([['retry-after', '7']]);
+  const limited = githubClient('owner/repo', 'secret-token', async () => ({
+    ok: false, status: 403, headers: { get: name => headers.get(name) ?? null },
+    json: async () => ({ message: 'You have exceeded a secondary rate limit secret-token' }),
+  }));
+  await assert.rejects(limited('POST', '/releases', {}), error =>
+    error.rateLimited && error.retryAfter === 7000 && !/secret-token/.test(error.message));
+  const denied = githubClient('owner/repo', 'secret-token', async () => ({
+    ok: false, status: 403, headers: { get: () => null },
+    json: async () => ({ message: 'Resource not accessible by integration' }),
+  }));
+  await assert.rejects(denied('POST', '/releases', {}), error =>
+    !error.rateLimited && /Resource not accessible by integration/.test(error.message));
+});
+
+test('beta releases carry deterministic notes instead of server-generated notes', () => {
+  const [entry] = publicationPlan([{ id: 'fixture', version: '0.1.0', tag: 'fixture-v0.1.0',
+    pkgFile: item.pkgFile, name: 'Fixture' }], 'develop', () => target);
+  assert.match(entry.notes, /fixture-v0\.1\.0-beta/);
 });

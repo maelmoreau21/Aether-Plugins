@@ -9,14 +9,44 @@ const sha256 = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex
 const delay = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 
 class HttpError extends Error {
-  constructor(status, method) {
-    super(`GitHub ${method} returned HTTP ${status || 'network/timeout/invalid-response'}`);
+  constructor(status, method, { detail = '', retryAfter = null, rateLimited = false } = {}) {
+    super(`GitHub ${method} returned HTTP ${status || 'network/timeout/invalid-response'}` +
+      (detail ? `: ${detail}` : ''));
     this.status = status;
+    this.retryAfter = retryAfter;
+    this.rateLimited = rateLimited;
   }
 }
 
 function transient(error) {
-  return error instanceof HttpError && (error.status === 0 || error.status === 429 || error.status >= 500);
+  return error instanceof HttpError && (error.status === 0 || error.status === 429 ||
+    error.status >= 500 || error.rateLimited);
+}
+
+// Only GitHub's short JSON `message` is surfaced; raw bodies and tokens never are.
+async function errorDetail(response, token) {
+  let message = '';
+  try {
+    const body = typeof response.json === 'function' ? await response.json() : null;
+    if (body && typeof body.message === 'string') message = body.message;
+  } catch { /* Non-JSON bodies stay hidden. */ }
+  message = message.replace(/[^\x20-\x7e]/g, ' ').slice(0, 200);
+  return token && message.includes(token) ? '' : message;
+}
+
+// Primary and secondary rate limits are reported as 403/429 with these headers.
+function rateLimit(response, detail) {
+  const header = name => response.headers?.get?.(name) ?? null;
+  const seconds = Number(header('retry-after'));
+  const reset = Number(header('x-ratelimit-reset'));
+  let retryAfter = null;
+  if (Number.isFinite(seconds) && seconds > 0) retryAfter = seconds * 1000;
+  else if (header('x-ratelimit-remaining') === '0' && Number.isFinite(reset) && reset > 0) {
+    retryAfter = Math.max(1000, reset * 1000 - Date.now());
+  }
+  const limited = [403, 429].includes(response.status) &&
+    (retryAfter !== null || /rate limit/i.test(detail));
+  return { rateLimited: limited, retryAfter: limited ? Math.min(retryAfter ?? 60_000, 300_000) : null };
 }
 
 function githubClient(repository, token, fetchImpl = fetch) {
@@ -46,7 +76,10 @@ function githubClient(repository, token, fetchImpl = fetch) {
     } catch {
       throw new HttpError(0, method);
     }
-    if (!response.ok) throw new HttpError(response.status, method);
+    if (!response.ok) {
+      const detail = await errorDetail(response, token);
+      throw new HttpError(response.status, method, { detail, ...rateLimit(response, detail) });
+    }
     try {
       return binary ? Buffer.from(await response.arrayBuffer()) : await response.json();
     } catch {
@@ -56,8 +89,15 @@ function githubClient(repository, token, fetchImpl = fetch) {
   };
 }
 
-function publisher(request, { attempts = 5, sleep = delay, log = console.log } = {}) {
-  const backoff = attempt => sleep(Math.min(30_000, 2000 * (2 ** attempt)));
+function publisher(request, { attempts = 5, sleep = delay, log = console.log, writeInterval = 1000 } = {}) {
+  const backoff = (attempt, error) => sleep(error?.retryAfter ?? Math.min(30_000, 2000 * (2 ** attempt)));
+  // GitHub asks integrations to space content-creating requests by at least one second.
+  let lastWrite = 0;
+  async function write(...args) {
+    const wait = lastWrite + writeInterval - Date.now();
+    if (writeInterval > 0 && wait > 0) await sleep(wait);
+    try { return await request('POST', ...args); } finally { lastWrite = Date.now(); }
+  }
 
   async function read(endpoint, binary = false) {
     for (let attempt = 0; ; attempt++) {
@@ -65,7 +105,7 @@ function publisher(request, { attempts = 5, sleep = delay, log = console.log } =
         return await request('GET', endpoint, undefined, binary);
       } catch (error) {
         if (!transient(error) || attempt + 1 >= attempts) throw error;
-        await backoff(attempt);
+        await backoff(attempt, error);
       }
     }
   }
@@ -82,7 +122,7 @@ function publisher(request, { attempts = 5, sleep = delay, log = console.log } =
         const committed = await observe();
         if (committed) return committed;
         if (!transient(error) || attempt + 1 >= attempts) throw error;
-        await backoff(attempt);
+        await backoff(attempt, error);
       }
     }
   }
@@ -107,10 +147,9 @@ function publisher(request, { attempts = 5, sleep = delay, log = console.log } =
           throw new Error(`Existing tag targets another commit, refusing mutation: ${item.tag}`);
         }
       }
-      return request('POST', '/releases', {
+      return write('/releases', {
         tag_name: item.tag, target_commitish: item.target, name: item.title,
-        prerelease: item.prerelease, draft: false,
-        ...(item.notes ? { body: item.notes } : { generate_release_notes: true }),
+        prerelease: item.prerelease, draft: false, body: item.notes,
       });
     });
     if (!Number.isSafeInteger(release.id) || release.tag_name !== item.tag ||
@@ -141,7 +180,7 @@ function publisher(request, { attempts = 5, sleep = delay, log = console.log } =
     }, async () => {
       const upload = new URL(release.upload_url.split('{')[0]);
       upload.searchParams.set('name', name);
-      return verify(await request('POST', upload.href, bytes));
+      return verify(await write(upload.href, bytes));
     });
     log(`Verified release ${item.tag}: ${name} (${digest})`);
   };
@@ -153,10 +192,13 @@ function publicationPlan(items, channel, target) {
     ...item, target: target(item.pkgFile), prerelease: channel === 'develop',
     tag: item.tag + (channel === 'develop' ? '-beta' : ''),
     title: channel === 'develop' ? item.tag + '-beta' : `${item.name} ${item.version}`,
-    notes: channel === 'main' ? `## Extension ${item.name} — Version ${item.version}\n\n` +
+    // Deterministic notes: server-generated notes are slow and fragile on this tag history.
+    notes: `## Extension ${item.name} — Version ${item.version}` +
+      (channel === 'develop' ? ' (bêta develop)' : '') + '\n\n' +
       `- **Identifiant** : \`${item.id}\`\n- **Version** : \`${item.version}\`\n` +
-      `- **Tag Git** : \`${item.tag}\`\n- **Paquet** : \`${item.pkgFile}\`\n` +
-      '- **Signature** : Ed25519 vérifiée avec succès.' : undefined,
+      `- **Tag Git** : \`${item.tag + (channel === 'develop' ? '-beta' : '')}\`\n` +
+      `- **Paquet** : \`${item.pkgFile}\`\n` +
+      '- **Signature** : Ed25519 vérifiée avec succès.',
   }));
 }
 
