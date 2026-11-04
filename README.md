@@ -31,11 +31,43 @@ node scripts/test-wasm.cjs
 ```
 
 La CI, les releases et `Build-LocalPackage.ps1` exécutent cette même optimisation.
-`test-wasm.cjs` exige les onze modules par défaut, vérifie les imports autorisés
+`test-wasm.cjs` exige les treize modules par défaut, vérifie les imports autorisés
 et exécute chaque module via son ABI avec une opération inconnue sans réseau.
 Pour une release isolée, fournir le répertoire puis le nom de crate :
 `node scripts/test-wasm.cjs target/wasm32-unknown-unknown/release aether-plugin-imdb`.
 Un module sélectionné absent provoque un échec.
+
+## Demandes et Signalements
+
+Deux extensions d’application indépendantes utilisent les écrans natifs du client
+et les contrats hôtes `requests` et `reports`. Elles n’ouvrent aucun accès réseau,
+ne reçoivent aucune clé Radarr/Sonarr/Lidarr et ne modifient aucun fichier média.
+Les connexions et les effets durables restent contrôlés par le Core.
+
+- **Demandes** (`media-requests`) valide les identités externes et sélections puis
+  produit un plan typé pour Radarr, Sonarr ou Lidarr. Les morceaux isolés restent
+  des demandes valides, mais leur exécution retourne `track_not_supported` : aucun
+  album n’est substitué. Les sorties single identifiées se demandent comme albums.
+- **Signalements** (`media-reports`) valide les références média, pistes, instants
+  et descriptions, puis produit une classification structurée. Le résultat porte
+  toujours `automationEligible:false` ; aucune réparation n’est lancée.
+
+Les paquets restent absents du catalogue tant qu’une première publication signée
+n’a pas abouti. Un ancien Core refuse leurs capacités inconnues à l’installation.
+Le numéro minimal historique `0.1.0` ne remplace pas cette vérification de contrat.
+La désactivation et la conservation des dossiers relèvent du Core.
+
+Vérification ciblée des deux extensions :
+
+```powershell
+cargo test -p aether-plugin-requests -p aether-plugin-reports
+cargo build -p aether-plugin-requests -p aether-plugin-reports --lib --target wasm32-unknown-unknown --release
+node scripts/test-wasm.cjs target/wasm32-unknown-unknown/release aether-plugin-requests aether-plugin-reports
+```
+
+Chaque binaire natif fournit `--manifest` (métadonnées de publication) et `--run`
+(enveloppe ABI JSON lue sur stdin). Le contrôle Wasm exécute aussi des opérations
+métier, y compris l’échec d’un morceau et le refus d’un intervalle inversé.
 
 ### Catalogue de développement
 

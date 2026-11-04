@@ -17,6 +17,8 @@ assert.equal(manifestContent.apiVersion, 1, 'manifest apiVersion must be 1');
 assert(Array.isArray(manifestContent.extensions), 'manifest extensions must be an array');
 
 const pluginDirs = [
+  { dir: 'Aether-Plugins-Requests', id: 'media-requests', optionalInRepository: true },
+  { dir: 'Aether-Plugins-Reports', id: 'media-reports', optionalInRepository: true },
   { dir: 'Aether-Plugins-Discogs', id: 'discogs' },
   { dir: 'Aether-Plugins-fanart.tv', id: 'fanart-tv' },
   { dir: 'Aether-Plugins-IMDb', id: 'imdb' },

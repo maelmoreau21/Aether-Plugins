@@ -13,6 +13,8 @@ members = [
     "Aether-Plugins-OpenSubtitles",
     "Aether-Plugins-IntroSkipper",
     "Aether-Plugins-PosterRotator",
+    "Aether-Plugins-Requests",
+    "Aether-Plugins-Reports",
 ]
 
 [workspace.package]

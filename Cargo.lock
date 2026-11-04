@@ -145,6 +145,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "aether-plugin-reports"
+version = "0.1.0"
+dependencies = [
+ "media-extension-sdk",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "aether-plugin-requests"
+version = "0.1.0"
+dependencies = [
+ "media-extension-sdk",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "aether-plugin-tmdb"
 version = "0.1.2"
 dependencies = [

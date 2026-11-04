@@ -22,6 +22,18 @@ import re
 
 PLUGINS_MAP = [
     {
+        "id": "media-requests",
+        "crate_name": "aether-plugin-requests",
+        "dir": "Aether-Plugins-Requests",
+        "tag_prefix": "media-requests"
+    },
+    {
+        "id": "media-reports",
+        "crate_name": "aether-plugin-reports",
+        "dir": "Aether-Plugins-Reports",
+        "tag_prefix": "media-reports"
+    },
+    {
         "id": "tvdb",
         "crate_name": "aether-plugin-tvdb",
         "dir": "Aether-Plugins-TVDB",
