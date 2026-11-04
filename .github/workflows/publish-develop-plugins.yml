@@ -144,7 +144,7 @@ jobs:
         if: steps.plan.outputs.count != '0'
         working-directory: Aether-Plugins
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.AETHER_PLUGINS_RELEASE_TOKEN }}
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
@@ -156,7 +156,7 @@ jobs:
       - name: Publier ou reprendre les releases bêta du catalogue signé
         working-directory: Aether-Plugins
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.AETHER_PLUGINS_RELEASE_TOKEN }}
         run: node scripts/publish-plugin-releases.cjs develop
       - name: Supprimer la clé temporaire
         if: always()
