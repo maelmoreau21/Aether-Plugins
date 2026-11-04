@@ -140,21 +140,11 @@ jobs:
           node scripts/test-manifests.cjs --allow-unpublished
           node scripts/test-repository.cjs repository "https://raw.githubusercontent.com/${{ github.repository }}/develop/repository/packages/"
 
-      - name: Vérifier le token de publication GitHub
-        if: steps.plan.outputs.count != '0'
-        env:
-          RELEASE_TOKEN: ${{ secrets.AETHER_PLUGINS_RELEASE_TOKEN }}
-        run: |
-          if [ -z "$RELEASE_TOKEN" ]; then
-            echo '::error::Le secret AETHER_PLUGINS_RELEASE_TOKEN est requis avec Contents: Read and write pour créer les releases GitHub.'
-            exit 1
-          fi
-
       - name: Publier les nouveaux paquets signés dans develop
         if: steps.plan.outputs.count != '0'
         working-directory: Aether-Plugins
         env:
-          GH_TOKEN: ${{ secrets.AETHER_PLUGINS_RELEASE_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
@@ -166,7 +156,7 @@ jobs:
       - name: Publier ou reprendre les releases bêta du catalogue signé
         working-directory: Aether-Plugins
         env:
-          GH_TOKEN: ${{ secrets.AETHER_PLUGINS_RELEASE_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: node scripts/publish-plugin-releases.cjs develop
       - name: Supprimer la clé temporaire
         if: always()

@@ -6,10 +6,6 @@ compilation et la signature de leurs paquets, puis la mise à jour du catalogue
 `develop` et une GitHub Release marquée bêta. Le numéro du paquet reste numérique
 (ex. `0.1.2`) pour respecter le contrat du Core ; le tag finit par `-beta`.
 Le secret existant `ED25519_PRIVATE_KEY` de l'environnement `production` est requis.
-La publication des tags et releases nécessite aussi un secret de dépôt
-`AETHER_PLUGINS_RELEASE_TOKEN` contenant un fine-grained token avec la permission
-`Contents: Read and write`. Le workflow utilise ce token lorsque le `GITHUB_TOKEN`
-du dépôt est limité en lecture seule.
 Les versions déjà signées ne sont jamais écrasées et aucun push forcé n'est utilisé.
 
 Catalogue bêta :
