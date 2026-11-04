@@ -49,14 +49,6 @@ function rateLimit(response, detail) {
   return { rateLimited: limited, retryAfter: limited ? Math.min(retryAfter ?? 60_000, 300_000) : null };
 }
 
-function createReleaseWithGh(repository, body) {
-  const args = ['api', `repos/${repository}/releases`, '--method', 'POST',
-    '-H', 'X-GitHub-Api-Version: 2022-11-28', '-f', `tag_name=${body.tag_name}`,
-    '-f', `target_commitish=${body.target_commitish}`, '-f', `name=${body.name}`,
-    '-F', `prerelease=${body.prerelease}`, '-F', `draft=${body.draft}`, '-f', `body=${body.body}`];
-  return JSON.parse(execFileSync('gh', args, { encoding: 'utf8', env: process.env }));
-}
-
 function githubClient(repository, token, fetchImpl = fetch) {
   if (!/^[\w.-]+\/[\w.-]+$/.test(repository)) throw new Error('Invalid GitHub repository');
   if (!token) throw new Error('GH_TOKEN is required');
@@ -85,10 +77,6 @@ function githubClient(repository, token, fetchImpl = fetch) {
       throw new HttpError(0, method);
     }
     if (!response.ok) {
-      if (response.status === 403 && method === 'POST' && endpoint === '/releases' &&
-          process.env.GITHUB_ACTIONS === 'true' && body && !upload) {
-        try { return createReleaseWithGh(repository, body); } catch { /* Keep the REST error. */ }
-      }
       const detail = await errorDetail(response, token);
       throw new HttpError(response.status, method, { detail, ...rateLimit(response, detail) });
     }
