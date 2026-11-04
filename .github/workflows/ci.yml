@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   CARGO_TERM_COLOR: always
@@ -17,6 +17,8 @@ jobs:
   workflows:
     name: Validation des workflows
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: docker://rhysd/actionlint:1.7.12
@@ -31,6 +33,8 @@ jobs:
   security-audit:
     name: Audit de sécurité (cargo audit)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout Aether-Plugins
         uses: actions/checkout@v4
@@ -47,6 +51,8 @@ jobs:
   test-and-build:
     name: Lint, Test and Wasm Build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout Aether-Plugins
