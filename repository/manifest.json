@@ -431,7 +431,7 @@
         "apiVersion": 1,
         "id": "media-requests",
         "name": "Demandes",
-        "version": "0.1.0",
+        "version": "0.1.1",
         "description": "Demandes de films, séries et musique avec validation et suivi natifs. Nécessite le contrat hôte requests ; connexions gérées par le Core.",
         "author": "Aether Team",
         "license": "AGPL-3.0-only",
@@ -442,13 +442,13 @@
         "category": "Applications",
         "targetAbi": "1.0",
         "minServerVersion": "0.1.0",
-        "checksum": "224969c37dff982eb043c50a5f4ecc82e1eebd4d62069c2db6076051f387c0c7",
+        "checksum": "74f801e64751afc835ef3d45a37748b501401514006ff190805c27c4009247df",
         "banner": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"960\" height=\"360\" viewBox=\"0 0 960 360\"><rect width=\"960\" height=\"360\" fill=\"#17202b\"/><g fill=\"none\" stroke=\"#f2a65a\" stroke-width=\"10\" stroke-linecap=\"round\"><rect x=\"90\" y=\"80\" width=\"220\" height=\"200\" rx=\"24\"/><path d=\"M150 130h100M150 180h60M150 230h100M285 175v70m-35-35h70\"/></g><text x=\"390\" y=\"190\" fill=\"#f8fafc\" font-family=\"sans-serif\" font-size=\"66\">Demandes</text><text x=\"395\" y=\"245\" fill=\"#b5c2d3\" font-family=\"sans-serif\" font-size=\"24\">Films · Séries · Musique</text></svg>\n"
       },
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
-      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/packages/media-requests-0.1.0.package.json",
-      "packageSha256": "19264492994522191ffbed6ff12543c5f4a4a85c8ae53f99b856ee52d37ed27e"
+      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/packages/media-requests-0.1.1.package.json",
+      "packageSha256": "c301471ddcc585385128d2354d174d485abaaf25a29658d057de73f6e95bbd70"
     },
     {
       "manifest": {
