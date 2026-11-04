@@ -45,9 +45,11 @@ ne reçoivent aucune clé Radarr/Sonarr/Lidarr et ne modifient aucun fichier mé
 Les connexions et les effets durables restent contrôlés par le Core.
 
 - **Demandes** (`media-requests`) valide les identités externes et sélections puis
-  produit un plan typé pour Radarr, Sonarr ou Lidarr. Les morceaux isolés restent
-  des demandes valides, mais leur exécution retourne `track_not_supported` : aucun
-  album n’est substitué. Les sorties single identifiées se demandent comme albums.
+  produit un plan typé pour Radarr, Sonarr ou Lidarr. Un morceau isolé ne peut être
+  acquis que si le Core prouve qu'un single à une seule piste contient exactement
+  l'enregistrement demandé et en vérifie la sélection dans Lidarr. Sans cette
+  preuve hôte, le plan retourne `track_not_supported` ; aucun album complet n'est
+  substitué. Les preuves ne sont jamais acceptées depuis le navigateur.
 - **Signalements** (`media-reports`) valide les références média, pistes, instants
   et descriptions, puis produit une classification structurée. Le résultat porte
   toujours `automationEligible:false` ; aucune réparation n’est lancée.

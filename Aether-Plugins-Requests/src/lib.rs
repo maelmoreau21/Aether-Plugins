@@ -36,6 +36,11 @@ struct Input {
     album_ids: Vec<String>,
     #[serde(default)]
     monitor_future: bool,
+    /// Host-only evidence: Core never accepts these fields from request creation.
+    #[serde(default)]
+    resolved_single_id: Option<String>,
+    #[serde(default)]
+    verified_recording_id: Option<String>,
 }
 
 fn uuid(value: &str) -> bool {
@@ -122,8 +127,17 @@ pub fn handle_extension(request: ExtensionRequest) -> ExtensionResponse {
             Ok(input) => match validate(&input) {
                 Err(error) => json!({"valid":false,"error":error}),
                 Ok(_) if request.operation == "requests.validate" => json!({"valid":true}),
-                // A recording ID is not an album/release-group ID. Never substitute an album.
-                Ok(_) if input.kind == "track" => json!({"error":"track_not_supported"}),
+                // Only the host may prove a one-track Single matching this recording.
+                Ok(_) if input.kind == "track" => {
+                    match (&input.resolved_single_id, &input.verified_recording_id) {
+                        (Some(single), Some(recording))
+                            if uuid(single) && recording == &input.external_id =>
+                        {
+                            json!({"service":"lidarr","kind":"track","externalId":input.external_id,"externalProvider":"musicbrainz","acquisitionKind":"album","acquisitionExternalId":single})
+                        }
+                        _ => json!({"error":"track_not_supported"}),
+                    }
+                }
                 Ok(service) => json!({"service":service,"kind":input.kind,
                     "title":input.title.trim(),"externalId":input.external_id,
                     "externalProvider":input.external_provider,"seasons":input.seasons,
@@ -143,6 +157,19 @@ media_extension_sdk::extension!(handle_extension);
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn a_recording_plan_requires_host_proof_for_the_exact_recording() {
+        let recording = "22345678-1234-1234-1234-123456789abc";
+        let single = "12345678-1234-1234-1234-123456789abc";
+        let mut input = json!({"kind":"track","title":"Synthetic single","externalId":recording,"externalProvider":"musicbrainz","resolvedSingleId":single,"verifiedRecordingId":recording});
+        let plan = run("requests.plan", input.clone());
+        assert_eq!(plan["kind"], "track");
+        assert_eq!(plan["externalId"], recording);
+        assert_eq!(plan["acquisitionKind"], "album");
+        assert_eq!(plan["acquisitionExternalId"], single);
+        input["verifiedRecordingId"] = json!(single);
+        assert_eq!(run("requests.plan", input)["error"], "track_not_supported");
+    }
     fn run(operation: &str, input: Value) -> Value {
         handle_extension(ExtensionRequest {
             api_version: 1,
