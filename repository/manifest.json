@@ -6,7 +6,7 @@
         "apiVersion": 1,
         "id": "discogs",
         "name": "Discogs",
-        "version": "0.1.1",
+        "version": "0.1.2",
         "description": "MǸtadonnǸes d'albums (artistes, genres, styles, notes) et pochettes via Discogs",
         "author": "Aether Team",
         "license": "AGPL-3.0-only",
@@ -23,7 +23,7 @@
         "targetAbi": "1.0",
         "minServerVersion": "0.1.0",
         "maxServerVersion": "1.0.0",
-        "checksum": "6c98174070234b2a5d7ca4bd995efc37ceabe6f160e940150d733c1dc2375fec",
+        "checksum": "f48be25d98a9825071140a157b7f8595e1a859a11fdc588b9a20d1cbabd1cdc7",
         "banner": "﻿<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 800 240\" width=\"800\" height=\"240\">\n  <rect width=\"800\" height=\"240\" fill=\"#141414\"/>\n  <rect x=\"40\" y=\"40\" width=\"12\" height=\"160\" rx=\"6\" fill=\"#ff9800\"/>\n  <text x=\"80\" y=\"135\" font-family=\"'Segoe UI', Roboto, Helvetica, Arial, sans-serif\" font-weight=\"700\" font-size=\"72\" fill=\"#ffffff\">Discogs</text>\n  <text x=\"82\" y=\"180\" font-family=\"'Segoe UI', Roboto, Helvetica, Arial, sans-serif\" font-size=\"26\" fill=\"#ff9800\">Metadata</text>\n</svg>\n",
         "configSchema": [
           {
@@ -56,15 +56,15 @@
       },
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
-      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/discogs-0.1.1.package.json",
-      "packageSha256": "451542e6403ea40db4a97d3a5f2395e0dcd7ebf34d9042df4e0e4ad15a4578ee"
+      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/packages/discogs-0.1.2.package.json",
+      "packageSha256": "2765d340a6b3b94dd069071b771d4adc1e9a404445a03d43ced83c15a35cf89d"
     },
     {
       "manifest": {
         "apiVersion": 1,
         "id": "fanart-tv",
         "name": "fanart.tv",
-        "version": "0.1.1",
+        "version": "0.1.2",
         "description": "Fournisseur d'images haute définition (ClearLogos, Backdrops 4K/HD, ClearArt, Bannières, Disques)",
         "author": "Aether Team",
         "license": "MIT OR Apache-2.0",
@@ -82,7 +82,7 @@
         "targetAbi": "1.0",
         "minServerVersion": "0.1.0",
         "maxServerVersion": "1.0.0",
-        "checksum": "003579a1d58e4bef6188232e9db7f3d83d73a59041fcbb2287566a5e299ca990",
+        "checksum": "08d893707daecefa2654ab0b49442db2ef51112f64a9f269ce513ddf180d9803",
         "banner": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 800 240\" width=\"800\" height=\"240\">\n  <rect width=\"800\" height=\"240\" fill=\"#141414\"/>\n  <!-- Official fanart.tv Logo -->\n  <g transform=\"translate(210, 80)\">\n    <text x=\"0\" y=\"68\" font-family=\"'Segoe UI', Roboto, Helvetica, Arial, sans-serif\" font-weight=\"700\" font-size=\"76\" fill=\"#ffffff\" letter-spacing=\"-1\">fanart</text>\n    <rect x=\"250\" y=\"6\" width=\"130\" height=\"76\" rx=\"14\" fill=\"#fa9b1d\"/>\n    <text x=\"315\" y=\"62\" font-family=\"'Segoe UI', Roboto, Helvetica, Arial, sans-serif\" font-weight=\"800\" font-size=\"52\" fill=\"#ffffff\" text-anchor=\"middle\">.tv</text>\n  </g>\n</svg>\n",
         "configSchema": [
           {
@@ -123,15 +123,15 @@
       },
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
-      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/fanart-0.1.1.package.json",
-      "packageSha256": "355937f3a045897c9b3905f16e9028214d6abf5646f2f841b6c53bd0b4581e49"
+      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/packages/fanart-0.1.2.package.json",
+      "packageSha256": "9356a0d7b4fc7d977ae320d0bddaf424e7e8e00bbae24cccfd1df3a1b3a4c3b5"
     },
     {
       "manifest": {
         "apiVersion": 1,
         "id": "imdb",
         "name": "IMDb (Internet Movie Database)",
-        "version": "0.1.1",
+        "version": "0.1.2",
         "description": "Fournisseur de métadonnées IMDb (notes mondiales de référence, votes, casting et recherche instantanée)",
         "author": "Aether Team",
         "license": "MIT OR Apache-2.0",
@@ -150,7 +150,7 @@
         "targetAbi": "1.0",
         "minServerVersion": "0.1.0",
         "maxServerVersion": "1.0.0",
-        "checksum": "b1a7d15d39e40bcdde57e5dac44aa3534c1fd7b9386bfc9efab418989c68c45e",
+        "checksum": "bfa1eb5be2992c96aa99d20ba3a93bee7830338a542d0bc46d1cf0036f88fcb2",
         "banner": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 800 240\" width=\"800\" height=\"240\">\n  <rect width=\"800\" height=\"240\" fill=\"#0f0f0f\"/>\n  <!-- Official IMDb Yellow Badge -->\n  <g transform=\"translate(260, 50)\">\n    <rect width=\"280\" height=\"140\" rx=\"16\" fill=\"#f5c518\"/>\n    <text x=\"140\" y=\"102\" font-family=\"Impact, 'Arial Black', sans-serif\" font-weight=\"900\" font-size=\"88\" fill=\"#000000\" text-anchor=\"middle\" letter-spacing=\"-2\">IMDb</text>\n  </g>\n</svg>\n",
         "configSchema": [
           {
@@ -183,15 +183,15 @@
       },
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
-      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/imdb-0.1.1.package.json",
-      "packageSha256": "6e2bcacfdbf7852dad1fbea389480f76779a1a3e660d150edb7cffc556122f03"
+      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/packages/imdb-0.1.2.package.json",
+      "packageSha256": "9e451e29faa3c21a904ca70a98b428763da3b211a37b1acf40fdb86e9d49b679"
     },
     {
       "manifest": {
         "apiVersion": 1,
         "id": "intro-skipper",
         "name": "Intro Skipper",
-        "version": "0.1.1",
+        "version": "0.1.2",
         "description": "Détection automatique ultra-rapide des introductions et génériques de fin par empreintes audio et chapitres",
         "author": "Aether Team",
         "license": "AGPL-3.0-only",
@@ -203,7 +203,7 @@
         "targetAbi": "1.0",
         "minServerVersion": "0.1.0",
         "maxServerVersion": "1.0.0",
-        "checksum": "f61542c9f0df8bd867163258b62f528aff73f633f530bfcbf25b73aaae644974",
+        "checksum": "0e4e727d611f41eee32063848a641da291cc48ba5720ca8dda825e8c27989738",
         "banner": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 800 240\" width=\"800\" height=\"240\">\n  <defs>\n    <linearGradient id=\"skipGrad\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\">\n      <stop offset=\"0%\" stop-color=\"#06b6d4\"/>\n      <stop offset=\"50%\" stop-color=\"#3b82f6\"/>\n      <stop offset=\"100%\" stop-color=\"#8b5cf6\"/>\n    </linearGradient>\n  </defs>\n  <rect width=\"800\" height=\"240\" fill=\"#0b0f19\"/>\n  <!-- Decorative waveform bars in background -->\n  <g opacity=\"0.12\" fill=\"#38bdf8\">\n    <rect x=\"50\" y=\"80\" width=\"8\" height=\"80\" rx=\"4\"/>\n    <rect x=\"70\" y=\"60\" width=\"8\" height=\"120\" rx=\"4\"/>\n    <rect x=\"90\" y=\"90\" width=\"8\" height=\"60\" rx=\"4\"/>\n    <rect x=\"110\" y=\"45\" width=\"8\" height=\"150\" rx=\"4\"/>\n    <rect x=\"130\" y=\"75\" width=\"8\" height=\"90\" rx=\"4\"/>\n    <rect x=\"670\" y=\"70\" width=\"8\" height=\"100\" rx=\"4\"/>\n    <rect x=\"690\" y=\"50\" width=\"8\" height=\"140\" rx=\"4\"/>\n    <rect x=\"710\" y=\"85\" width=\"8\" height=\"70\" rx=\"4\"/>\n    <rect x=\"730\" y=\"60\" width=\"8\" height=\"120\" rx=\"4\"/>\n  </g>\n  <!-- Central branding group -->\n  <g transform=\"translate(140, 60)\">\n    <!-- Fast-forward / Skip icon with gradient circle -->\n    <circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"url(#skipGrad)\"/>\n    <!-- Double forward arrow with vertical bar -->\n    <path d=\"M 40,40 L 60,60 L 40,80 Z\" fill=\"#ffffff\"/>\n    <path d=\"M 60,40 L 80,60 L 60,80 Z\" fill=\"#ffffff\"/>\n    <rect x=\"83\" y=\"40\" width=\"5\" height=\"40\" rx=\"2\" fill=\"#ffffff\"/>\n    <!-- Brand Title and subtitle -->\n    <text x=\"145\" y=\"65\" font-family=\"system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif\" font-weight=\"800\" font-size=\"52\" fill=\"#ffffff\" letter-spacing=\"1\">Intro Skipper</text>\n    <text x=\"148\" y=\"95\" font-family=\"system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif\" font-weight=\"500\" font-size=\"18\" fill=\"#94a3b8\" letter-spacing=\"2\">DÉTECTION AUDIO &amp; CHAPITRES</text>\n  </g>\n</svg>\n",
         "configSchema": [
           {
@@ -349,15 +349,15 @@
       },
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
-      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/intro-skipper-0.1.1.package.json",
-      "packageSha256": "2f8546d456c17ff46b5ec41e3e435df8823d46b4d558407da23e25f13af347c6"
+      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/packages/intro-skipper-0.1.2.package.json",
+      "packageSha256": "74576584435c510141a42716bd08784de45fe2c44ec524f80569f6ee09eaa6ee"
     },
     {
       "manifest": {
         "apiVersion": 1,
         "id": "lrclib",
         "name": "LRCLIB",
-        "version": "0.1.1",
+        "version": "0.1.2",
         "description": "Paroles simples et synchronisées (LRC) depuis lrclib.net, sans clé API",
         "author": "Aether Team",
         "license": "AGPL-3.0-only",
@@ -374,7 +374,7 @@
         "targetAbi": "1.0",
         "minServerVersion": "0.1.0",
         "maxServerVersion": "1.0.0",
-        "checksum": "dee1a99a687f70947924aed61d9a557490a868ad52ada9db59b4ca98d1830af7",
+        "checksum": "1ca354ac622e22e79782c4d3143e1b780c64423fa464cca3d2c11a408a4d9035",
         "banner": "﻿<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 800 240\" width=\"800\" height=\"240\">\n  <rect width=\"800\" height=\"240\" fill=\"#141414\"/>\n  <rect x=\"40\" y=\"40\" width=\"12\" height=\"160\" rx=\"6\" fill=\"#4caf93\"/>\n  <text x=\"80\" y=\"135\" font-family=\"'Segoe UI', Roboto, Helvetica, Arial, sans-serif\" font-weight=\"700\" font-size=\"72\" fill=\"#ffffff\">LRCLIB</text>\n  <text x=\"82\" y=\"180\" font-family=\"'Segoe UI', Roboto, Helvetica, Arial, sans-serif\" font-size=\"26\" fill=\"#4caf93\">Lyrics</text>\n</svg>\n",
         "configSchema": [
           {
@@ -399,15 +399,15 @@
       },
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
-      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/lrclib-0.1.1.package.json",
-      "packageSha256": "4946f9db9851dcafcb12cb7a23a2a05485f2664b70fc749ab930f8c0619f2826"
+      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/packages/lrclib-0.1.2.package.json",
+      "packageSha256": "64a9637b5f8a1b8b02b1cf07b00f28ec8d850ad7ecade4fc40b41b1cfe235671"
     },
     {
       "manifest": {
         "apiVersion": 1,
         "id": "musicbrainz",
         "name": "MusicBrainz",
-        "version": "0.1.1",
+        "version": "0.1.2",
         "description": "Métadonnées d'albums (artistes, dates, genres) et pochettes via MusicBrainz et Cover Art Archive",
         "author": "Aether Team",
         "license": "AGPL-3.0-only",
@@ -425,7 +425,7 @@
         "targetAbi": "1.0",
         "minServerVersion": "0.1.0",
         "maxServerVersion": "1.0.0",
-        "checksum": "e1c30d096347ecfcf4b25c6e25b392a9c681d56516d21ebf6e42aa9808c2d05c",
+        "checksum": "ca8f9ed3a6679d6d81bbadec5cc4ba29cb68588b68f164842f3c4bd64301d582",
         "banner": "﻿<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 800 240\" width=\"800\" height=\"240\">\n  <rect width=\"800\" height=\"240\" fill=\"#141414\"/>\n  <rect x=\"40\" y=\"40\" width=\"12\" height=\"160\" rx=\"6\" fill=\"#ba478f\"/>\n  <text x=\"80\" y=\"135\" font-family=\"'Segoe UI', Roboto, Helvetica, Arial, sans-serif\" font-weight=\"700\" font-size=\"72\" fill=\"#ffffff\">MusicBrainz</text>\n  <text x=\"82\" y=\"180\" font-family=\"'Segoe UI', Roboto, Helvetica, Arial, sans-serif\" font-size=\"26\" fill=\"#ba478f\">Metadata</text>\n</svg>\n",
         "configSchema": [
           {
@@ -450,15 +450,15 @@
       },
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
-      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/musicbrainz-0.1.1.package.json",
-      "packageSha256": "45f2dcbeca7775ee4feaedb6ccffb98d0821f77fcf00f918429c38b2db82e0f1"
+      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/packages/musicbrainz-0.1.2.package.json",
+      "packageSha256": "f8d994058dd0fedcf31ec7b7b4617e13183b1539274417c2c9c4326db7216a14"
     },
     {
       "manifest": {
         "apiVersion": 1,
         "id": "omdb",
         "name": "OMDb",
-        "version": "0.1.1",
+        "version": "0.1.2",
         "description": "Métadonnées films et séries via l'Open Movie Database (clé API requise)",
         "author": "Aether Team",
         "license": "AGPL-3.0-only",
@@ -475,7 +475,7 @@
         "targetAbi": "1.0",
         "minServerVersion": "0.1.0",
         "maxServerVersion": "1.0.0",
-        "checksum": "4184e430492580afc1d20ff120fb3beb508885a5c210f963672fabf50da57d01",
+        "checksum": "d40e481e4a90d569d00e5400f97ad87fef134c09c8beed08de029bcd8260d987",
         "banner": "﻿<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 800 240\" width=\"800\" height=\"240\">\n  <rect width=\"800\" height=\"240\" fill=\"#141414\"/>\n  <rect x=\"40\" y=\"40\" width=\"12\" height=\"160\" rx=\"6\" fill=\"#f5c518\"/>\n  <text x=\"80\" y=\"135\" font-family=\"'Segoe UI', Roboto, Helvetica, Arial, sans-serif\" font-weight=\"700\" font-size=\"72\" fill=\"#ffffff\">OMDb</text>\n  <text x=\"82\" y=\"180\" font-family=\"'Segoe UI', Roboto, Helvetica, Arial, sans-serif\" font-size=\"26\" fill=\"#f5c518\">Metadata</text>\n</svg>\n",
         "configSchema": [
           {
@@ -508,15 +508,79 @@
       },
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
-      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/omdb-0.1.1.package.json",
-      "packageSha256": "5e9bea3f83040bc7288fc4dbbb47a7bf2c2a939506b495a303f866d669f0351e"
+      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/packages/omdb-0.1.2.package.json",
+      "packageSha256": "269621c7f30436649ecb1d57e99a39d1b69c0b7c25746c8c2309ff28fbd5cbc1"
+    },
+    {
+      "manifest": {
+        "apiVersion": 1,
+        "id": "opensubtitles",
+        "name": "OpenSubtitles",
+        "version": "0.1.0",
+        "description": "Recherche et téléchargement explicite de sous-titres. Clé API personnelle requise ; quotas du service applicables.",
+        "author": "Aether Team",
+        "license": "AGPL-3.0-only",
+        "repository": "https://github.com/maelmoreau21/Aether-Plugins",
+        "permissions": [
+          "subtitles"
+        ],
+        "httpHosts": [
+          "api.opensubtitles.com",
+          "vip-api.opensubtitles.com",
+          "dl.opensubtitles.com",
+          "www.opensubtitles.com"
+        ],
+        "category": "Subtitles",
+        "targetAbi": "1.0",
+        "minServerVersion": "0.1.0",
+        "checksum": "ca54c95a7ae592d89519e618a8f03452f4ad2049383bb654c2baa3f8d8861477",
+        "configSchema": [
+          {
+            "key": "api_key",
+            "label": "Clé API OpenSubtitles",
+            "description": "",
+            "fieldType": "password",
+            "required": true,
+            "secret": true
+          },
+          {
+            "key": "username",
+            "label": "Compte OpenSubtitles (facultatif)",
+            "description": "",
+            "fieldType": "password",
+            "required": false,
+            "secret": true
+          },
+          {
+            "key": "password",
+            "label": "Mot de passe OpenSubtitles (facultatif)",
+            "description": "",
+            "fieldType": "password",
+            "required": false,
+            "secret": true
+          },
+          {
+            "key": "timeout_secs",
+            "label": "Délai de réponse (secondes)",
+            "description": "Durée maximale de chaque requête au fournisseur (1 à 120 secondes)",
+            "fieldType": "number",
+            "defaultValue": "10",
+            "required": false,
+            "secret": false
+          }
+        ]
+      },
+      "publisherId": "maelmoreau21",
+      "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
+      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/packages/opensubtitles-0.1.0.package.json",
+      "packageSha256": "34d16ad535c49816c87a1c8fdefadca46061baded0986d29eeabe029cb3d5f67"
     },
     {
       "manifest": {
         "apiVersion": 1,
         "id": "poster-rotator",
         "name": "Poster Rotator",
-        "version": "0.1.0",
+        "version": "0.1.1",
         "description": "Rotation configurable des affiches des films et séries, par bibliothèque.",
         "author": "Aether Team",
         "license": "MIT",
@@ -528,7 +592,7 @@
         "targetAbi": "1.0",
         "minServerVersion": "0.1.0",
         "maxServerVersion": "1.0.0",
-        "checksum": "2d03c93e0356c448a95f45335957378fbf7b5c4a0097c1f74b7c8e6cbe9324e8",
+        "checksum": "f43f4c9ce2947349594c3c66b1c110abdd40f7908fa3678976c6e4832620fade",
         "banner": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 800 240\"><rect width=\"800\" height=\"240\" fill=\"#172435\"/><rect x=\"62\" y=\"42\" width=\"106\" height=\"155\" rx=\"8\" fill=\"#e6a153\"/><rect x=\"194\" y=\"42\" width=\"106\" height=\"155\" rx=\"8\" fill=\"#77bad0\"/><rect x=\"326\" y=\"42\" width=\"106\" height=\"155\" rx=\"8\" fill=\"#a1bf89\"/><text x=\"470\" y=\"137\" font-family=\"sans-serif\" font-size=\"54\" font-weight=\"700\" fill=\"white\">Poster Rotator</text></svg>\n",
         "configSchema": [
           {
@@ -624,17 +688,17 @@
           }
         ]
       },
-      "publisherId": "poster-rotator",
-      "publicKey": "W+NsOKxMDAYazUQ8yntr17zPbt0l7Lo13Sh1M/Vqf+k=",
-      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/poster-rotator-0.1.0.package.json",
-      "packageSha256": "dcffef48bab9ddc04315cb27622fa1467cb1445d4667f7f0854abd6843ab38aa"
+      "publisherId": "maelmoreau21",
+      "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
+      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/packages/poster-rotator-0.1.1.package.json",
+      "packageSha256": "979432bb267eaee9dbdc6ba03c11c7d72271f62b4d3ae35eb3a6aa97c6dc21e0"
     },
     {
       "manifest": {
         "apiVersion": 1,
         "id": "tmdb",
         "name": "TMDb (The Movie Database)",
-        "version": "0.1.1",
+        "version": "0.1.2",
         "description": "Fournisseur officiel TMDb pour films et séries (métadonnées complètes, casting, affiches et notes)",
         "author": "Aether Team",
         "license": "MIT OR Apache-2.0",
@@ -652,7 +716,7 @@
         "targetAbi": "1.0",
         "minServerVersion": "0.1.0",
         "maxServerVersion": "1.0.0",
-        "checksum": "1b840f09497903ce095a70b9e60ad9a4e2c3c6cd5712ac7e79bf741a41eae689",
+        "checksum": "4adfb27a34a1fa9dccb3a6dd76ba4e261e104ae652498aeb25a05829e6687c72",
         "banner": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 800 240\" width=\"800\" height=\"240\">\n  <defs>\n    <linearGradient id=\"tmdbLogoGrad\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"0%\">\n      <stop offset=\"0%\" stop-color=\"#90cea1\"/>\n      <stop offset=\"100%\" stop-color=\"#01b4e4\"/>\n    </linearGradient>\n  </defs>\n  <rect width=\"800\" height=\"240\" fill=\"#0d253f\"/>\n  <!-- Official TMDB Logo -->\n  <g transform=\"translate(200, 60)\">\n    <text x=\"200\" y=\"88\" font-family=\"'Source Sans Pro', 'Helvetica Neue', Arial, sans-serif\" font-weight=\"900\" font-size=\"92\" fill=\"url(#tmdbLogoGrad)\" text-anchor=\"middle\" letter-spacing=\"4\">TMDB</text>\n    <rect x=\"50\" y=\"112\" width=\"300\" height=\"10\" rx=\"5\" fill=\"url(#tmdbLogoGrad)\"/>\n  </g>\n</svg>\n",
         "configSchema": [
           {
@@ -713,8 +777,91 @@
       },
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
-      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/tmdb-0.1.1.package.json",
-      "packageSha256": "a2b1329fa1abe2b522b564d3d5fe7af978b2b533b9d764efc618204d1d0f3be7"
+      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/packages/tmdb-0.1.2.package.json",
+      "packageSha256": "602b49fa072b4509114937e07fb5698b7f7e10180952672d01c93fb2a760b2eb"
+    },
+    {
+      "manifest": {
+        "apiVersion": 1,
+        "id": "tvdb",
+        "name": "TheTVDB",
+        "version": "0.1.0",
+        "description": "TheTVDB API v4 optionnelle. Clé de projet autorisée requise ; PIN personnel si modèle financé par les abonnés.",
+        "author": "Aether Team",
+        "license": "AGPL-3.0-only",
+        "repository": "https://github.com/maelmoreau21/Aether-Plugins",
+        "permissions": [
+          "metadata.read",
+          "metadata.write",
+          "images"
+        ],
+        "httpHosts": [
+          "api4.thetvdb.com",
+          "artworks.thetvdb.com"
+        ],
+        "category": "Metadata",
+        "targetAbi": "1.0",
+        "minServerVersion": "0.1.0",
+        "checksum": "59e3069884b168d250fb7eac5a56ac6fab8d6be9cd08c4fa4d7eabf104a5bb4d",
+        "configSchema": [
+          {
+            "key": "api_key",
+            "label": "Clé API v4 de projet autorisée",
+            "description": "",
+            "fieldType": "password",
+            "required": true,
+            "secret": true
+          },
+          {
+            "key": "access_model",
+            "label": "Modèle d'accès autorisé par TheTVDB",
+            "description": "",
+            "fieldType": "select",
+            "required": true,
+            "secret": false,
+            "options": [
+              {
+                "label": "Licence de projet approuvée",
+                "value": "licensed"
+              },
+              {
+                "label": "Abonnement utilisateur avec PIN personnel",
+                "value": "user_supported"
+              }
+            ]
+          },
+          {
+            "key": "subscriber_pin",
+            "label": "PIN personnel (modèle abonnement uniquement)",
+            "description": "",
+            "fieldType": "password",
+            "required": false,
+            "secret": true
+          },
+          {
+            "key": "fallback_language",
+            "label": "Langue de repli (vide : valeur de base de l’API)",
+            "description": "",
+            "fieldType": "text",
+            "defaultValue": "en",
+            "required": false,
+            "secret": false
+          },
+          {
+            "key": "timeout_secs",
+            "label": "Délai de réponse (secondes)",
+            "description": "Durée maximale de chaque requête au fournisseur (1 à 120 secondes)",
+            "fieldType": "number",
+            "defaultValue": "10",
+            "required": false,
+            "secret": false
+          }
+        ]
+      },
+      "publisherId": "maelmoreau21",
+      "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
+      "packageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/packages/tvdb-0.1.0.package.json",
+      "packageSha256": "8b430a61e24be480ee04857bebd8fb1d6f28586423ad46362de1cfdc46eb6beb"
     }
   ]
 }
