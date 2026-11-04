@@ -1,3 +1,15 @@
+## 4 novembre 2026 — Reprise des releases après une erreur GitHub
+
+- Run41809350762 : paquets signés poussés au commit48d9e16, puis HTTP500 lors
+  de la création des releases. La reprise vérifie désormais le catalogue même
+  lorsque le plan de compilation est vide, sans re-signature ni nouvelle version.
+- Helper stable/bêta partagé : réconciliation avant retry des POST ambigus,
+  contrôle SHA-256 des assets, refus d'écraser assets/tags divergents. Contrat :
+  docs/RELEASES_AND_VERSIONING.md.
+- Vérification locale : 14 tests de reprise hors réseau, 8 tests découverte/
+  historique, 9 règles de release et signatures des 28 paquets réussis. Aucun
+  Cargo, commit, push ou publication exécuté dans cette validation locale.
+
 ## 3 novembre 2026 — Fournisseur TVDB et raccordements de publication locaux
 
 - Crate TVDB déjà présent dans le commit utilisateur7e5b13c conservé ; complément

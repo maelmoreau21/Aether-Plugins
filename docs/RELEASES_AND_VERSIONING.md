@@ -65,17 +65,41 @@ catalogue vérifié, et non de l'identifiant du plugin. Par exemple, `fanart-tv`
 publie `fanart-0.1.0.package.json` sous `fanart-v0.1.0`. Une entrée dont le
 paquet local manque fait échouer la publication au lieu d'être ignorée.
 Après un échec entre la création du tag et celle de la Release, une relance
-reprend la création de la Release existante sans recréer le tag.
+reprend la création de la Release sans recréer le tag. Le helper partagé
+`scripts/publish-plugin-releases.cjs` vérifie aussi le fichier attaché : une
+Release existante sans paquet reprend l'upload ; un paquet existant doit avoir
+exactement la taille et le SHA-256 du fichier signé local. Aucun asset ou tag
+existant n'est écrasé. Un tag sans Release pointant vers un autre commit bloque
+la publication plutôt que d'être déplacé.
+
+Les lectures temporairement indisponibles ne sont jamais assimilées à une
+absence. Après un POST dont la réponse est ambiguë (erreur réseau, délai ou
+HTTP 5xx), le helper recherche son effet avant toute nouvelle tentative. Les
+retries sont bornés à cinq, avec attente exponentielle ; les erreurs permanentes
+restent bloquantes. Un asset incomplet laissé par GitHub est signalé sans être
+supprimé automatiquement.
 
 ---
 
 ## 4. Cycle de développement sur `develop`
 
-À chaque fusion de PR sur `develop` :
-- `detect_changed_plugins.py --channel develop` identifie les plugins modifiés.
-- Le numéro de version bêta de chaque plugin modifié est incrémenté : par exemple `intro-skipper-v0.1.0-beta.0` → `intro-skipper-v0.1.0-beta.1`.
-- Le tag Git correspondant est posé sur le commit exact.
-- Les versions stables et le catalogue `repository/manifest.json` ne sont pas modifiés par les bêtas de développement.
+Après une CI réussie sur un push `develop`, `plan-auto-release.py` compare les
+sources au dernier commit du catalogue. Les plugins modifiés reçoivent une
+version numérique distincte, sont compilés/signés puis enregistrés dans le
+catalogue de `develop`. Le suffixe `-beta` appartient au tag GitHub (par exemple
+`intro-skipper-v0.1.2-beta`), pas au manifeste signé. Le catalogue de `main`
+conserve sa procédure de PR contrôlée.
+
+La réconciliation des releases bêta s'exécute même sans nouveau paquet à
+compiler : elle reprend les entrées actives du catalogue déjà signé, sans
+incrémenter les versions ni signer de nouveau. Une nouvelle release pointe vers
+le commit ayant enregistré son paquet, même si la reprise est déclenchée par
+un commit ultérieur. Les signatures sont vérifiées avant cette réconciliation.
+
+Ce parcours permet notamment de reprendre une panne GitHub après le push des
+paquets et avant la fin des releases. Une relance historique sur un ancien SHA
+ne remplace pas les versions déjà publiées ; pour utiliser un correctif du
+workflow, déclencher la CI depuis le dernier `develop` contenant ce correctif.
 
 ---
 

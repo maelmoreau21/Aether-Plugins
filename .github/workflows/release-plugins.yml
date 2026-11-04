@@ -79,7 +79,6 @@ jobs:
             TAG=$(_jq '.tag')
             VER=$(_jq '.version')
             NAME=$(_jq '.name')
-            PKG_FILE=$(_jq '.pkgFile')
 
             echo "Traitement de $ID version $VER (Tag: $TAG)"
 
@@ -89,17 +88,5 @@ jobs:
               git push origin "$TAG"
             fi
 
-            if gh release view "$TAG" >/dev/null 2>&1; then
-              echo "La GitHub Release $TAG existe déjà. Pas de duplication."
-            else
-              # shellcheck disable=SC2016 # Markdown backticks are literal in single quotes.
-              printf -v NOTES '## Extension %s — Version %s\n\n- **Identifiant** : `%s`\n- **Version** : `%s`\n- **Tag Git** : `%s`\n- **Paquet** : `%s`\n- **Signature** : Ed25519 vérifiée avec succès.' \
-                "$NAME" "$VER" "$ID" "$VER" "$TAG" "$PKG_FILE"
-
-              echo "Création de la GitHub Release $TAG..."
-              gh release create "$TAG" \
-                --title "$NAME $VER" \
-                --notes "$NOTES" \
-                "$PKG_FILE"
-            fi
           done
+          node scripts/publish-plugin-releases.cjs main discovered_releases.json "$(git rev-parse HEAD)"

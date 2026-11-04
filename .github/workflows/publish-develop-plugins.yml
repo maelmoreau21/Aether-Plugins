@@ -62,7 +62,6 @@ jobs:
           cargo build --locked --release -p media-poc --bin media-extension-pack
 
       - name: Set up Node.js
-        if: steps.plan.outputs.count != '0'
         uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -136,13 +135,12 @@ jobs:
           PY
 
       - name: Vérifier l'intégrité du catalogue et des signatures
-        if: steps.plan.outputs.count != '0'
         run: |
           cd Aether-Plugins
           node scripts/test-manifests.cjs --allow-unpublished
           node scripts/test-repository.cjs repository "https://raw.githubusercontent.com/${{ github.repository }}/develop/repository/packages/"
 
-      - name: Publier versions, paquets signés et releases bêta
+      - name: Publier les nouveaux paquets signés dans develop
         if: steps.plan.outputs.count != '0'
         working-directory: Aether-Plugins
         env:
@@ -154,14 +152,12 @@ jobs:
           git add Cargo.lock Aether-Plugins-*/Cargo.toml repository/manifest.json repository/packages/*.package.json
           git commit -m 'chore(release): publish plugins develop [skip ci]'
           git push origin HEAD:develop
-          COMMIT=$(git rev-parse HEAD)
-          while IFS= read -r row; do
-            TAG=$(echo "$row" | jq -r '.tag_prefix+"-v"+.next_version+"-beta"')
-            FILE=$(echo "$row" | jq -r '"repository/packages/"+.tag_prefix+"-"+.next_version+".package.json"')
-            if ! gh release view "$TAG" >/dev/null 2>&1; then
-              gh release create "$TAG" --target "$COMMIT" --prerelease --title "$TAG" --generate-notes "$FILE"
-            fi
-          done < <(jq -c '.[]' detected.json)
+
+      - name: Publier ou reprendre les releases bêta du catalogue signé
+        working-directory: Aether-Plugins
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/publish-plugin-releases.cjs develop
       - name: Supprimer la clé temporaire
         if: always()
         run: rm -f "$HOME/.aether_keys/private.key"
