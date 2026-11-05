@@ -10,8 +10,9 @@ Pour publier : augmenter la version dans le `Cargo.toml` du plugin (commit
 normal), puis **Actions → Release plugin → Run workflow** et choisir le plugin
 (ou pousser un tag `<plugin>-v<x.y.z>`). Le workflow compile, signe, crée la
 release `<plugin>-v<version>` avec le paquet, puis ajoute la version au
-catalogue sur `main`. Il ne committe rien sur `develop`, n'ouvre aucune PR et
-ne réécrit aucune URL. Détails : [CREATING_PLUGINS.md](CREATING_PLUGINS.md#publier)
+catalogue sur `main` pour une version stable ou `develop` pour une préversion
+(`prerelease` ou tag terminé par `-beta`), sauf surcharge `CATALOGUE_BRANCH`.
+Il n'ouvre aucune PR et ne réécrit aucune URL. Détails : [CREATING_PLUGINS.md](CREATING_PLUGINS.md#publier)
 et [docs/RELEASES_AND_VERSIONING.md](docs/RELEASES_AND_VERSIONING.md).
 
 Les paquets historiques de `repository/packages/` restent dans le dépôt
@@ -77,9 +78,15 @@ métier, y compris l’échec d’un morceau et le refus d’un intervalle inver
 
 ### Catalogue
 
-Un seul catalogue, sur `main`, sert toutes les éditions d'Aether :
+Le catalogue stable préconfiguré se trouve sur `main` :
 `https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/manifest.json`.
-Ses URL de paquets sont absolues (releases GitHub), donc indépendantes de la branche.
+Le catalogue de développement se trouve sur `develop` :
+`https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/manifest.json`.
+Dans Administration → Extensions → Dépôts → Ajouter un dépôt, choisir le bouton
+`Aether Plugins · develop` pour préremplir cette adresse. Seuls les paquets signés
+effectivement publiés dans ce catalogue sont proposés ; ajouter le dépôt ne
+compile ni n'installe automatiquement les sources de la branche.
+Les URL de paquets sont absolues (releases GitHub), donc indépendantes de la branche.
 
 ## Correctifs catalogue du 25 octobre 2026
 
