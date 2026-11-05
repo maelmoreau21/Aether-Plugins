@@ -715,10 +715,29 @@
       "description": "Fournisseur officiel TMDb pour films et séries (métadonnées complètes, casting, affiches et notes)",
       "owner": "Aether Team",
       "category": "Metadata",
-      "imageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/Aether-Plugins-TMDb/assets/banner.svg",
+      "imageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/Aether-Plugins-TMDb/assets/banner.svg",
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
+        {
+          "version": "0.1.4",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/tmdb-v0.1.4-beta/tmdb-0.1.4.package.json",
+          "checksum": "21b4bd54cb8a9c05602adafea16f3111e1f00d23896de687bfc49f5adf8f8693",
+          "timestamp": "2026-11-05T15:28:29Z",
+          "changelog": "feat(tmdb): publish people credits in beta catalogue",
+          "permissions": [
+            "metadata.read",
+            "metadata.write",
+            "images"
+          ],
+          "httpHosts": [
+            "api.themoviedb.org",
+            "image.tmdb.org"
+          ]
+        },
         {
           "version": "0.1.3",
           "targetAbi": "1.0",
