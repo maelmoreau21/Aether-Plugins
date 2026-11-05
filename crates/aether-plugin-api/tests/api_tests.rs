@@ -60,6 +60,7 @@ impl MetadataProviderPlugin for MockPlugin {
         }
 
         Ok(StructuredMetadata {
+            collection: None,
             provider: "mock".into(),
             provider_id: request.id,
             external_ids: Default::default(),

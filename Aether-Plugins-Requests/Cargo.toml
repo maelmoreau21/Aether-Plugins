@@ -1,0 +1,23 @@
+[package]
+name = "aether-plugin-requests"
+version = "0.1.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Media acquisition request policy and typed planning"
+
+[package.metadata.aether]
+id = "media-requests"
+name = "Demandes"
+category = "Applications"
+target-abi = "1.0"
+min-server-version = "0.1.0"
+banner = "assets/banner.svg"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+media-extension-sdk.workspace = true
+serde.workspace = true
+serde_json.workspace = true

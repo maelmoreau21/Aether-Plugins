@@ -1,35 +1,74 @@
-const {test}=require('node:test');
-const assert=require('node:assert/strict');
-const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
-const {spawnSync}=require('node:child_process');
-const verifier=path.join(__dirname,'test-repository.cjs');
-const base='https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/';
-function fixture(change){
-  const root=fs.mkdtempSync(path.join(os.tmpdir(),'plugin-history-'));
-  try{
-    fs.mkdirSync(path.join(root,'packages'));
-    const {privateKey,publicKey}=crypto.generateKeyPairSync('ed25519');
-    const publicRaw=publicKey.export({format:'der',type:'spki'}).subarray(-32).toString('base64');
-    fs.writeFileSync(path.join(root,'publisher-public.txt'),publicRaw);
-    function pack(version){
-      const wasm=Buffer.from('0061736d01000000','hex');
-      const sha256=crypto.createHash('sha256').update(wasm).digest('hex');
-      const manifest={apiVersion:1,id:'fixture',name:'Fixture',version,description:'Synthetic',author:'Tests',license:'MIT',repository:'https://example.org',permissions:['metadata.read'],checksum:sha256};
-      const publisherId='tests';
-      const signature=crypto.sign(null,Buffer.from(JSON.stringify(['media-extension-package-v1',manifest,publisherId,sha256])),privateKey).toString('base64');
-      const pkg={manifest,publisherId,wasm:wasm.toString('base64'),sha256,signature};
-      const filename=`fixture-${version}.package.json`;
-      fs.writeFileSync(path.join(root,'packages',filename),JSON.stringify(pkg));
-      return {filename,pkg};
+// node --test scripts/test-repository-history.cjs
+// The versioned catalogue keeps previous versions installable and verifiable.
+'use strict';
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs'), os = require('node:os'), path = require('node:path'), crypto = require('node:crypto');
+const { spawnSync } = require('node:child_process');
+const c = require('./catalogue.cjs');
+
+const verifier = path.join(__dirname, 'test-repository.cjs');
+
+function fixture(change) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'plugin-history-'));
+  try {
+    fs.mkdirSync(path.join(root, 'packages'));
+    const { privateKey, publicKey } = crypto.generateKeyPairSync('ed25519');
+    const publicRaw = publicKey.export({ format: 'der', type: 'spki' }).subarray(-32).toString('base64');
+    fs.writeFileSync(path.join(root, 'publisher-public.txt'), publicRaw);
+    const catalogue = { apiVersion: 2, plugins: [] };
+    const files = {};
+    for (const version of ['0.1.0', '0.1.1']) {
+      const wasm = Buffer.from('0061736d01000000', 'hex');
+      const sha256 = c.sha256(wasm);
+      const manifest = { apiVersion: 1, id: 'fixture', name: 'Fixture', version, description: 'Synthetic', author: 'Tests',
+        license: 'MIT', repository: 'https://example.org', permissions: ['metadata.read'], checksum: sha256 };
+      const signature = crypto.sign(null, c.signingBytes(manifest, 'maelmoreau21', sha256), privateKey).toString('base64');
+      const pkg = { manifest, publisherId: 'maelmoreau21', wasm: wasm.toString('base64'), sha256, signature };
+      const name = `fixture-${version}.package.json`;
+      const bytes = Buffer.from(JSON.stringify(pkg));
+      fs.writeFileSync(path.join(root, 'packages', name), bytes);
+      files[version] = { name, pkg };
+      c.addVersion(catalogue, { pkg, publicKey: publicRaw, checksum: c.sha256(bytes),
+        sourceUrl: c.releaseUrl(`fixture-v${version}`, name), timestamp: '2026-11-05T00:00:00Z' });
     }
-    const old=pack('0.1.0'),current=pack('0.1.1');
-    const currentBytes=fs.readFileSync(path.join(root,'packages',current.filename));
-    fs.writeFileSync(path.join(root,'manifest.json'),JSON.stringify({apiVersion:1,extensions:[{manifest:current.pkg.manifest,publisherId:'tests',publicKey:publicRaw,packageUrl:base+current.filename,packageSha256:crypto.createHash('sha256').update(currentBytes).digest('hex')}]}));
-    change?.(root,old,current);
-    return spawnSync(process.execPath,[verifier,root,base],{encoding:'utf8'});
-  }finally{assert.equal(path.dirname(path.resolve(root)),path.resolve(os.tmpdir()));assert(path.basename(root).startsWith('plugin-history-'));fs.rmSync(root,{recursive:true,force:true});}
+    change?.(root, catalogue, files);
+    fs.writeFileSync(path.join(root, 'manifest.json'), JSON.stringify(catalogue));
+    return spawnSync(process.execPath, [verifier, root], { encoding: 'utf8' });
+  } finally {
+    assert.equal(path.dirname(path.resolve(root)), path.resolve(os.tmpdir()));
+    assert(path.basename(root).startsWith('plugin-history-'));
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 }
-test('catalogue advances while the signed previous version stays downloadable',()=>{const r=fixture();assert.equal(r.status,0,r.stderr);assert.match(r.stdout,/1 paquets actifs, 1 anciennes versions/);});
-test('a corrupted archived module is rejected',()=>{const r=fixture((root,old)=>{old.pkg.wasm=Buffer.from('corrupted').toString('base64');fs.writeFileSync(path.join(root,'packages',old.filename),JSON.stringify(old.pkg));});assert.notEqual(r.status,0);});
-test('an invalid archived signature is rejected',()=>{const r=fixture((root,old)=>{old.pkg.signature=Buffer.alloc(64).toString('base64');fs.writeFileSync(path.join(root,'packages',old.filename),JSON.stringify(old.pkg));});assert.notEqual(r.status,0);});
-test('a missing active package is rejected',()=>{const r=fixture((root,old,current)=>fs.unlinkSync(path.join(root,'packages',current.filename)));assert.notEqual(r.status,0);});
+
+test('both versions stay listed and verified', () => {
+  const result = fixture();
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /1 extensions, 2 versions, 2 paquets verifies/);
+});
+test('a corrupted previous version is rejected', () => {
+  const result = fixture((root, catalogue, files) => {
+    const old = files['0.1.0'];
+    old.pkg.wasm = Buffer.from('corrupted').toString('base64');
+    const bytes = Buffer.from(JSON.stringify(old.pkg));
+    fs.writeFileSync(path.join(root, 'packages', old.name), bytes);
+    catalogue.plugins[0].versions[1].checksum = c.sha256(bytes);
+  });
+  assert.notEqual(result.status, 0);
+});
+test('a checksum that does not match the asset is rejected', () => {
+  const result = fixture((root, catalogue) => { catalogue.plugins[0].versions[0].checksum = 'f'.repeat(64); });
+  assert.notEqual(result.status, 0);
+});
+test('a mutable branch URL is rejected', () => {
+  const result = fixture((root, catalogue) => {
+    catalogue.plugins[0].versions[0].sourceUrl = 'https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/packages/fixture-0.1.1.package.json';
+  });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /release asset or a commit-pinned file/);
+});
+test('versions must be listed newest first', () => {
+  const result = fixture((root, catalogue) => catalogue.plugins[0].versions.reverse());
+  assert.notEqual(result.status, 0);
+});

@@ -204,8 +204,10 @@ async fn test_tmdb_details_mock_server() {
                             if path.contains("/movie/438631") {
                                 let mock_json = r#"{
                                     "id": 438631,
+                                    "belongs_to_collection": {"id": 726871, "name": "Dune Collection"},
                                     "title": "Dune",
                                     "original_title": "Dune",
+                                    "original_language": "en",
                                     "tagline": "Beyond fear, destiny awaits.",
                                     "overview": "Paul Atreides, a brilliant and gifted young man...",
                                     "release_date": "2021-09-15",
@@ -216,12 +218,13 @@ async fn test_tmdb_details_mock_server() {
                                     "genres": [{"id": 878, "name": "Science-Fiction"}, {"id": 12, "name": "Aventure"}],
                                     "credits": {
                                         "cast": [
-                                            {"name": "Timothée Chalamet", "character": "Paul Atreides", "profile_path": "/chalamet.jpg", "order": 0},
+                                            {"id": 1190668, "name": "Timothée Chalamet", "character": "Paul Atreides", "profile_path": "/chalamet.jpg", "order": 0},
                                             {"name": "Rebecca Ferguson", "character": "Lady Jessica", "profile_path": "/ferguson.jpg", "order": 1}
                                         ],
                                         "crew": [
-                                            {"name": "Denis Villeneuve", "job": "Director", "department": "Directing"},
-                                            {"name": "Jon Spaihts", "job": "Screenplay", "department": "Writing"}
+                                            {"id": 13711, "name": "Denis Villeneuve", "job": "Director", "profile_path": "/denis.jpg", "department": "Directing"},
+                                            {"id": 38994, "name": "Jon Spaihts", "job": "Screenplay", "profile_path": "//invalid.example/portrait.jpg", "department": "Writing"},
+                                            {"id": 25, "name": "Example", "job": "Producer"}
                                         ]
                                     },
                                     "images": {
@@ -279,7 +282,31 @@ async fn test_tmdb_details_mock_server() {
 
     assert_eq!(details.provider, "tmdb");
     assert_eq!(details.provider_id, "438631");
+    assert_eq!(details.collection.as_ref().unwrap().id, "tmdb:726871");
+    assert_eq!(details.collection.as_ref().unwrap().name, "Dune Collection");
     assert_eq!(details.title.as_deref(), Some("Dune"));
+    let wire = plugin
+        .details_value(
+            DetailsRequest {
+                id: "438631".into(),
+                media_type: MediaType::Movie,
+                external_ids: Default::default(),
+            },
+            &config,
+        )
+        .await
+        .unwrap();
+    assert_eq!(wire["originalLanguage"], "en");
+    assert_eq!(wire["actors"][0]["providerId"], "tmdb:1190668");
+    assert!(wire["actors"][1].get("providerId").is_none());
+    assert_eq!(wire["crewCredits"].as_array().unwrap().len(), 2);
+    assert_eq!(wire["crewCredits"][0]["providerId"], "tmdb:13711");
+    assert_eq!(wire["crewCredits"][0]["role"], "Director");
+    assert_eq!(
+        wire["crewCredits"][0]["thumbUrl"],
+        "https://image.tmdb.org/t/p/w185/denis.jpg"
+    );
+    assert!(wire["crewCredits"][1]["thumbUrl"].is_null());
     assert_eq!(details.year, Some(2021));
     assert_eq!(details.runtime_minutes, Some(155));
     assert_eq!(details.directors, vec!["Denis Villeneuve"]);

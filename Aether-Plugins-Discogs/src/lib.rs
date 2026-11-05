@@ -167,7 +167,7 @@ impl MetadataProviderPlugin for DiscogsPlugin {
             category: "Metadata".into(),
             provider: "Discogs".into(),
             http_hosts: vec!["api.discogs.com".into()],
-            description: "MǸtadonnǸes d'albums (artistes, genres, styles, notes) et pochettes via Discogs".into(),
+            description: "Métadonnées d'albums (artistes, genres, styles, notes) et pochettes via Discogs".into(),
             author: "Aether Team".into(),
             license: "AGPL-3.0-only".into(),
             target_abi: "1.0".into(),
@@ -187,7 +187,7 @@ impl MetadataProviderPlugin for DiscogsPlugin {
                     key: "api_key".into(),
                     label: "Jeton personnel Discogs".into(),
                     field_type: "password".into(),
-                    description: "Jeton gǸnǸrǸ dans Discogs > Settings > Developers (obligatoire pour la recherche et les images)".into(),
+                    description: "Jeton généré dans Discogs > Settings > Developers (obligatoire pour la recherche et les images)".into(),
                     required: true,
                     secret: true,
                     default_value: None,
@@ -195,7 +195,7 @@ impl MetadataProviderPlugin for DiscogsPlugin {
                 },
                 ConfigField {
                     key: "base_url".into(),
-                    label: "URL de base personnalisǸe".into(),
+                    label: "URL de base personnalisée".into(),
                     field_type: "text".into(),
                     description: "URL alternative pour proxy ou serveur de test".into(),
                     required: false,
@@ -278,6 +278,7 @@ impl MetadataProviderPlugin for DiscogsPlugin {
         let mut genres = r.genres;
         genres.extend(r.styles);
         Ok(StructuredMetadata {
+            collection: None,
             provider: "discogs".into(),
             provider_id: r.id.to_string(),
             external_ids,

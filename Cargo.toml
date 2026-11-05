@@ -3,14 +3,18 @@ resolver = "2"
 members = [
     "crates/aether-plugin-api",
     "Aether-Plugins-TMDb",
+    "Aether-Plugins-TVDB",
     "Aether-Plugins-IMDb",
     "Aether-Plugins-fanart.tv",
     "Aether-Plugins-OMDb",
     "Aether-Plugins-MusicBrainz",
     "Aether-Plugins-Discogs",
     "Aether-Plugins-LrcLib",
+    "Aether-Plugins-OpenSubtitles",
     "Aether-Plugins-IntroSkipper",
     "Aether-Plugins-PosterRotator",
+    "Aether-Plugins-Requests",
+    "Aether-Plugins-Reports",
 ]
 
 [workspace.package]
@@ -21,7 +25,7 @@ authors = ["Aether Team"]
 license = "AGPL-3.0-only"
 
 [workspace.dependencies]
-media-extension-sdk = { git = "https://github.com/maelmoreau21/Aether.git", rev = "8f3373803a30d11e8c2c9d97ca5bfcf4bf70fe07", version = "=0.1.0" }
+media-extension-sdk = { git = "https://github.com/maelmoreau21/Aether.git", rev = "133896830c609a177e4c4c611084154d7e4aab5d", version = "=0.1.0" }
 aether-plugin-api = { path = "crates/aether-plugin-api" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-util", "time"] }
 serde = { version = "1", features = ["derive"] }

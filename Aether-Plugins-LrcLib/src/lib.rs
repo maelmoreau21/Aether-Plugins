@@ -297,6 +297,7 @@ impl MetadataProviderPlugin for LrcLibPlugin {
         let mut external_ids = BTreeMap::new();
         external_ids.insert("lrclib".to_string(), l.id.to_string());
         Ok(StructuredMetadata {
+            collection: None,
             provider: "lrclib".into(),
             provider_id: l.id.to_string(),
             external_ids,

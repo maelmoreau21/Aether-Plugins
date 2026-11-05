@@ -1,0 +1,23 @@
+[package]
+name = "aether-plugin-reports"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Structured media issue reports without automatic repair"
+
+[package.metadata.aether]
+id = "media-reports"
+name = "Signalements"
+category = "Applications"
+target-abi = "1.0"
+min-server-version = "0.1.0"
+banner = "assets/banner.svg"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+media-extension-sdk.workspace = true
+serde.workspace = true
+serde_json.workspace = true

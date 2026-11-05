@@ -1,3 +1,57 @@
+## 4 novembre 2026 — Reprise des releases après une erreur GitHub
+
+- Run41809350762 : paquets signés poussés au commit48d9e16, puis HTTP500 lors
+  de la création des releases. La reprise vérifie désormais le catalogue même
+  lorsque le plan de compilation est vide, sans re-signature ni nouvelle version.
+- Helper stable/bêta partagé : réconciliation avant retry des POST ambigus,
+  contrôle SHA-256 des assets, refus d'écraser assets/tags divergents. Contrat :
+  docs/RELEASES_AND_VERSIONING.md.
+- Vérification locale : 14 tests de reprise hors réseau, 8 tests découverte/
+  historique, 9 règles de release et signatures des 28 paquets réussis. Aucun
+  Cargo, commit, push ou publication exécuté dans cette validation locale.
+
+## 3 novembre 2026 — Fournisseur TVDB et raccordements de publication locaux
+
+- Crate TVDB déjà présent dans le commit utilisateur7e5b13c conservé ; complément
+  local des listes Wasm/manifeste, CI guest et sélection de release (également
+  OpenSubtitles). SDK1338968, paquets signés et catalogue publié inchangés.
+- Identité TVDB puis IMDb, films/séries et épisodes par identité exacte,
+  traductions/repli et images types/hôtes explicites. Nom de base non attribué
+  au titre original ; recherches Unicode bornées60Kio.
+- 5 tests Rust, Clippy ciblé, build release, ABI/smoke et vrai guest/broker
+  synthétique réussis. Module optimisé248968octets ; brut298253 dépasse le
+  plafond, optimisation avant signature indispensable. Politique release9tests.
+- Aucun service réel/licence disponible présumé, fuel Wasmi sur détails réels,
+  application Core/NFO, PostgreSQL/NAS, CI distante, paquet signé ou déploiement
+  validé par ce lot. Rapport et limites : docs/TVDB_2026_11_03.md.
+
+## 3 novembre 2026 — Fournisseur OpenSubtitles manuel local
+
+- Nouveau crate `aether-plugin-opensubtitles`, opérations JSON `subtitles.search`
+  et `subtitles.download`, permission signée `subtitles`, configuration privée
+  clé API/compte facultatif. SDK collections épinglé conservé.
+- Recherche identifiant puis titre, langues/forced/SDH, quota retourné et hôtes
+  API/VIP/CDN bornés. Aucun fichier média écrit ni téléchargement automatique.
+- 5 tests Rust, Clippy ciblé, build/smoke Wasm et vrai guest/broker hors ligne
+  réussis. CI raccordée sans déclenchement distant. Aucun service réel,
+  paquet signé, push ou déploiement validé.
+- Parcours Aether Core/interface/stockage distinct : ne pas déclarer la fonction
+  utilisateur complète sur ces seuls tests. Rapport : docs/OPENSUBTITLES_2026_11_03.md.
+
+## 3 novembre 2026 — SDK collections et déclarations de migration privées
+
+- Dépendance Git/lock alignée sur le commit Core publié
+  133896830c609a177e4c4c611084154d7e4aab5d. Les fournisseurs sans collections
+  et leur fixture API déclarent collection:None pour conserver leur compilation.
+- cargo check --workspace --all-targets et test TMDb test_tmdb_details_mock_server
+  réussis sans remplacement local du SDK. Pas de suite globale exécutée.
+- package-manifest.py conserve storageMigration avant signature ; régression
+  Python ciblée réussie et raccordée à la CI. Le modèle persistent-storage répond
+  lifecycle.verify sans broker ni mutation ; test natif ciblé réussi.
+- Fmt workspace/modèle et diff-check réussis. README TMDb et modèle mis à jour.
+  Aucun nouveau paquet signé, push ou déploiement pendant cette reprise.
+  Les services réels et la détection acoustique Intro restent à valider.
+
 ## 2 novembre 2026 — Conservation des anciennes versions signées
 
 - Le contrôle du catalogue comparait le nombre total de fichiers au nombre

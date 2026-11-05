@@ -33,7 +33,14 @@ fn counter() -> Result<String, StorageError> {
     Ok(value)
 }
 
-pub fn invoke(_: ExtensionRequest) -> ExtensionResponse {
+pub fn invoke(request: ExtensionRequest) -> ExtensionResponse {
+    // Verification runs before migration, without the live storage broker.
+    if request.operation == "lifecycle.verify" {
+        return ExtensionResponse {
+            api_version: 1,
+            result: json!({"healthy":true}),
+        };
+    }
     let result = match counter() {
         Ok(count) => {
             json!({"title":"Synthetic persistent extension","summary":format!("Successful durable invocation {count}")})
@@ -46,3 +53,17 @@ pub fn invoke(_: ExtensionRequest) -> ExtensionResponse {
     }
 }
 media_extension_sdk::extension!(invoke);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn lifecycle_verification_does_not_require_or_modify_private_storage() {
+        let response = invoke(ExtensionRequest {
+            api_version: 1,
+            operation: "lifecycle.verify".into(),
+            input: json!({}),
+        });
+        assert_eq!(response.result, json!({"healthy":true}));
+    }
+}

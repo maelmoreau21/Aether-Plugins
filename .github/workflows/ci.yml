@@ -17,6 +17,8 @@ jobs:
   workflows:
     name: Validation des workflows
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: docker://rhysd/actionlint:1.7.12
@@ -25,10 +27,14 @@ jobs:
           python-version: '3.12'
       - name: Validate manual release version policy
         run: python scripts/test-release-policy.py
+      - name: Preserve signed private storage migrations
+        run: python scripts/test-package-manifest.py
 
   security-audit:
     name: Audit de sécurité (cargo audit)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout Aether-Plugins
         uses: actions/checkout@v4
@@ -45,6 +51,8 @@ jobs:
   test-and-build:
     name: Lint, Test and Wasm Build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout Aether-Plugins
@@ -96,6 +104,8 @@ jobs:
         run: |
           node scripts/test-wasm.cjs
           node scripts/test-metadata-wasm.cjs
+          node scripts/test-subtitles-wasm.cjs
+          node scripts/test-tvdb-wasm.cjs
 
       - name: Verify development sources and published catalogue (unpublished versions allowed)
         if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
@@ -107,15 +117,11 @@ jobs:
         working-directory: Aether-Plugins
         run: node scripts/test-manifests.cjs
 
-      - name: Verify signed repository packages
+      - name: Verify the versioned catalogue and its signed packages
         working-directory: Aether-Plugins
         run: |
-          node scripts/test-repository.cjs --allow-development
-          node --test scripts/test-repository-history.cjs
-
-      - name: Verify release asset discovery
-        working-directory: Aether-Plugins
-        run: node --test scripts/test-discover-plugin-releases.cjs
+          node scripts/test-repository.cjs
+          node --test scripts/test-catalogue.cjs scripts/test-repository-history.cjs scripts/test-release-plan.cjs
 
       - name: Upload Wasm Artifacts
         uses: actions/upload-artifact@v4
@@ -123,11 +129,4 @@ jobs:
           name: aether-wasm-plugins
           path: Aether-Plugins/target/wasm32-unknown-unknown/release/*.wasm
 
-  publish-plugins:
-    name: Paquets installables et versions develop
-    needs: [workflows, security-audit, test-and-build]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
-    permissions:
-      contents: write
-    uses: ./.github/workflows/publish-develop-plugins.yml
-    secrets: inherit
+  # Publishing is manual and separate: see release.yml. CI never writes to the repository.

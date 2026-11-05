@@ -1,13 +1,13 @@
 [package]
 name = "aether-plugin-fanart"
-version = "0.1.1"
+version = "0.1.3"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 description = "fanart.tv artwork provider extension for Aether"
 
 [package.metadata.aether]
-id = "fanart"
+id = "fanart-tv"
 name = "fanart.tv"
 category = "Metadata"
 target-abi = "1.0"

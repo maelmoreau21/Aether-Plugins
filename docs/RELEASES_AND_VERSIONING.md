@@ -1,90 +1,138 @@
 # Guide du versionnement et des releases — Aether-Plugins
 
-Ce document décrit le cycle de vie, la signature cryptographique Ed25519, le versionnement indépendant et la gestion sécurisée des releases pour les extensions d'**Aether**.
+La publication suit le principe des dépôts de plugins Jellyfin : **un seul
+manifeste JSON** liste chaque extension avec un tableau `versions` contenant
+toutes ses versions publiées. Une version précédente reste donc installable
+depuis Aether, sans rien modifier au dépôt.
 
 ---
 
-## 1. Principes et indépendance des plugins
+## 1. Le catalogue versionné (`repository/manifest.json`)
 
-Chaque plugin possède son **propre cycle de versions indépendant** :
-- Une modification dans `tmdb` incrémente uniquement la version de TMDb (ex : `0.1.0` → `0.2.0`). Les autres plugins (`imdb`, `omdb`, `intro-skipper`, etc.) conservent rigoureusement leur version.
-- **Tags Git propres au plugin** : format `<tag_prefix>-v<version>`, par exemple `tmdb-v0.2.0` ou `intro-skipper-v0.1.0-beta.1`.
-- **Catalogue de production** : `repository/manifest.json` référence l'ensemble des extensions disponibles et leurs paquets signés dans `repository/packages/`.
+```json
+{
+  "apiVersion": 2,
+  "plugins": [
+    {
+      "id": "tmdb",
+      "name": "TMDb",
+      "description": "…",
+      "owner": "Aether Team",
+      "category": "Metadata",
+      "imageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/Aether-Plugins-TMDb/assets/banner.svg",
+      "publisherId": "maelmoreau21",
+      "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
+      "versions": [
+        {
+          "version": "0.1.3",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/tmdb-v0.1.3-beta/tmdb-0.1.3.package.json",
+          "checksum": "<SHA-256 du fichier sourceUrl>",
+          "timestamp": "2026-11-04T18:47:50Z",
+          "changelog": "- …",
+          "permissions": ["metadata.read", "metadata.write", "images"],
+          "httpHosts": ["api.themoviedb.org"]
+        }
+      ]
+    }
+  ]
+}
+```
 
-Tableau des correspondances :
+- Les versions sont triées de la plus récente à la plus ancienne et ne sont jamais
+  retirées ni remplacées : une version publiée est immuable.
+- `checksum` est le **SHA-256** (hexadécimal) du fichier téléchargé. Le MD5 des
+  manifestes Jellyfin n'est pas accepté.
+- `targetAbi` est l'ABI minimale requise (`1.0` aujourd'hui), comparée
+  numériquement par le Core.
+- `permissions` et `httpHosts` sont une copie d'affichage : le Core refuse
+  l'installation s'ils ne correspondent pas au manifeste signé du paquet.
+- `publisherId`/`publicKey` peuvent être répétés dans une version (rotation de clé ;
+  c'est le cas de `poster-rotator@0.1.0`).
+- La confiance vient uniquement de la signature Ed25519 du paquet.
 
-| Identifiant | Crate Rust | Répertoire | Préfixe Tag |
-|---|---|---|---|
-| `tmdb` | `aether-plugin-tmdb` | `Aether-Plugins-TMDb` | `tmdb` |
-| `imdb` | `aether-plugin-imdb` | `Aether-Plugins-IMDb` | `imdb` |
-| `omdb` | `aether-plugin-omdb` | `Aether-Plugins-OMDb` | `omdb` |
-| `fanart-tv` | `aether-plugin-fanart` | `Aether-Plugins-fanart.tv` | `fanart` |
-| `musicbrainz` | `aether-plugin-musicbrainz` | `Aether-Plugins-MusicBrainz` | `musicbrainz` |
-| `discogs` | `aether-plugin-discogs` | `Aether-Plugins-Discogs` | `discogs` |
-| `lrclib` | `aether-plugin-lrclib` | `Aether-Plugins-LrcLib` | `lrclib` |
-| `intro-skipper` | `aether-plugin-intro-skipper` | `Aether-Plugins-IntroSkipper` | `intro-skipper` |
-| `poster-rotator` | `aether-plugin-poster-rotator` | `Aether-Plugins-PosterRotator` | `poster-rotator` |
+Toutes les URL sont absolues et immuables, donc valables quelle que soit la
+branche lue par le serveur : il n'y a plus de réécriture `main`/`develop`.
 
----
+## 2. Publier une version
 
-## 2. Détection fine des changements (`scripts/detect_changed_plugins.py`)
+1. Modifier le plugin et augmenter sa version dans son `Cargo.toml`
+   (`0.1.3` → `0.1.4`). Commit et push habituels (PR si la branche est protégée).
+2. GitHub → **Actions → Release plugin → Run workflow** :
+   - `plugin` : l'identifiant (`tmdb`, `fanart-tv`, …) ;
+   - `version` : optionnel, sert de garde-fou (doit égaler `Cargo.toml`) ;
+   - `changelog` : texte affiché dans Aether ;
+   - `prerelease` : marque la release GitHub comme pré-version.
 
-L'outil d'analyse détecte avec précision les composants réellement impactés :
-- **Fichiers sources du plugin** (`src/`, `Cargo.toml`, etc.) : déclenche la détection pour ce plugin uniquement.
-- **Fichiers purement documentaires** (`.md`, `.txt`, dossier `docs/`) : ignorés, ne provoquent aucune release inutile.
-- **Crate partagé `crates/aether-plugin-api/`** : si l'API commune est modifiée, seuls les plugins impactés sont reconstruits.
-- **Immutabilité des paquets** : si un paquet existe déjà dans `repository/packages/`, tout écrasement conflictuel est rejeté.
+   Variante bêta : pousser le tag annoté `<préfixe>-v<x.y.z>-beta` sur le commit
+   `develop` (`git tag -a tmdb-v0.1.4-beta -m "- Corrige …"`, puis
+   `git push origin tmdb-v0.1.4-beta`). Le message du tag devient le changelog.
+   Le tag sans suffixe déclenche une publication stable.
+3. Le workflow `release.yml` :
+   - compile le module Wasm, l'optimise et vérifie l'ABI ;
+   - signe le paquet avec `scripts/sign-package.cjs` (aucune compilation du Core
+     n'est nécessaire) et vérifie la signature avec `repository/publisher-public.txt` ;
+   - crée la release `<préfixe>-v<version>[-beta]` avec l'asset `<préfixe>-<version>.package.json`
+     (un asset existant n'est jamais remplacé : une relance le réutilise) ;
+   - ajoute la version à `repository/manifest.json` sur `develop` pour une bêta,
+     sur `main` pour une version stable (sauf variable `CATALOGUE_BRANCH` explicite), avec
+     `scripts/add-catalogue-version.cjs`, en conservant toutes les versions.
+     En cas de push concurrent, il repart de la branche cible et réessaie (5 fois).
 
----
+Relancer le workflow pour une version déjà au catalogue ne fait rien.
 
-## 3. Branches protégées et procédure de release sécurisée
+## 3. Préfixes de tags et d'assets
 
-Les branches `main` et `develop` sont protégées contre tout push direct. Le catalogue de production ne peut donc pas être modifié directement par un workflow de release sur `main`.
+| Identifiant | Répertoire | Préfixe |
+|---|---|---|
+| `tmdb` | `Aether-Plugins-TMDb` | `tmdb` |
+| `tvdb` | `Aether-Plugins-TVDB` | `tvdb` |
+| `imdb` | `Aether-Plugins-IMDb` | `imdb` |
+| `omdb` | `Aether-Plugins-OMDb` | `omdb` |
+| `fanart-tv` | `Aether-Plugins-fanart.tv` | `fanart` |
+| `musicbrainz` | `Aether-Plugins-MusicBrainz` | `musicbrainz` |
+| `discogs` | `Aether-Plugins-Discogs` | `discogs` |
+| `lrclib` | `Aether-Plugins-LrcLib` | `lrclib` |
+| `opensubtitles` | `Aether-Plugins-OpenSubtitles` | `opensubtitles` |
+| `intro-skipper` | `Aether-Plugins-IntroSkipper` | `intro-skipper` |
+| `media-requests` | `Aether-Plugins-Requests` | `media-requests` |
+| `media-reports` | `Aether-Plugins-Reports` | `media-reports` |
+| `poster-rotator` | `Aether-Plugins-PosterRotator` | `poster-rotator` |
 
-Le processus s'organise en deux étapes complémentaires :
+Le préfixe est déduit des versions déjà publiées (`scripts/release-plan.cjs`).
 
-### Étape A : Préparation via Pull Request (`prepare-plugin-release.yml`)
-1. L'administrateur déclenche le workflow avec l'identifiant du plugin et l'incrément souhaité (`PATCH`, `MINOR`, `MAJOR`).
-2. Le workflow s'exécute dans un environnement sécurisé avec accès au secret `ED25519_PRIVATE_KEY`.
-3. Il crée une branche dédiée : `release/<plugin_id>-v<next_version>`.
-4. Il compile le WebAssembly, optimise le Wasm, vérifie l'ABI et génère le manifeste.
-5. Il signe le paquet avec la clé Ed25519 et le dépose dans `repository/packages/<short>-<version>.package.json`.
-6. Il met à jour `repository/manifest.json` et vérifie son intégrité.
-7. Il pousse la branche et ouvre automatiquement une **Pull Request contrôlée** ciblant `main`.
+## 4. Installer une version précédente
 
-### Étape B : Publication après fusion (`release-plugins.yml`)
-1. La Pull Request est revue et fusionnée dans `main`.
-2. Le workflow sur `main` détecte les paquets intégrés dans le commit fusionné.
-3. Il vérifie la validité des signatures et l'absence de tag Git existant.
-4. Il crée le tag Git immutable sur le commit exact de fusion : `git tag -a tmdb-v0.2.0`.
-5. Il crée la GitHub Release et y attache le fichier `.package.json` signé téléchargeable.
-6. **Aucun `git push origin main` n'est exécuté** : toutes les modifications de fichiers ont été fusionnées préalablement par la PR !
+Dans Aether : **Administration → Extensions → Catalogue**, ouvrir l'extension :
+la liste des versions affiche date, changelog et un bouton **Installer cette
+version**. Pour une extension installée, une version plus ancienne passe par le
+retour arrière confirmé : l'extension est désactivée, la version courante est
+gardée comme sauvegarde restaurable, et le retour est refusé si l'extension
+détient des données privées (`storage.private`) ou si les paramètres enregistrés
+ne sont pas compatibles avec l'ancien schéma.
 
-Le fichier attaché et le préfixe du tag sont déduits de `packageUrl` dans le
-catalogue vérifié, et non de l'identifiant du plugin. Par exemple, `fanart-tv`
-publie `fanart-0.1.0.package.json` sous `fanart-v0.1.0`. Une entrée dont le
-paquet local manque fait échouer la publication au lieu d'être ignorée.
-Après un échec entre la création du tag et celle de la Release, une relance
-reprend la création de la Release existante sans recréer le tag.
+## 5. Vérifications locales
 
----
+```powershell
+node scripts/test-repository.cjs            # catalogue + paquets présents localement
+node scripts/test-repository.cjs --online   # télécharge et vérifie chaque version
+node scripts/test-manifests.cjs --allow-unpublished
+node --test scripts/test-catalogue.cjs scripts/test-repository-history.cjs
+```
 
-## 4. Cycle de développement sur `develop`
+`scripts/migrate-catalogue-v2.cjs` a produit le catalogue versionné à partir des
+paquets historiques de `repository/packages/` et des releases existantes. Ces
+paquets restent dans le dépôt pour mémoire ; les nouvelles versions n'y sont plus
+committées.
 
-À chaque fusion de PR sur `develop` :
-- `detect_changed_plugins.py --channel develop` identifie les plugins modifiés.
-- Le numéro de version bêta de chaque plugin modifié est incrémenté : par exemple `intro-skipper-v0.1.0-beta.0` → `intro-skipper-v0.1.0-beta.1`.
-- Le tag Git correspondant est posé sur le commit exact.
-- Les versions stables et le catalogue `repository/manifest.json` ne sont pas modifiés par les bêtas de développement.
+## 6. Héritage
 
----
-
-## 5. Compatibilité Aether / Plugins
-
-Chaque plugin déclare des métadonnées de compatibilité strictes dans son manifeste :
-- `apiVersion` : Version du protocole de plugin (actuellement `1`).
-- `targetAbi` : Version d'ABI WebAssembly ciblée (actuellement `1.0`).
-- `minServerVersion` : Version minimale du serveur Aether requise (ex : `0.1.0`).
-- `maxServerVersion` : Version maximale supportée (ex : `1.0.0`).
-
-Une mise à jour d'Aether Core n'impose pas la recompilation de tous les plugins tant que l'ABI reste compatible.
+`prepare-plugin-release.yml`, `publish-develop-plugins.yml` et
+`release-plugins.yml` ont été supprimés, ainsi que
+`discover-plugin-releases.cjs` et `publish-plugin-releases.cjs` qui ne servaient
+qu'à eux. Ils écrivaient le catalogue `apiVersion: 1` (dernière version
+uniquement), committaient dans `develop` et ouvraient des PR avec `GITHUB_TOKEN`.
+Ils restent consultables dans l'historique Git. `scripts/detect_changed_plugins.py`
+et `plan-auto-release.py` sont conservés pour les tests de politique de version.

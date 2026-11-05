@@ -19,8 +19,12 @@ const expectedPlugins = [
   'aether_plugin_lrclib',
   'aether_plugin_musicbrainz',
   'aether_plugin_omdb',
+  'aether_plugin_opensubtitles',
   'aether_plugin_poster_rotator',
+  'aether_plugin_requests',
+  'aether_plugin_reports',
   'aether_plugin_tmdb',
+  'aether_plugin_tvdb',
 ];
 
 // CI requires all modules; release jobs explicitly select one crate.
@@ -80,6 +84,37 @@ for (const pluginName of plugins) {
   const response = JSON.parse(Buffer.from(memory.buffer, resultPtr, resultLen).toString('utf8'));
   assert.equal(response.apiVersion, 1, `${pluginName}: invalid response API version`);
   assert.equal(response.result.error, 'unsupported_operation', `${pluginName}: invalid smoke response`);
+
+  if (['aether_plugin_requests', 'aether_plugin_reports'].includes(pluginName)) {
+    const invoke = (operation, input) => {
+      const bytes = Buffer.from(JSON.stringify({apiVersion: 1, operation, input}));
+      const pointer = media_alloc(bytes.length) >>> 0;
+      new Uint8Array(memory.buffer, pointer, bytes.length).set(bytes);
+      const encoded = media_run(pointer, bytes.length);
+      const start = Number(encoded >> 32n), size = Number(encoded & 0xffffffffn);
+      assert(size > 0 && size <= 65536, `${pluginName}: invalid domain response size`);
+      const output = JSON.parse(Buffer.from(memory.buffer, start, size).toString('utf8'));
+      assert.equal(output.apiVersion, 1);
+      return output.result;
+    };
+    if (pluginName === 'aether_plugin_requests') {
+      const film = {kind: 'film', title: 'Œuvre de test', externalId: '42', externalProvider: 'tmdb'};
+      assert.deepEqual(invoke('requests.validate', film), {valid: true});
+      const planned = invoke('requests.plan', film);
+      assert.equal(planned.service, 'radarr');
+      assert.equal(planned.title, film.title);
+      assert.equal(planned.monitorFuture, false);
+      assert.deepEqual(invoke('requests.plan', {kind: 'track', title: 'Morceau', externalProvider: 'musicbrainz',
+        externalId: '01234567-89ab-cdef-0123-456789abcdef'}), {error: 'track_not_supported'});
+    } else {
+      const report = {category: 'subtitles', description: 'Décalage après 12 secondes', workId: 'work-1',
+        positionSeconds: 12, endSeconds: 20};
+      assert.deepEqual(invoke('reports.validate', report), {valid: true});
+      assert.deepEqual(invoke('reports.classify', report),
+        {category: 'subtitles', code: 'media.subtitles', automationEligible: false});
+      assert.equal(invoke('reports.validate', {...report, endSeconds: 1}).error, 'invalid_time_range');
+    }
+  }
 
   console.log(`  ✓ ${pluginName}: valid bytecode, exports, imports, smoke test ok (${bytes.length} octets)`);
 }

@@ -84,21 +84,24 @@ class PluginsReleasePolicyTests(unittest.TestCase):
         self.assertIsNotNone(tmdb_entry)
         self.assertTrue(tmdb_entry["package_already_exists"])
 
-    # 18. Respect des protections de branches (Pas de push direct sur main)
-    def test_18_branch_protections_no_direct_push_to_main(self):
-        release_wf = Path(__file__).resolve().parent.parent / ".github" / "workflows" / "release-plugins.yml"
-        self.assertTrue(release_wf.exists())
-        content = release_wf.read_text(encoding="utf-8")
-        # Ensure git push origin main is NEVER invoked in release-plugins
-        self.assertNotIn("git push origin main", content)
-        # Git tags are pushed
-        self.assertIn('git push origin "$TAG"', content)
-
-        # Ensure preparation workflow uses Pull Requests
-        prepare_wf = Path(__file__).resolve().parent.parent / ".github" / "workflows" / "prepare-plugin-release.yml"
-        self.assertTrue(prepare_wf.exists())
-        prep_content = prepare_wf.read_text(encoding="utf-8")
-        self.assertIn("gh pr create", prep_content)
+    # 18. Une seule publication simple : release GitHub + catalogue versionné.
+    def test_18_single_release_workflow_without_branch_rewrites(self):
+        workflows = Path(__file__).resolve().parent.parent / ".github" / "workflows"
+        content = (workflows / "release.yml").read_text(encoding="utf-8")
+        # No commit back to develop, no pull request, no per-branch URL rewriting.
+        self.assertNotIn("HEAD:develop", content)
+        self.assertNotIn("gh pr create", content)
+        self.assertNotIn("/develop/repository/", content)
+        # Write access is granted to the job only; assets are never replaced.
+        self.assertIn("permissions: {}", content)
+        self.assertIn("contents: write", content)
+        self.assertNotIn("--clobber", content)
+        # The catalogue keeps history through the append-only script.
+        self.assertIn("add-catalogue-version.cjs", content)
+        # Legacy publication workflows are gone: release.yml is the only publisher.
+        for legacy in ("release-plugins.yml", "publish-develop-plugins.yml", "prepare-plugin-release.yml"):
+            self.assertFalse((workflows / legacy).exists(), legacy)
+        self.assertNotIn("publish-develop-plugins.yml", (workflows / "ci.yml").read_text(encoding="utf-8"))
 
     # Sur develop : incrément bêta
     def test_develop_channel_increments_beta(self):
@@ -121,6 +124,12 @@ class PluginsReleasePolicyTests(unittest.TestCase):
                     self.assertEqual(entries[0]["next_version"], expected)
 
     # Manuel : dispatch pour tous les plugins (all)
+    def test_manual_release_new_optional_providers(self):
+        for plugin_id in ["tvdb", "opensubtitles"]:
+            with self.subTest(plugin_id=plugin_id):
+                entries = self.run_detect(["--manual-plugin", plugin_id, "--manual-bump", "PATCH", "--channel", "main"])
+                self.assertEqual([entry["id"] for entry in entries], [plugin_id])
+
     def test_manual_release_all_plugins(self):
         for bump, expected in [("PATCH", "1.2.4"), ("MINOR", "1.3.0"), ("MAJOR", "2.0.0")]:
             with self.subTest(bump=bump):

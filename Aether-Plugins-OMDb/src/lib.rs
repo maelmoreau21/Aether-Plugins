@@ -368,6 +368,7 @@ impl MetadataProviderPlugin for OmdbPlugin {
         external_ids.insert("imdb".to_string(), provider_id.clone());
 
         Ok(StructuredMetadata {
+            collection: None,
             provider: "omdb".into(),
             provider_id,
             external_ids,

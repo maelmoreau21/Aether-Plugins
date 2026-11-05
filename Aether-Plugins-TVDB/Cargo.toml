@@ -1,0 +1,27 @@
+[package]
+name = "aether-plugin-tvdb"
+version = "0.1.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Optional licensed TheTVDB API v4 metadata provider"
+
+[package.metadata.aether]
+id = "tvdb"
+name = "TheTVDB"
+category = "Metadata"
+target-abi = "1.0"
+min-server-version = "0.1.0"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+aether-plugin-api.workspace = true
+media-extension-sdk.workspace = true
+serde_json.workspace = true
+async-trait.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio.workspace = true
+reqwest.workspace = true
