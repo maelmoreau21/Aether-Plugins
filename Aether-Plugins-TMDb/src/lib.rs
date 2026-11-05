@@ -444,8 +444,7 @@ impl MetadataProviderPlugin for TmdbPlugin {
         request: DetailsRequest,
         config: &ProviderConfig,
     ) -> Result<StructuredMetadata, PluginError> {
-        serde_json::from_value(self.details_value(request, config).await?)
-            .map_err(|_| PluginError::new("invalid_metadata", "Invalid TMDb metadata"))
+        Ok(self.details_with_language(request, config).await?.0)
     }
 
     async fn images(
@@ -564,11 +563,27 @@ static VTABLE: RawWakerVTable =
     RawWakerVTable::new(|p| RawWaker::new(p, &VTABLE), |_| {}, |_| {}, |_| {});
 
 impl TmdbPlugin {
+    /// Wire form of `details`: the structured metadata plus the `originalLanguage`
+    /// field, which `StructuredMetadata` does not carry. Built by serializing the
+    /// struct (no `Deserialize` round-trip, which would bloat the Wasm module).
     pub async fn details_value(
         &self,
         request: DetailsRequest,
         config: &ProviderConfig,
     ) -> Result<serde_json::Value, PluginError> {
+        let (metadata, original_language) = self.details_with_language(request, config).await?;
+        let mut result = serde_json::to_value(metadata).unwrap_or_default();
+        if let Some(language) = original_language {
+            result["originalLanguage"] = serde_json::Value::String(language);
+        }
+        Ok(result)
+    }
+
+    async fn details_with_language(
+        &self,
+        request: DetailsRequest,
+        config: &ProviderConfig,
+    ) -> Result<(StructuredMetadata, Option<String>), PluginError> {
         let language = config.language.as_deref().unwrap_or("fr-FR");
         let is_tv = matches!(request.media_type, MediaType::TvShow | MediaType::Episode);
         let id = self
@@ -957,8 +972,7 @@ impl TmdbPlugin {
             seasons,
             translations,
         };
-        let mut result = serde_json::to_value(metadata).unwrap_or_default();
-        if let Some(language) = val
+        let original_language = val
             .get("original_language")
             .and_then(|v| v.as_str())
             .filter(|v| {
@@ -966,10 +980,8 @@ impl TmdbPlugin {
                     && v.len() <= 35
                     && v.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
             })
-        {
-            result["originalLanguage"] = serde_json::json!(language);
-        }
-        Ok(result)
+            .map(str::to_owned);
+        Ok((metadata, original_language))
     }
 }
 

@@ -98,11 +98,9 @@ class PluginsReleasePolicyTests(unittest.TestCase):
         self.assertNotIn("--clobber", content)
         # The catalogue keeps history through the append-only script.
         self.assertIn("add-catalogue-version.cjs", content)
-        # Legacy publication workflows never run on their own any more.
+        # Legacy publication workflows are gone: release.yml is the only publisher.
         for legacy in ("release-plugins.yml", "publish-develop-plugins.yml", "prepare-plugin-release.yml"):
-            text = (workflows / legacy).read_text(encoding="utf-8")
-            self.assertIn("if: ${{ false }}", text, legacy)
-            self.assertNotIn("\n  push:", text, legacy)
+            self.assertFalse((workflows / legacy).exists(), legacy)
         self.assertNotIn("publish-develop-plugins.yml", (workflows / "ci.yml").read_text(encoding="utf-8"))
 
     # Sur develop : incrément bêta

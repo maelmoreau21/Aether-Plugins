@@ -127,9 +127,9 @@ committées.
 ## 6. Héritage
 
 `prepare-plugin-release.yml`, `publish-develop-plugins.yml` et
-`release-plugins.yml` sont désactivés (aucun déclencheur automatique, job
-`if: false`). Ils écrivaient le catalogue `apiVersion: 1` (dernière version
+`release-plugins.yml` ont été supprimés, ainsi que
+`discover-plugin-releases.cjs` et `publish-plugin-releases.cjs` qui ne servaient
+qu'à eux. Ils écrivaient le catalogue `apiVersion: 1` (dernière version
 uniquement), committaient dans `develop` et ouvraient des PR avec `GITHUB_TOKEN`.
-`scripts/detect_changed_plugins.py`, `plan-auto-release.py`,
-`discover-plugin-releases.cjs` et `publish-plugin-releases.cjs` ne servent plus
-qu'à ces workflows.
+Ils restent consultables dans l'historique Git. `scripts/detect_changed_plugins.py`
+et `plan-auto-release.py` sont conservés pour les tests de politique de version.

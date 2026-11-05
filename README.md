@@ -356,7 +356,8 @@ Chaque plugin a sa propre version `MAJOR.MINOR.PATCH` dans son `Cargo.toml`.
 La publication se fait uniquement par le workflow `release.yml` décrit dans
 [docs/RELEASES_AND_VERSIONING.md](docs/RELEASES_AND_VERSIONING.md). Les anciens
 workflows (`prepare-plugin-release.yml`, `publish-develop-plugins.yml`,
-`release-plugins.yml`) sont désactivés et conservés pour mémoire.
+`release-plugins.yml`) ont été supprimés ; ils restent consultables dans
+l'historique Git.
 
 Revenir à une version précédente ne demande aucune modification du catalogue :
 elle reste listée, et l'administrateur la choisit dans Aether (Extensions →
