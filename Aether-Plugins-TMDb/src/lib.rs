@@ -444,6 +444,131 @@ impl MetadataProviderPlugin for TmdbPlugin {
         request: DetailsRequest,
         config: &ProviderConfig,
     ) -> Result<StructuredMetadata, PluginError> {
+        serde_json::from_value(self.details_value(request, config).await?)
+            .map_err(|_| PluginError::new("invalid_metadata", "Invalid TMDb metadata"))
+    }
+
+    async fn images(
+        &self,
+        request: ImagesRequest,
+        config: &ProviderConfig,
+    ) -> Result<Vec<MediaImage>, PluginError> {
+        let is_tv = matches!(request.media_type, MediaType::TvShow | MediaType::Episode);
+        let id = self
+            .resolve_id(
+                &request.id,
+                &request.external_ids,
+                request.media_type,
+                config,
+            )
+            .await?;
+        let endpoint = if is_tv {
+            format!("tv/{id}/images")
+        } else {
+            format!("movie/{id}/images")
+        };
+
+        // A single unfiltered provider response includes localized and textless artwork.
+        // Apply the same policy as fanart locally so fallback variants are retained.
+        let val: serde_json::Value = self.fetch_json(&endpoint, &[], config).await?;
+        let mut images = Vec::new();
+        for (key, image_type) in [
+            ("posters", ImageType::Poster),
+            ("backdrops", ImageType::Backdrop),
+            ("logos", ImageType::Logo),
+        ] {
+            if let Some(items) = val.get(key).and_then(|v| v.as_array()) {
+                for (idx, item) in items.iter().enumerate() {
+                    if let Some(path) = item
+                        .get("file_path")
+                        .and_then(|v| v.as_str())
+                        .filter(|path| path.starts_with('/') && !path.starts_with("//"))
+                    {
+                        images.push(MediaImage {
+                            url: format!("{IMAGE_ORIGINAL_URL}{path}"),
+                            image_type,
+                            width: item
+                                .get("width")
+                                .and_then(|v| v.as_u64())
+                                .and_then(|v| u32::try_from(v).ok()),
+                            height: item
+                                .get("height")
+                                .and_then(|v| v.as_u64())
+                                .and_then(|v| u32::try_from(v).ok()),
+                            language: item
+                                .get("iso_639_1")
+                                .and_then(|v| v.as_str())
+                                .filter(|v| !v.is_empty())
+                                .map(str::to_owned),
+                            rating: item.get("vote_average").and_then(|v| v.as_f64()),
+                            vote_count: item.get("vote_count").and_then(|v| v.as_u64()),
+                            is_primary: idx == 0,
+                        });
+                    }
+                }
+            }
+        }
+        Ok(config.select_images(images))
+    }
+}
+
+#[derive(Deserialize)]
+struct TmdbSearchResponse {
+    results: Vec<TmdbSearchResult>,
+}
+
+#[derive(Deserialize)]
+struct TmdbSearchResult {
+    id: i64,
+    title: Option<String>,
+    name: Option<String>,
+    original_title: Option<String>,
+    original_name: Option<String>,
+    overview: Option<String>,
+    release_date: Option<String>,
+    first_air_date: Option<String>,
+    poster_path: Option<String>,
+    vote_average: Option<f64>,
+}
+
+mod urlencoding {
+    pub fn encode(s: &str) -> String {
+        let mut result = String::with_capacity(s.len() * 2);
+        for b in s.bytes() {
+            match b {
+                b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                    result.push(b as char)
+                }
+                _ => {
+                    use std::fmt::Write;
+                    let _ = write!(result, "%{b:02X}");
+                }
+            }
+        }
+        result
+    }
+}
+
+// Lightweight synchronous runner for guest WebAssembly execution
+fn block_on_guest<F: std::future::Future>(future: F) -> F::Output {
+    let raw_waker = RawWaker::new(std::ptr::null(), &VTABLE);
+    let waker = unsafe { Waker::from_raw(raw_waker) };
+    let mut cx = Context::from_waker(&waker);
+    let mut pinned = std::pin::pin!(future);
+    match pinned.as_mut().poll(&mut cx) {
+        Poll::Ready(output) => output,
+        Poll::Pending => panic!("Guest Wasm async operation did not complete synchronously"),
+    }
+}
+static VTABLE: RawWakerVTable =
+    RawWakerVTable::new(|p| RawWaker::new(p, &VTABLE), |_| {}, |_| {}, |_| {});
+
+impl TmdbPlugin {
+    pub async fn details_value(
+        &self,
+        request: DetailsRequest,
+        config: &ProviderConfig,
+    ) -> Result<serde_json::Value, PluginError> {
         let language = config.language.as_deref().unwrap_or("fr-FR");
         let is_tv = matches!(request.media_type, MediaType::TvShow | MediaType::Episode);
         let id = self
@@ -804,7 +929,7 @@ impl MetadataProviderPlugin for TmdbPlugin {
                 name: name.to_owned(),
             })
         });
-        Ok(StructuredMetadata {
+        let metadata = StructuredMetadata {
             collection,
             provider: "tmdb".into(),
             provider_id: id,
@@ -831,123 +956,22 @@ impl MetadataProviderPlugin for TmdbPlugin {
             images: all_images,
             seasons,
             translations,
-        })
-    }
-
-    async fn images(
-        &self,
-        request: ImagesRequest,
-        config: &ProviderConfig,
-    ) -> Result<Vec<MediaImage>, PluginError> {
-        let is_tv = matches!(request.media_type, MediaType::TvShow | MediaType::Episode);
-        let id = self
-            .resolve_id(
-                &request.id,
-                &request.external_ids,
-                request.media_type,
-                config,
-            )
-            .await?;
-        let endpoint = if is_tv {
-            format!("tv/{id}/images")
-        } else {
-            format!("movie/{id}/images")
         };
-
-        // A single unfiltered provider response includes localized and textless artwork.
-        // Apply the same policy as fanart locally so fallback variants are retained.
-        let val: serde_json::Value = self.fetch_json(&endpoint, &[], config).await?;
-        let mut images = Vec::new();
-        for (key, image_type) in [
-            ("posters", ImageType::Poster),
-            ("backdrops", ImageType::Backdrop),
-            ("logos", ImageType::Logo),
-        ] {
-            if let Some(items) = val.get(key).and_then(|v| v.as_array()) {
-                for (idx, item) in items.iter().enumerate() {
-                    if let Some(path) = item
-                        .get("file_path")
-                        .and_then(|v| v.as_str())
-                        .filter(|path| path.starts_with('/') && !path.starts_with("//"))
-                    {
-                        images.push(MediaImage {
-                            url: format!("{IMAGE_ORIGINAL_URL}{path}"),
-                            image_type,
-                            width: item
-                                .get("width")
-                                .and_then(|v| v.as_u64())
-                                .and_then(|v| u32::try_from(v).ok()),
-                            height: item
-                                .get("height")
-                                .and_then(|v| v.as_u64())
-                                .and_then(|v| u32::try_from(v).ok()),
-                            language: item
-                                .get("iso_639_1")
-                                .and_then(|v| v.as_str())
-                                .filter(|v| !v.is_empty())
-                                .map(str::to_owned),
-                            rating: item.get("vote_average").and_then(|v| v.as_f64()),
-                            vote_count: item.get("vote_count").and_then(|v| v.as_u64()),
-                            is_primary: idx == 0,
-                        });
-                    }
-                }
-            }
+        let mut result = serde_json::to_value(metadata).unwrap_or_default();
+        if let Some(language) = val
+            .get("original_language")
+            .and_then(|v| v.as_str())
+            .filter(|v| {
+                !v.is_empty()
+                    && v.len() <= 35
+                    && v.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+            })
+        {
+            result["originalLanguage"] = serde_json::json!(language);
         }
-        Ok(config.select_images(images))
+        Ok(result)
     }
 }
-
-#[derive(Deserialize)]
-struct TmdbSearchResponse {
-    results: Vec<TmdbSearchResult>,
-}
-
-#[derive(Deserialize)]
-struct TmdbSearchResult {
-    id: i64,
-    title: Option<String>,
-    name: Option<String>,
-    original_title: Option<String>,
-    original_name: Option<String>,
-    overview: Option<String>,
-    release_date: Option<String>,
-    first_air_date: Option<String>,
-    poster_path: Option<String>,
-    vote_average: Option<f64>,
-}
-
-mod urlencoding {
-    pub fn encode(s: &str) -> String {
-        let mut result = String::with_capacity(s.len() * 2);
-        for b in s.bytes() {
-            match b {
-                b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
-                    result.push(b as char)
-                }
-                _ => {
-                    use std::fmt::Write;
-                    let _ = write!(result, "%{b:02X}");
-                }
-            }
-        }
-        result
-    }
-}
-
-// Lightweight synchronous runner for guest WebAssembly execution
-fn block_on_guest<F: std::future::Future>(future: F) -> F::Output {
-    let raw_waker = RawWaker::new(std::ptr::null(), &VTABLE);
-    let waker = unsafe { Waker::from_raw(raw_waker) };
-    let mut cx = Context::from_waker(&waker);
-    let mut pinned = std::pin::pin!(future);
-    match pinned.as_mut().poll(&mut cx) {
-        Poll::Ready(output) => output,
-        Poll::Pending => panic!("Guest Wasm async operation did not complete synchronously"),
-    }
-}
-static VTABLE: RawWakerVTable =
-    RawWakerVTable::new(|p| RawWaker::new(p, &VTABLE), |_| {}, |_| {}, |_| {});
 
 media_extension_sdk::extension!(handle_tmdb_extension_request);
 
@@ -984,8 +1008,8 @@ pub fn handle_tmdb_extension_request(
                     result: serde_json::json!({"error": "invalid_details_input"}),
                 };
             };
-            match block_on_guest(plugin.details(d, &config)) {
-                Ok(meta) => serde_json::to_value(meta).unwrap_or_default(),
+            match block_on_guest(plugin.details_value(d, &config)) {
+                Ok(meta) => meta,
                 Err(e) => serde_json::json!({"error": e.code, "message": e.message}),
             }
         }

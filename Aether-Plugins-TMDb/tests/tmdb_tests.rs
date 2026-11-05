@@ -207,6 +207,7 @@ async fn test_tmdb_details_mock_server() {
                                     "belongs_to_collection": {"id": 726871, "name": "Dune Collection"},
                                     "title": "Dune",
                                     "original_title": "Dune",
+                                    "original_language": "en",
                                     "tagline": "Beyond fear, destiny awaits.",
                                     "overview": "Paul Atreides, a brilliant and gifted young man...",
                                     "release_date": "2021-09-15",
@@ -283,6 +284,18 @@ async fn test_tmdb_details_mock_server() {
     assert_eq!(details.collection.as_ref().unwrap().id, "tmdb:726871");
     assert_eq!(details.collection.as_ref().unwrap().name, "Dune Collection");
     assert_eq!(details.title.as_deref(), Some("Dune"));
+    let wire = plugin
+        .details_value(
+            DetailsRequest {
+                id: "438631".into(),
+                media_type: MediaType::Movie,
+                external_ids: Default::default(),
+            },
+            &config,
+        )
+        .await
+        .unwrap();
+    assert_eq!(wire["originalLanguage"], "en");
     assert_eq!(details.year, Some(2021));
     assert_eq!(details.runtime_minutes, Some(155));
     assert_eq!(details.directors, vec!["Denis Villeneuve"]);
