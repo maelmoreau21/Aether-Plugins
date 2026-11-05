@@ -1,0 +1,246 @@
+# Publish one plugin version, Jellyfin-style:
+#   1. build and sign the package,
+#   2. attach it to the GitHub release `<plugin>-v<version>`,
+#   3. append the version to repository/manifest.json on the catalogue branch.
+#
+# Previous versions stay listed in the catalogue, so servers can install any of them.
+# Run it from the Actions tab (choose the plugin), or push a tag `<plugin>-v<x.y.z>`.
+# The version always comes from the plugin's Cargo.toml: bump it in a normal commit first.
+# No commit to develop, no pull request, no URL rewriting: catalogue entries are absolute
+# release URLs, valid whatever branch a server reads the catalogue from.
+name: Release plugin
+
+on:
+  workflow_dispatch:
+    inputs:
+      plugin:
+        description: Plugin to publish
+        required: true
+        type: choice
+        options:
+          - tmdb
+          - tvdb
+          - imdb
+          - omdb
+          - fanart-tv
+          - musicbrainz
+          - discogs
+          - lrclib
+          - opensubtitles
+          - intro-skipper
+          - media-requests
+          - media-reports
+          - poster-rotator
+      version:
+        description: Expected version (empty = version in Cargo.toml)
+        required: false
+        type: string
+      changelog:
+        description: Changelog shown in Aether (one line per change)
+        required: false
+        type: string
+      prerelease:
+        description: Mark the GitHub release as a pre-release
+        required: false
+        type: boolean
+        default: false
+  push:
+    tags:
+      - '*-v[0-9]+.[0-9]+.[0-9]+'
+
+permissions: {}
+
+# Releases run one at a time, so catalogue updates are applied in order.
+concurrency:
+  group: plugin-catalogue
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  CATALOGUE_BRANCH: ${{ vars.CATALOGUE_BRANCH || 'main' }}
+
+jobs:
+  release:
+    name: Build, sign and publish
+    runs-on: ubuntu-latest
+    # The signing secret lives in the `production` environment.
+    environment: production
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Resolve plugin and version
+        id: plan
+        env:
+          PLUGIN: ${{ inputs.plugin }}
+          VERSION: ${{ inputs.version }}
+          TAG: ${{ github.event_name == 'push' && github.ref_name || '' }}
+        run: node scripts/release-plan.cjs
+
+      - name: Already published
+        if: steps.plan.outputs.listed == 'true'
+        run: echo "::notice::${{ steps.plan.outputs.id }} ${{ steps.plan.outputs.version }} is already in the catalogue. Bump the version in Cargo.toml to publish a new one."
+
+      - name: Require the signing key
+        if: steps.plan.outputs.listed != 'true'
+        env:
+          ED25519_PRIVATE_KEY: ${{ secrets.ED25519_PRIVATE_KEY }}
+        run: |
+          if [ -z "$ED25519_PRIVATE_KEY" ]; then
+            echo '::error::Secret ED25519_PRIVATE_KEY (base64 of the PKCS#8 key from media-extension-pack keygen) is missing from the production environment.'
+            exit 1
+          fi
+
+      - name: Set up Rust
+        if: steps.plan.outputs.listed != 'true'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Cargo
+        if: steps.plan.outputs.listed != 'true'
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build and test the module
+        if: steps.plan.outputs.listed != 'true'
+        env:
+          CRATE: ${{ steps.plan.outputs.crate }}
+          ID: ${{ steps.plan.outputs.id }}
+          DIR: ${{ steps.plan.outputs.dir }}
+          VERSION: ${{ steps.plan.outputs.version }}
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          cargo test --locked -p "$CRATE"
+          cargo build --locked --release --lib -p "$CRATE" --target wasm32-unknown-unknown
+          BINARY=$(cargo metadata --no-deps --format-version 1 | jq -r --arg name "$CRATE" '.packages[] | select(.name==$name) | .targets[] | select(.kind | index("bin")) | .name' | head -n 1)
+          test -n "$BINARY"
+          cargo build --locked --release --bin "$BINARY" -p "$CRATE"
+          WASM="target/wasm32-unknown-unknown/release/${CRATE//-/_}.wasm"
+          node scripts/optimize-wasm.mjs "$WASM"
+          node scripts/test-wasm.cjs target/wasm32-unknown-unknown/release "$CRATE"
+          "./target/release/$BINARY" --manifest > "$RUNNER_TEMP/raw.manifest.json"
+          python3 scripts/package-manifest.py \
+            --input "$RUNNER_TEMP/raw.manifest.json" \
+            --plugin-root "$DIR" --version "$VERSION" --wasm "$WASM" \
+            --repository "${{ github.server_url }}/${{ github.repository }}" \
+            --output "$RUNNER_TEMP/manifest.json"
+          test "$(jq -r .id "$RUNNER_TEMP/manifest.json")" = "$ID"
+          echo "WASM=$WASM" >> "$GITHUB_ENV"
+
+      - name: Sign the package
+        if: steps.plan.outputs.listed != 'true'
+        env:
+          ED25519_PRIVATE_KEY: ${{ secrets.ED25519_PRIVATE_KEY }}
+          ASSET: ${{ steps.plan.outputs.asset }}
+          PUBLISHER: ${{ steps.plan.outputs.publisher }}
+          PUBLIC_KEY_FILE: ${{ steps.plan.outputs.public_key_file }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$ED25519_PRIVATE_KEY" | base64 -d > "$RUNNER_TEMP/signing.pk8"
+          node scripts/sign-package.cjs "$RUNNER_TEMP/manifest.json" "$WASM" \
+            "$RUNNER_TEMP/signing.pk8" "$PUBLISHER" "$PUBLIC_KEY_FILE" "$RUNNER_TEMP/$ASSET"
+          rm -f "$RUNNER_TEMP/signing.pk8"
+
+      - name: Release notes
+        if: steps.plan.outputs.listed != 'true'
+        env:
+          CHANGELOG: ${{ inputs.changelog }}
+          TAG: ${{ steps.plan.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if [ -n "$CHANGELOG" ]; then
+            printf '%s\n' "$CHANGELOG" > "$RUNNER_TEMP/changelog.md"
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            # An annotated tag's message is the changelog.
+            git tag -l --format='%(contents)' "$TAG" > "$RUNNER_TEMP/changelog.md"
+          else
+            : > "$RUNNER_TEMP/changelog.md"
+          fi
+
+      - name: Publish the GitHub release
+        if: steps.plan.outputs.listed != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.plan.outputs.tag }}
+          ASSET: ${{ steps.plan.outputs.asset }}
+          ID: ${{ steps.plan.outputs.id }}
+          VERSION: ${{ steps.plan.outputs.version }}
+          PRERELEASE: ${{ inputs.prerelease && '--prerelease' || '' }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/published"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            if gh release download "$TAG" --pattern "$ASSET" --dir "$RUNNER_TEMP/published" 2>/dev/null; then
+              # A published asset is never replaced: a rerun reuses it as is.
+              echo "::notice::$TAG/$ASSET already exists; it is reused unchanged."
+              cp "$RUNNER_TEMP/published/$ASSET" "$RUNNER_TEMP/$ASSET"
+            else
+              gh release upload "$TAG" "$RUNNER_TEMP/$ASSET"
+            fi
+          else
+            NOTES="$RUNNER_TEMP/changelog.md"
+            [ -s "$NOTES" ] || { echo "$ID $VERSION" > "$RUNNER_TEMP/notes.md"; NOTES="$RUNNER_TEMP/notes.md"; }
+            # shellcheck disable=SC2086 # PRERELEASE is empty or one flag.
+            gh release create "$TAG" "$RUNNER_TEMP/$ASSET" --target "$GITHUB_SHA" \
+              --title "$ID $VERSION" --notes-file "$NOTES" $PRERELEASE
+          fi
+
+      - name: Add the version to the catalogue
+        if: steps.plan.outputs.listed != 'true'
+        env:
+          ASSET: ${{ steps.plan.outputs.asset }}
+          SOURCE_URL: ${{ steps.plan.outputs.source_url }}
+          PUBLIC_KEY_FILE: ${{ steps.plan.outputs.public_key_file }}
+          DIR: ${{ steps.plan.outputs.dir }}
+          ID: ${{ steps.plan.outputs.id }}
+          VERSION: ${{ steps.plan.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          IMAGE=()
+          if [ -f "$DIR/assets/banner.svg" ]; then
+            IMAGE=(--image-url "https://raw.githubusercontent.com/${{ github.repository }}/$CATALOGUE_BRANCH/$DIR/assets/banner.svg")
+          fi
+          WORKTREE="$RUNNER_TEMP/catalogue"
+          git fetch origin "$CATALOGUE_BRANCH"
+          git worktree add --detach "$WORKTREE" "origin/$CATALOGUE_BRANCH"
+          # Concurrent pushes are retried from the latest catalogue; the update is
+          # recomputed each time instead of rebasing, so it never conflicts.
+          for attempt in 1 2 3 4 5; do
+            git -C "$WORKTREE" fetch origin "$CATALOGUE_BRANCH"
+            git -C "$WORKTREE" reset --hard "origin/$CATALOGUE_BRANCH"
+            node scripts/add-catalogue-version.cjs \
+              --manifest "$WORKTREE/repository/manifest.json" \
+              --package "$RUNNER_TEMP/$ASSET" --asset "$RUNNER_TEMP/$ASSET" \
+              --source-url "$SOURCE_URL" --public-key "$PUBLIC_KEY_FILE" \
+              --changelog-file "$RUNNER_TEMP/changelog.md" "${IMAGE[@]}"
+            node scripts/test-repository.cjs "$WORKTREE/repository"
+            if git -C "$WORKTREE" diff --quiet; then
+              echo "Catalogue already lists $ID $VERSION."
+              exit 0
+            fi
+            git -C "$WORKTREE" commit -am "chore(catalogue): $ID $VERSION"
+            if git -C "$WORKTREE" push origin "HEAD:$CATALOGUE_BRANCH"; then
+              echo "::notice::$ID $VERSION published and added to the catalogue."
+              exit 0
+            fi
+            sleep $((attempt * 5))
+          done
+          echo "::error::Could not push the catalogue to $CATALOGUE_BRANCH. If the branch is protected, allow github-actions to push to it (see CREATING_PLUGINS.md)."
+          exit 1
+
+      - name: Remove the signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/signing.pk8"

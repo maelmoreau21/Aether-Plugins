@@ -1,13 +1,13 @@
-name: Publication des Releases Plugins
+# LEGACY, disabled: superseded by release.yml. It reads the apiVersion 1 catalogue
+# (repository/packages + packageUrl), which the versioned catalogue replaced. Kept only
+# for reference; it never runs (no automatic trigger, job condition false).
+name: Publication des Releases Plugins (ancien, désactivé)
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release-plugins-main
@@ -16,7 +16,10 @@ concurrency:
 jobs:
   detect-and-publish:
     name: Détection & Release
+    if: ${{ false }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout Aether-Plugins (full history)
         uses: actions/checkout@v4

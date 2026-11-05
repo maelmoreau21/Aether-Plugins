@@ -1,15 +1,20 @@
-name: Publier les plugins de develop
+# LEGACY, disabled: superseded by release.yml. It committed packages back to the
+# protected develop branch and rewrote catalogue URLs per branch, the source of the
+# recurring GitHub errors. No workflow calls it any more and its job never runs.
+name: Publier les plugins de develop (ancien, désactivé)
 on:
   workflow_call:
 permissions:
-  contents: write
+  contents: read
 concurrency:
   group: publish-plugins-develop
   cancel-in-progress: false
 jobs:
   publish:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    if: ${{ false }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     environment: production
     steps:
       - uses: actions/checkout@v4

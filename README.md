@@ -1,18 +1,22 @@
-## Publication automatique de développement
+## Publier une version d'un plugin
 
-Un push sur `develop` déclenche, après réussite de la CI, la détection des plugins
-modifiés depuis le dernier catalogue, l'incrément PATCH si nécessaire, la
-compilation et la signature de leurs paquets, puis la mise à jour du catalogue
-`develop` et une GitHub Release marquée bêta. Le numéro du paquet reste numérique
-(ex. `0.1.2`) pour respecter le contrat du Core ; le tag finit par `-beta`.
-Le secret existant `ED25519_PRIVATE_KEY` de l'environnement `production` est requis.
-Les versions déjà signées ne sont jamais écrasées et aucun push forcé n'est utilisé.
+Le catalogue `repository/manifest.json` suit le principe des dépôts Jellyfin :
+chaque extension y figure une fois avec la liste `versions` de **toutes** ses
+versions publiées (la plus récente en premier). Chaque version pointe vers le
+fichier signé attaché à sa release GitHub (`sourceUrl`) et son SHA-256
+(`checksum`) ; Aether permet donc d'installer aussi une version précédente.
 
-Catalogue bêta :
-`https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/manifest.json`.
-Les versions stables sur `main` gardent le parcours de préparation contrôlée,
-comme les versions stables d'Aether. Les tags seuls ne constituent plus une
-publication de développement : les paquets installables sont effectivement produits.
+Pour publier : augmenter la version dans le `Cargo.toml` du plugin (commit
+normal), puis **Actions → Release plugin → Run workflow** et choisir le plugin
+(ou pousser un tag `<plugin>-v<x.y.z>`). Le workflow compile, signe, crée la
+release `<plugin>-v<version>` avec le paquet, puis ajoute la version au
+catalogue sur `main`. Il ne committe rien sur `develop`, n'ouvre aucune PR et
+ne réécrit aucune URL. Détails : [CREATING_PLUGINS.md](CREATING_PLUGINS.md#publier)
+et [docs/RELEASES_AND_VERSIONING.md](docs/RELEASES_AND_VERSIONING.md).
+
+Les paquets historiques de `repository/packages/` restent dans le dépôt
+(héritage) : le catalogue les référence par leur release ou par une URL figée sur
+leur commit. Les nouvelles versions n'y sont plus ajoutées.
 
 ## Compilation Wasm et limite de taille
 
@@ -71,14 +75,11 @@ Chaque binaire natif fournit `--manifest` (métadonnées de publication) et `--r
 (enveloppe ABI JSON lue sur stdin). Le contrôle Wasm exécute aussi des opérations
 métier, y compris l’échec d’un morceau et le refus d’un intervalle inversé.
 
-### Catalogue de développement
+### Catalogue
 
-Le manifeste de `develop` est accessible à
-`https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/repository/manifest.json`.
-Il décrit les paquets signés référencés par ses `packageUrl`, actuellement sur
-`main` ; il n'installe pas automatiquement le code source de develop. Les
-releases signées sont publiées depuis main. IntroSkipper reste invisible tant
-que sa première entrée signée n'a pas été publiée puis le dépôt actualisé.
+Un seul catalogue, sur `main`, sert toutes les éditions d'Aether :
+`https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/manifest.json`.
+Ses URL de paquets sont absolues (releases GitHub), donc indépendantes de la branche.
 
 ## Correctifs catalogue du 25 octobre 2026
 
@@ -99,10 +100,9 @@ créé par la correction locale.
 https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/repository/manifest.json
 ```
 
-Les fichiers `repository/manifest.json`, `repository/packages/*.package.json` et
-`repository/publisher-public.txt` forment le catalogue public : TMDb, IMDb,
-fanart.tv, OMDb, MusicBrainz, Discogs et LRCLIB. Ce lien devient disponible après publication de ces fichiers
-sur la branche `main` de ce dépôt. Les modifications locales ne le publient pas.
+`repository/manifest.json` (catalogue versionné, `apiVersion: 2`) et
+`repository/publisher-public.txt` forment le catalogue public ; les paquets signés
+sont les fichiers attachés aux releases GitHub. Ce lien reflète la branche `main`. Les modifications locales ne le publient pas.
 Aether préconfigure cette URL une seule fois. L’administrateur peut retirer le
 dépôt ; il ne réapparaît pas au redémarrage et les plugins installés sont conservés.
 
@@ -273,7 +273,9 @@ approuvée explicitement avant installation. L’activation ne nécessite pas de
 redémarrage. [Contrat, limites réseau et format](../Aether/docs/EXTENSION_REPOSITORIES.md).
 
 Aucun dépôt officiel distant n’est configuré tant qu’une URL réellement hébergée
-n’a pas été ajoutée. Les manifestes Jellyfin ne sont pas compatibles.
+n’a pas été ajoutée. Les manifestes de style Jellyfin (liste de plugins avec
+`versions`) sont acceptés à condition que `checksum` soit un SHA-256 et que les
+paquets soient signés pour Aether (voir [CREATING_PLUGINS.md](CREATING_PLUGINS.md#publier)).
 
 ## Les clés et leurs usages
 
@@ -348,39 +350,17 @@ Les collections peuvent aussi être envoyées depuis un ordinateur : plusieurs
 images PNG/JPEG/WebP, nom de collection, puis Envoyer au serveur dans les paramètres
 du plugin. Le téléchargement GitHub et l’upload stockent les images sur le serveur.
 
-## Releases automatiques et Versioning indépendant
+## Releases et versions
 
-### 1. Principes de Versioning des Plugins
-- **Version indépendante** : Chaque plugin situé dans un sous-dossier `Aether-Plugins-*` possède son propre numéro de version Semantic Versioning `MAJOR.MINOR.PATCH` dans son `Cargo.toml`.
-- **Publication unitaire ou globale** : Dans Actions, ouvrir `Préparer la release d'un plugin (PR contrôlée)`, puis `Run workflow` sur `main` et choisir un plugin spécifique ou `all` pour préparer tous les plugins modifiés.
-- **Increment explicite** : `PATCH` par défaut (`0.1.0 -> 0.1.1`), `MINOR` (`0.1.0 -> 0.2.0`) ou `MAJOR` (`0.1.0 -> 1.0.0`). Avec `all`, chaque plugin est incrémenté de façon autonome et groupée dans une seule PR sécurisée.
+Chaque plugin a sa propre version `MAJOR.MINOR.PATCH` dans son `Cargo.toml`.
+La publication se fait uniquement par le workflow `release.yml` décrit dans
+[docs/RELEASES_AND_VERSIONING.md](docs/RELEASES_AND_VERSIONING.md). Les anciens
+workflows (`prepare-plugin-release.yml`, `publish-develop-plugins.yml`,
+`release-plugins.yml`) sont désactivés et conservés pour mémoire.
 
-### 2. Configuration Sécurisée de la Signature en CI
-Pour permettre la signature automatique Ed25519 lors des publications sur `main` :
-1. Dans GitHub, aller dans **Settings > Environments > New environment** et créer un environnement nommé `production`.
-2. Restreindre cet environnement à la branche `main` (**Deployment branches > Selected branches > main**).
-3. Ajouter le secret d'environnement :
-   - Nom : `ED25519_PRIVATE_KEY`
-   - Valeur : Le contenu de la clé privée PKCS#8 Ed25519 (identique à celle ayant généré `repository/publisher-public.txt`).
-4. **Sécurité garantie** :
-   - Les Pull Requests et branches de développement n'ont aucun accès à ce secret.
-   - Si le secret est absent ou vide, le job de release s'interrompt immédiatement avec un diagnostic d'erreur explicite, sans corrompre le catalogue ni publier d'archive non signée.
-
-### 3. Cycle de Release & Mise à jour du Catalogue
-Lorsqu'une release est déclenchée :
-1. Le script `scripts/detect_changed_plugins.py` identifie les extensions modifiées.
-2. Le plugin Rust est compilé en WebAssembly optimisé (`wasm32-unknown-unknown`).
-3. Le module Wasm est vérifié (bytecode, exports ABI `memory`, `media_alloc`, `media_run`, budget mémoire $\le 256$ Kio).
-4. Le manifest JSON est généré avec son SHA-256 et signé via `media-extension-pack`.
-5. Le script `scripts/update_catalog_entry.py` met à jour de façon atomique l'entrée du plugin dans `repository/manifest.json`.
-6. L'intégrité globale du catalogue est vérifiée (`scripts/test-manifests.cjs`, `scripts/test-repository.cjs`).
-7. Un tag Git spécifique (ex: `tmdb-v0.2.0`) est créé et une GitHub Release est publiée avec le fichier `.package.json` en asset téléchargeable.
-8. La mise à jour de `repository/manifest.json` et du paquet associé est committée sur `main`.
-
-### 4. Idempotence et Retour Arrière
-- Relancer un workflow pour un tag déjà existant n'effectue aucune action (idempotent, aucun doublon de release).
-- Pour revenir à une version précédente, il suffit de modifier `packageUrl`, `packageSha256` et le manifest dans `repository/manifest.json` pour pointer vers le paquet signé antérieur désiré (les anciens paquets signés restent conservés dans `repository/packages/`).
-
+Revenir à une version précédente ne demande aucune modification du catalogue :
+elle reste listée, et l'administrateur la choisit dans Aether (Extensions →
+fiche de l'extension → Versions).
 
 ## Collections d’images localisées (sources du 25 octobre 2026)
 

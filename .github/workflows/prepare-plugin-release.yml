@@ -1,4 +1,6 @@
-name: Préparer la release d'un plugin (PR contrôlée)
+# LEGACY, disabled: superseded by release.yml (one manual run publishes a plugin).
+# It opened pull requests with GITHUB_TOKEN and wrote the apiVersion 1 catalogue.
+name: Préparer la release d'un plugin (ancien, désactivé)
 
 on:
   workflow_dispatch:
@@ -32,8 +34,7 @@ on:
         default: PATCH
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 concurrency:
   group: prepare-plugin-${{ github.event.inputs.plugin_id }}
@@ -42,7 +43,11 @@ concurrency:
 jobs:
   prepare-pr:
     name: Préparation et signature du paquet
+    if: ${{ false }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     environment: production
     steps:
       - name: Vérifier la présence de la clé privée de signature

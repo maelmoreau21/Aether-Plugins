@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -117,19 +117,11 @@ jobs:
         working-directory: Aether-Plugins
         run: node scripts/test-manifests.cjs
 
-      - name: Verify signed repository packages
+      - name: Verify the versioned catalogue and its signed packages
         working-directory: Aether-Plugins
         run: |
-          node scripts/test-repository.cjs --allow-development
-          node --test scripts/test-repository-history.cjs
-
-      - name: Verify release asset discovery
-        working-directory: Aether-Plugins
-        run: node --test scripts/test-discover-plugin-releases.cjs
-
-      - name: Verify idempotent release recovery without network
-        working-directory: Aether-Plugins
-        run: node --test scripts/test-publish-plugin-releases.cjs
+          node scripts/test-repository.cjs
+          node --test scripts/test-catalogue.cjs scripts/test-repository-history.cjs
 
       - name: Upload Wasm Artifacts
         uses: actions/upload-artifact@v4
@@ -137,11 +129,4 @@ jobs:
           name: aether-wasm-plugins
           path: Aether-Plugins/target/wasm32-unknown-unknown/release/*.wasm
 
-  publish-plugins:
-    name: Paquets installables et versions develop
-    needs: [workflows, security-audit, test-and-build]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
-    permissions:
-      contents: write
-    uses: ./.github/workflows/publish-develop-plugins.yml
-    secrets: inherit
+  # Publishing is manual and separate: see release.yml. CI never writes to the repository.

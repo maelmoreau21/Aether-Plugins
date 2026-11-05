@@ -7,7 +7,7 @@ license.workspace = true
 description = "fanart.tv artwork provider extension for Aether"
 
 [package.metadata.aether]
-id = "fanart"
+id = "fanart-tv"
 name = "fanart.tv"
 category = "Metadata"
 target-abi = "1.0"

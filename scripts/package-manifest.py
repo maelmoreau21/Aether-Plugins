@@ -27,7 +27,8 @@ def main():
         root=Path(args.plugin_root).resolve()
         asset=(root/banner).resolve()
         asset.relative_to(root)
-        manifest["banner"]=asset.read_text(encoding="utf-8")
+        # utf-8-sig: an editor's byte order mark must not end up in the signed banner.
+        manifest["banner"]=asset.read_text(encoding="utf-8-sig")
     Path(args.output).write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
 
 if __name__=="__main__":main()
