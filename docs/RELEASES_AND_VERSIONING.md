@@ -66,17 +66,20 @@ branche lue par le serveur : il n'y a plus de réécriture `main`/`develop`.
    - `changelog` : texte affiché dans Aether ;
    - `prerelease` : marque la release GitHub comme pré-version.
 
-   Variante : pousser un tag annoté `<préfixe>-v<x.y.z>` (`git tag -a tmdb-v0.1.4
-   -m "- Corrige …"`); le message du tag devient le changelog.
+   Variante bêta : pousser le tag annoté `<préfixe>-v<x.y.z>-beta` sur le commit
+   `develop` (`git tag -a tmdb-v0.1.4-beta -m "- Corrige …"`, puis
+   `git push origin tmdb-v0.1.4-beta`). Le message du tag devient le changelog.
+   Le tag sans suffixe déclenche une publication stable.
 3. Le workflow `release.yml` :
    - compile le module Wasm, l'optimise et vérifie l'ABI ;
    - signe le paquet avec `scripts/sign-package.cjs` (aucune compilation du Core
      n'est nécessaire) et vérifie la signature avec `repository/publisher-public.txt` ;
-   - crée la release `<préfixe>-v<version>` avec l'asset `<préfixe>-<version>.package.json`
+   - crée la release `<préfixe>-v<version>[-beta]` avec l'asset `<préfixe>-<version>.package.json`
      (un asset existant n'est jamais remplacé : une relance le réutilise) ;
-   - ajoute la version à `repository/manifest.json` sur `main` avec
+   - ajoute la version à `repository/manifest.json` sur `develop` pour une bêta,
+     sur `main` pour une version stable (sauf variable `CATALOGUE_BRANCH` explicite), avec
      `scripts/add-catalogue-version.cjs`, en conservant toutes les versions.
-     En cas de push concurrent, il repart du dernier `main` et réessaie (5 fois).
+     En cas de push concurrent, il repart de la branche cible et réessaie (5 fois).
 
 Relancer le workflow pour une version déjà au catalogue ne fait rien.
 

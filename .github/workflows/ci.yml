@@ -121,7 +121,7 @@ jobs:
         working-directory: Aether-Plugins
         run: |
           node scripts/test-repository.cjs
-          node --test scripts/test-catalogue.cjs scripts/test-repository-history.cjs
+          node --test scripts/test-catalogue.cjs scripts/test-repository-history.cjs scripts/test-release-plan.cjs
 
       - name: Upload Wasm Artifacts
         uses: actions/upload-artifact@v4

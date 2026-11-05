@@ -36,12 +36,13 @@ function plugins() {
 
 function plan(env = process.env) {
   const all = plugins();
-  let plugin, version;
+  let plugin, version, beta = env.PRERELEASE === 'true';
   if (env.TAG) {
-    const match = env.TAG.match(/^(.+)-v(\d+\.\d+\.\d+)$/);
-    if (!match) throw new Error(`Tag must look like <plugin>-v<x.y.z>: ${env.TAG}`);
+    const match = env.TAG.match(/^(.+)-v(\d+\.\d+\.\d+)(-beta)?$/);
+    if (!match) throw new Error(`Tag must look like <plugin>-v<x.y.z> or <plugin>-v<x.y.z>-beta: ${env.TAG}`);
     plugin = all.find(entry => entry.prefix === match[1] || entry.id === match[1]);
     version = match[2];
+    beta = Boolean(match[3]);
   } else {
     plugin = all.find(entry => entry.id === env.PLUGIN);
     version = env.VERSION || plugin?.version;
@@ -51,13 +52,13 @@ function plan(env = process.env) {
     throw new Error(`${plugin.dir}/Cargo.toml has version ${plugin.version}, not ${version}. Commit the version bump first.`);
   }
   const asset = `${plugin.prefix}-${version}.package.json`;
-  const tag = `${plugin.prefix}-v${version}`;
+  const tag = `${plugin.prefix}-v${version}${beta ? '-beta' : ''}`;
   // Every plugin, Poster Rotator included since 0.1.1, is signed with one publisher key.
   return {
     id: plugin.id, crate: plugin.crate, dir: plugin.dir, version, tag, asset,
     source_url: c.releaseUrl(tag, asset, env.GITHUB_REPOSITORY || c.OWNER_REPO),
     publisher: 'maelmoreau21', public_key_file: 'repository/publisher-public.txt',
-    listed: String(Boolean(plugin.listed?.versions.some(entry => entry.version === version))),
+    listed: String(Boolean(plugin.listed?.versions.some(entry => entry.version === version))), prerelease: String(beta),
   };
 }
 

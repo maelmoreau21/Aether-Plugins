@@ -25,6 +25,33 @@ const IMAGE_PROFILE_URL: &str = "https://image.tmdb.org/t/p/w185";
 #[derive(Clone, Default)]
 pub struct TmdbPlugin;
 
+struct DetailsExtras {
+    original_language: Option<String>,
+    actor_ids: Vec<Option<String>>,
+    crew_credits: Vec<serde_json::Value>,
+}
+
+fn person_id(credit: &serde_json::Value) -> Option<String> {
+    credit
+        .get("id")
+        .and_then(|id| id.as_u64())
+        .filter(|id| *id > 0)
+        .map(|id| format!("tmdb:{id}"))
+}
+
+fn profile_url(credit: &serde_json::Value) -> Option<String> {
+    credit
+        .get("profile_path")
+        .and_then(|path| path.as_str())
+        .filter(|path| {
+            path.starts_with('/')
+                && !path.starts_with("//")
+                && path.len() <= 512
+                && !path.chars().any(char::is_control)
+        })
+        .map(|path| format!("{IMAGE_PROFILE_URL}{path}"))
+}
+
 impl TmdbPlugin {
     pub fn new() -> Self {
         Self
@@ -571,10 +598,23 @@ impl TmdbPlugin {
         request: DetailsRequest,
         config: &ProviderConfig,
     ) -> Result<serde_json::Value, PluginError> {
-        let (metadata, original_language) = self.details_with_language(request, config).await?;
+        let (metadata, extras) = self.details_with_language(request, config).await?;
         let mut result = serde_json::to_value(metadata).unwrap_or_default();
-        if let Some(language) = original_language {
+        if let Some(language) = extras.original_language {
             result["originalLanguage"] = serde_json::Value::String(language);
+        }
+        if let Some(actors) = result
+            .get_mut("actors")
+            .and_then(|value| value.as_array_mut())
+        {
+            for (actor, id) in actors.iter_mut().zip(extras.actor_ids) {
+                if let Some(id) = id {
+                    actor["providerId"] = serde_json::Value::String(id);
+                }
+            }
+        }
+        if !extras.crew_credits.is_empty() {
+            result["crewCredits"] = serde_json::Value::Array(extras.crew_credits);
         }
         Ok(result)
     }
@@ -583,7 +623,7 @@ impl TmdbPlugin {
         &self,
         request: DetailsRequest,
         config: &ProviderConfig,
-    ) -> Result<(StructuredMetadata, Option<String>), PluginError> {
+    ) -> Result<(StructuredMetadata, DetailsExtras), PluginError> {
         let language = config.language.as_deref().unwrap_or("fr-FR");
         let is_tv = matches!(request.media_type, MediaType::TvShow | MediaType::Episode);
         let id = self
@@ -664,6 +704,8 @@ impl TmdbPlugin {
         let mut directors = Vec::new();
         let mut writers = Vec::new();
         let mut actors = Vec::new();
+        let mut actor_ids = Vec::new();
+        let mut crew_credits = Vec::new();
 
         if let Some(credits) = val.get("credits") {
             if let Some(crew) = credits.get("crew").and_then(|v| v.as_array()) {
@@ -678,6 +720,13 @@ impl TmdbPlugin {
                         {
                             writers.push(n.to_string());
                         }
+                        if matches!(job, "Director" | "Screenplay" | "Writer")
+                            && !n.trim().is_empty()
+                            && n.len() <= 512
+                            && crew_credits.len() < 100
+                        {
+                            crew_credits.push(serde_json::json!({"name": n, "role": job, "thumbUrl": profile_url(c), "providerId": person_id(c)}));
+                        }
                     }
                 }
             }
@@ -689,16 +738,14 @@ impl TmdbPlugin {
                             .get("character")
                             .and_then(|v| v.as_str())
                             .map(str::to_owned);
-                        let thumb_url = c
-                            .get("profile_path")
-                            .and_then(|v| v.as_str())
-                            .map(|p| format!("{IMAGE_PROFILE_URL}{p}"));
+                        let thumb_url = profile_url(c);
                         actors.push(ActorCredit {
                             name: name.to_string(),
                             role,
                             thumb_url,
                             order: Some(idx as u32),
                         });
+                        actor_ids.push(person_id(c));
                     }
                 }
             }
@@ -981,7 +1028,14 @@ impl TmdbPlugin {
                     && v.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
             })
             .map(str::to_owned);
-        Ok((metadata, original_language))
+        Ok((
+            metadata,
+            DetailsExtras {
+                original_language,
+                actor_ids,
+                crew_credits,
+            },
+        ))
     }
 }
 

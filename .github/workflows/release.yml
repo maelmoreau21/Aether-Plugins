@@ -47,6 +47,7 @@ on:
   push:
     tags:
       - '*-v[0-9]+.[0-9]+.[0-9]+'
+      - '*-v[0-9]+.[0-9]+.[0-9]+-beta'
 
 permissions: {}
 
@@ -57,7 +58,7 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  CATALOGUE_BRANCH: ${{ vars.CATALOGUE_BRANCH || 'main' }}
+  CATALOGUE_BRANCH: ${{ vars.CATALOGUE_BRANCH || ((inputs.prerelease || endsWith(github.ref_name, '-beta')) && 'develop') || 'main' }}
 
 jobs:
   release:
@@ -84,6 +85,7 @@ jobs:
           PLUGIN: ${{ inputs.plugin }}
           VERSION: ${{ inputs.version }}
           TAG: ${{ github.event_name == 'push' && github.ref_name || '' }}
+          PRERELEASE: ${{ inputs.prerelease }}
         run: node scripts/release-plan.cjs
 
       - name: Already published
@@ -176,7 +178,7 @@ jobs:
           ASSET: ${{ steps.plan.outputs.asset }}
           ID: ${{ steps.plan.outputs.id }}
           VERSION: ${{ steps.plan.outputs.version }}
-          PRERELEASE: ${{ inputs.prerelease && '--prerelease' || '' }}
+          PRERELEASE: ${{ steps.plan.outputs.prerelease == 'true' && '--prerelease' || '' }}
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/published"
