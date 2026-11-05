@@ -715,7 +715,7 @@
       "description": "Fournisseur officiel TMDb pour films et séries (métadonnées complètes, casting, affiches et notes)",
       "owner": "Aether Team",
       "category": "Metadata",
-      "imageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/Aether-Plugins-TMDb/assets/banner.svg",
+      "imageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/Aether-Plugins-TMDb/assets/banner.svg",
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
