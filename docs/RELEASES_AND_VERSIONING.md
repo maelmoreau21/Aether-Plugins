@@ -83,6 +83,16 @@ branche lue par le serveur : il n'y a plus de réécriture `main`/`develop`.
 
 Relancer le workflow pour une version déjà au catalogue ne fait rien.
 
+### Contrôles avant publication automatique
+
+`auto-release.yml` exécute d'abord le workflow `ci.yml` (réutilisé via
+`workflow_call`) lorsqu'au moins un plugin doit être publié : formatage, clippy,
+tests natifs, build et validation Wasm, vérification du catalogue et des
+signatures, audit RustSec. Le job de publication dépend de ce résultat : un commit
+dont les contrôles échouent ne signe et ne publie rien. S'il n'y a rien à publier,
+les contrôles ne sont pas relancés par ce workflow. Le workflow manuel
+`release.yml` (Actions → Release plugin) n'est pas concerné par cette dépendance.
+
 ## 3. Préfixes de tags et d'assets
 
 | Identifiant | Répertoire | Préfixe |

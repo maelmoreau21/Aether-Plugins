@@ -53,9 +53,20 @@ jobs:
           git checkout "origin/$BRANCH" -- repository/manifest.json
           node scripts/auto-release-plan.cjs
 
+  # Nothing is signed or published from a commit whose checks fail (lint, tests, Wasm
+  # build and ABI, catalogue and signature verification). Skipped when there is nothing
+  # to release, so a push without a plugin change costs no extra run.
+  checks:
+    name: Checks before publishing
+    needs: plan
+    if: ${{ fromJSON(needs.plan.outputs.plan).release[0] != null }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+
   release:
     name: Publish ${{ matrix.plugin }} ${{ matrix.version }}
-    needs: plan
+    needs: [plan, checks]
     if: ${{ fromJSON(needs.plan.outputs.plan).release[0] != null }}
     strategy:
       # The catalogue is updated one plugin at a time.
