@@ -388,7 +388,7 @@ async fn movie_details_ask_only_for_what_they_read_and_keep_regional_translation
 }
 
 #[tokio::test]
-async fn a_failing_translation_call_keeps_the_main_language_but_auth_errors_are_reported() {
+async fn a_failing_translation_call_keeps_the_main_language_details() {
     let (base, _log, server) = provider(|path, query| {
         if path == "/movie/438631/translations" {
             None
