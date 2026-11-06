@@ -563,10 +563,22 @@
       "description": "Signalements précis liés aux médias, pistes et instants de lecture. Suivi natif ; aucune réparation automatique.",
       "owner": "Aether Team",
       "category": "Applications",
-      "imageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/Aether-Plugins-Reports/assets/banner.svg",
+      "imageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/Aether-Plugins-Reports/assets/banner.svg",
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
+        {
+          "version": "0.1.1",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/media-reports-v0.1.1-beta/media-reports-0.1.1.package.json",
+          "checksum": "365bbf43d3b3d90b83bf464658004c3512c00ea9a758d30aadbd6194be701c37",
+          "timestamp": "2026-11-06T22:00:12Z",
+          "changelog": "- feat(metadata): localized TMDb and TVDB details within the Core's request budget",
+          "permissions": [
+            "reports"
+          ]
+        },
         {
           "version": "0.1.0",
           "targetAbi": "1.0",
