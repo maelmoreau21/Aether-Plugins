@@ -351,11 +351,14 @@ impl MetadataProviderPlugin for ImdbPlugin {
             ));
         }
 
+        // The configurable address defaults to the suggestion endpoint; title pages
+        // live on www.imdb.com, so only a custom (proxy/mock) address overrides them.
         let base_url = config
             .base_url
             .as_deref()
-            .unwrap_or(DEFAULT_TITLE_URL)
-            .trim_end_matches('/');
+            .map(|url| url.trim_end_matches('/'))
+            .filter(|url| !url.is_empty() && *url != DEFAULT_SUGGESTION_URL)
+            .unwrap_or(DEFAULT_TITLE_URL);
 
         let url = format!("{base_url}/{imdb_id}/");
         let html = self.fetch_text(&url, config).await?;

@@ -320,6 +320,9 @@ impl MetadataProviderPlugin for FanartTvPlugin {
         };
 
         let raw_val = self.fetch_artwork_json(&endpoint, api_key, config).await?;
+        if let Some(error) = fanart_error_body(&raw_val) {
+            return Err(error);
+        }
 
         let mut posters = Vec::new();
         let mut backdrops = Vec::new();
@@ -331,7 +334,7 @@ impl MetadataProviderPlugin for FanartTvPlugin {
             let data: FanartTvShowResponse = serde_json::from_value(raw_val)
                 .map_err(|e| PluginError::new("parse_error", e.to_string()))?;
 
-            title = Some(data.name);
+            title = data.name;
             if let Some(tvdb) = data.thetvdb_id {
                 external_ids.insert("tvdb".into(), tvdb);
             }
@@ -357,7 +360,7 @@ impl MetadataProviderPlugin for FanartTvPlugin {
             let data: FanartMovieResponse = serde_json::from_value(raw_val)
                 .map_err(|e| PluginError::new("parse_error", e.to_string()))?;
 
-            title = Some(data.name);
+            title = data.name;
             if let Some(tmdb) = data.tmdb_id {
                 external_ids.insert("tmdb".into(), tmdb);
             }
@@ -429,57 +432,127 @@ impl MetadataProviderPlugin for FanartTvPlugin {
 }
 
 // fanart.tv JSON response models
-#[derive(Deserialize)]
 struct FanartImageItem {
     url: String,
     lang: Option<String>,
     likes: Option<String>,
 }
 
+/// fanart.tv is loosely typed: ids and likes may be strings or numbers, `lang`
+/// may be null, and entries occasionally lack a URL. One odd entry must never
+/// make the whole artwork set unreadable, so each entry is parsed on its own.
+fn lenient_images<'de, D>(deserializer: D) -> Result<Vec<FanartImageItem>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Option::<serde_json::Value>::deserialize(deserializer)?;
+    let Some(serde_json::Value::Array(entries)) = value else {
+        return Ok(Vec::new());
+    };
+    Ok(entries
+        .into_iter()
+        .filter_map(|entry| {
+            let raw = entry.get("url")?.as_str()?.trim();
+            // fanart.tv still publishes plain-http asset URLs; the host only
+            // downloads artwork over HTTPS, so upgrade them instead of failing.
+            let url = match raw.strip_prefix("http://") {
+                Some(rest) => format!("https://{rest}"),
+                None if raw.starts_with("https://") => raw.to_string(),
+                None => return None,
+            };
+            Some(FanartImageItem {
+                url,
+                lang: entry.get("lang").and_then(scalar_text),
+                likes: entry.get("likes").and_then(scalar_text),
+            })
+        })
+        .collect())
+}
+
+fn scalar_text(value: &serde_json::Value) -> Option<String> {
+    match value {
+        serde_json::Value::String(text) => Some(text.clone()),
+        serde_json::Value::Number(number) => Some(number.to_string()),
+        _ => None,
+    }
+}
+
+fn lenient_id<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Ok(Option::<serde_json::Value>::deserialize(deserializer)?
+        .as_ref()
+        .and_then(scalar_text)
+        .filter(|id| !id.trim().is_empty()))
+}
+
+/// fanart.tv answers unknown titles with `{"status":"error","error message":"Not found"}`,
+/// sometimes with HTTP 200, which must read as "no artwork" rather than a parse error.
+fn fanart_error_body(value: &serde_json::Value) -> Option<PluginError> {
+    if value.get("status").and_then(|s| s.as_str()) != Some("error") {
+        return None;
+    }
+    let message = value
+        .get("error message")
+        .and_then(|m| m.as_str())
+        .unwrap_or("fanart.tv error");
+    Some(if message.to_ascii_lowercase().contains("not found") {
+        PluginError::not_found(message)
+    } else {
+        PluginError::new("provider_error", message)
+    })
+}
+
 #[derive(Deserialize)]
 struct FanartMovieResponse {
-    name: String,
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default, deserialize_with = "lenient_id")]
     tmdb_id: Option<String>,
+    #[serde(default, deserialize_with = "lenient_id")]
     imdb_id: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient_images")]
     movieposter: Vec<FanartImageItem>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient_images")]
     moviebackground: Vec<FanartImageItem>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient_images")]
     hdmovielogo: Vec<FanartImageItem>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient_images")]
     movielogo: Vec<FanartImageItem>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient_images")]
     hdmovieart: Vec<FanartImageItem>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient_images")]
     movieart: Vec<FanartImageItem>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient_images")]
     moviebanner: Vec<FanartImageItem>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient_images")]
     moviethumb: Vec<FanartImageItem>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient_images")]
     moviedisc: Vec<FanartImageItem>,
 }
 
 #[derive(Deserialize)]
 struct FanartTvShowResponse {
-    name: String,
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default, deserialize_with = "lenient_id")]
     thetvdb_id: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient_images")]
     tvposter: Vec<FanartImageItem>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient_images")]
     seasonposter: Vec<FanartImageItem>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient_images")]
     showbackground: Vec<FanartImageItem>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient_images")]
     hdtvlogo: Vec<FanartImageItem>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient_images")]
     clearlogo: Vec<FanartImageItem>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient_images")]
     clearart: Vec<FanartImageItem>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient_images")]
     tvbanner: Vec<FanartImageItem>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient_images")]
     tvthumb: Vec<FanartImageItem>,
 }
 
@@ -555,5 +628,32 @@ pub fn handle_fanart_extension_request(
     media_extension_sdk::ExtensionResponse {
         api_version: 1,
         result: result_json,
+    }
+}
+
+#[cfg(test)]
+mod lenient_tests {
+    use super::*;
+
+    #[test]
+    fn numeric_likes_and_null_lang_do_not_break_parsing() {
+        let raw = serde_json::json!({
+            "name": "Film", "tmdb_id": 120, "imdb_id": "tt0120737",
+            "hdmovielogo": [{"id": 1, "url": "http://assets.fanart.tv/a.png", "lang": null, "likes": 4},
+                            {"id": 2, "lang": "fr"}],
+            "moviebanner": null
+        });
+        let data: FanartMovieResponse = serde_json::from_value(raw).unwrap();
+        assert_eq!(data.tmdb_id.as_deref(), Some("120"));
+        assert_eq!(data.hdmovielogo.len(), 1);
+        assert_eq!(data.hdmovielogo[0].likes.as_deref(), Some("4"));
+        assert_eq!(data.hdmovielogo[0].url, "https://assets.fanart.tv/a.png");
+        assert!(data.moviebanner.is_empty());
+    }
+
+    #[test]
+    fn error_body_reads_as_not_found() {
+        let raw = serde_json::json!({"status": "error", "error message": "Not found"});
+        assert_eq!(fanart_error_body(&raw).unwrap().code, "not_found");
     }
 }
