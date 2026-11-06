@@ -213,6 +213,26 @@
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
         {
+          "version": "0.1.5",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/imdb-v0.1.5-beta/imdb-0.1.5.package.json",
+          "checksum": "56bec4c773679b2ca726da9a74676c5b3dc858b2954a0519b5bbf2aaa8ec1b67",
+          "timestamp": "2026-11-06T15:47:41Z",
+          "changelog": "- feat: add IMDb metadata provider plugin and tests",
+          "permissions": [
+            "metadata.read",
+            "metadata.write",
+            "images"
+          ],
+          "httpHosts": [
+            "v3.sg.media-imdb.com",
+            "imdb.com",
+            "www.imdb.com"
+          ]
+        },
+        {
           "version": "0.1.4",
           "targetAbi": "1.0",
           "minServerVersion": "0.1.0",
