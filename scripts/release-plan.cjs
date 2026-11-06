@@ -48,7 +48,10 @@ function plan(env = process.env) {
     version = env.VERSION || plugin?.version;
   }
   if (!plugin) throw new Error(`Unknown plugin. Known: ${all.map(entry => entry.id).join(', ')}`);
-  if (version !== plugin.version) {
+  // Cargo.toml is the floor: automatic releases (auto-release.yml) publish the next
+  // patch without a version-bump commit; manual runs keep the strict equality.
+  const floor = (a, b) => { const x = a.split('.').map(Number), y = b.split('.').map(Number); for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] - y[i]; return 0; };
+  if (!/^\d+\.\d+\.\d+$/.test(version || '') || (env.AUTO === 'true' ? floor(version, plugin.version) < 0 : version !== plugin.version)) {
     throw new Error(`${plugin.dir}/Cargo.toml has version ${plugin.version}, not ${version}. Commit the version bump first.`);
   }
   const asset = `${plugin.prefix}-${version}.package.json`;

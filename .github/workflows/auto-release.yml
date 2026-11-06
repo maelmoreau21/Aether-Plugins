@@ -1,0 +1,89 @@
+# Automatic plugin releases: modify a plugin, push, and a new version is published.
+#
+# - develop: every changed plugin gets the next patch version (0.1.4 -> 0.1.5) as a
+#   GitHub pre-release `<prefix>-v0.1.5-beta`, listed in the develop catalogue.
+#   Several betas can follow each other before main.
+# - main (merge of develop): the develop catalogue entries arrive with the merge and
+#   their releases are marked stable; plugins changed directly on main (hotfix) are
+#   published as stable versions.
+#
+# No version-bump commit is needed: the version comes from the published history
+# (scripts/auto-release-plan.cjs). Raise the version in Cargo.toml only for a
+# minor/major jump. Add [skip release] to a commit message to publish nothing.
+name: Auto release plugins
+
+on:
+  push:
+    branches: [main, develop]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'repository/**'
+
+permissions: {}
+
+concurrency:
+  group: plugin-auto-release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: Detect changed plugins
+    if: ${{ !contains(github.event.head_commit.message, '[skip release]') && !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      plan: ${{ steps.plan.outputs.plan }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - id: plan
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: node scripts/auto-release-plan.cjs
+
+  release:
+    name: Publish ${{ matrix.plugin }} ${{ matrix.version }}
+    needs: plan
+    if: ${{ fromJSON(needs.plan.outputs.plan).release[0] != null }}
+    strategy:
+      # The catalogue is updated one plugin at a time.
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.plan).release }}
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release.yml
+    with:
+      plugin: ${{ matrix.plugin }}
+      version: ${{ matrix.version }}
+      changelog: ${{ matrix.changelog }}
+      prerelease: ${{ github.ref_name == 'develop' }}
+    secrets: inherit
+
+  promote:
+    name: Mark merged betas stable
+    needs: plan
+    if: ${{ github.ref_name == 'main' && fromJSON(needs.plan.outputs.plan).promote[0] != null }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAGS: ${{ join(fromJSON(needs.plan.outputs.plan).promote, ' ') }}
+        run: |
+          set -euo pipefail
+          for tag in $TAGS; do
+            if [ "$(gh release view "$tag" --json isPrerelease --jq .isPrerelease 2>/dev/null)" = "true" ]; then
+              gh release edit "$tag" --prerelease=false
+              echo "::notice::$tag is now a stable release."
+            fi
+          done

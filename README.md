@@ -6,7 +6,17 @@ versions publiées (la plus récente en premier). Chaque version pointe vers le
 fichier signé attaché à sa release GitHub (`sourceUrl`) et son SHA-256
 (`checksum`) ; Aether permet donc d'installer aussi une version précédente.
 
-Pour publier : augmenter la version dans le `Cargo.toml` du plugin (commit
+**Publication automatique** (`.github/workflows/auto-release.yml`) : modifier un
+plugin et pousser suffit. Sur `develop`, chaque plugin modifié reçoit le patch
+suivant (0.1.4 → 0.1.5), publié en pré-version `<plugin>-v0.1.5-beta` dans le
+catalogue `develop` ; plusieurs bêtas peuvent se suivre. La fusion dans `main`
+apporte ces entrées au catalogue stable et passe leurs releases en stable ; un
+correctif poussé directement sur `main` est publié en stable. Le Core n'accepte
+que des versions `x.y.z` : « bêta » est un canal, pas un suffixe de version.
+Augmenter `Cargo.toml` seulement pour un saut mineur/majeur ; `[skip release]`
+dans le message de commit ne publie rien.
+
+Publication manuelle : augmenter la version dans le `Cargo.toml` du plugin (commit
 normal), puis **Actions → Release plugin → Run workflow** et choisir le plugin
 (ou pousser un tag `<plugin>-v<x.y.z>`). Le workflow compile, signe, crée la
 release `<plugin>-v<version>` avec le paquet, puis ajoute la version au
