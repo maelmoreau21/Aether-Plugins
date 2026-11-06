@@ -374,10 +374,23 @@
       "description": "Détection automatique ultra-rapide des introductions et génériques de fin par empreintes audio et chapitres",
       "owner": "Aether Team",
       "category": "Playback",
-      "imageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/Aether-Plugins-IntroSkipper/assets/banner.svg",
+      "imageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/Aether-Plugins-IntroSkipper/assets/banner.svg",
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
+        {
+          "version": "0.1.4",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/intro-skipper-v0.1.4-beta/intro-skipper-0.1.4.package.json",
+          "checksum": "16dfb52c8461c187c7801a6a3e5351af8d66e1a61da7a96c31289250c69fa430",
+          "timestamp": "2026-11-06T21:54:26Z",
+          "changelog": "- feat(metadata): localized TMDb and TVDB details within the Core's request budget",
+          "permissions": [
+            "playback.markers"
+          ]
+        },
         {
           "version": "0.1.3",
           "targetAbi": "1.0",
