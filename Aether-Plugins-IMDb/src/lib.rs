@@ -479,17 +479,53 @@ impl MetadataProviderPlugin for ImdbPlugin {
         request: ImagesRequest,
         config: &ProviderConfig,
     ) -> Result<Vec<MediaImage>, PluginError> {
-        let details = self
-            .details(
-                DetailsRequest {
-                    id: request.id,
-                    media_type: request.media_type,
-                    external_ids: request.external_ids,
-                },
-                config,
-            )
-            .await?;
-        Ok(details.images)
+        // IMDb only exposes a poster. Title pages are behind an anti-bot challenge
+        // (HTTP 202), so the poster comes from the suggestion API keyed by the tt id.
+        let imdb_id = if request.id.starts_with("tt") {
+            request.id.clone()
+        } else {
+            request
+                .external_ids
+                .get("imdb")
+                .cloned()
+                .unwrap_or_default()
+        };
+        if imdb_id.len() <= 2
+            || !imdb_id.starts_with("tt")
+            || !imdb_id[2..].bytes().all(|b| b.is_ascii_digit())
+        {
+            return Ok(Vec::new());
+        }
+        let base_url = config
+            .base_url
+            .as_deref()
+            .unwrap_or(DEFAULT_SUGGESTION_URL)
+            .trim_end_matches('/');
+        let url = format!("{base_url}/x/{imdb_id}.json");
+        let text = match self.fetch_text(&url, config).await {
+            Ok(text) => text,
+            Err(error) if error.code == "not_found" => return Ok(Vec::new()),
+            Err(error) => return Err(error),
+        };
+        let data: ImdbSuggestionResponse = serde_json::from_str(&text)
+            .map_err(|e| PluginError::new("parse_error", e.to_string()))?;
+        Ok(data
+            .d
+            .into_iter()
+            .filter(|item| item.id == imdb_id)
+            .filter_map(|item| item.i)
+            .take(1)
+            .map(|image| MediaImage {
+                url: image.image_url,
+                image_type: ImageType::Poster,
+                width: image.width,
+                height: image.height,
+                language: None,
+                rating: None,
+                vote_count: None,
+                is_primary: true,
+            })
+            .collect())
     }
 }
 
@@ -514,6 +550,8 @@ struct ImdbSuggestionItem {
 struct ImdbSuggestionImage {
     #[serde(rename = "imageUrl")]
     image_url: String,
+    width: Option<u32>,
+    height: Option<u32>,
 }
 
 // IMDb JSON-LD model
