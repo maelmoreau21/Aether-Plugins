@@ -2,9 +2,10 @@
 //
 //   node scripts/test-manifests.cjs [--allow-unpublished]
 //
-// Without --allow-unpublished (main), every plugin's Cargo.toml version must be the
-// newest published version. With it (development), a source may be ahead of the
-// catalogue: that version simply has not been released yet.
+// A Cargo.toml version may lag behind the catalogue: auto-release publishes the next
+// patch without a bump commit. Without --allow-unpublished (main), a source must not be
+// ahead of the newest published version; with it (development), it may be: that
+// version simply has not been released yet.
 'use strict';
 const assert = require('node:assert/strict');
 const path = require('node:path');
@@ -23,7 +24,12 @@ for (const { id, dir, version, listed } of plugins()) {
   }
   const latest = listed.versions[0].version;
   const order = c.compareVersions(version, latest);
-  assert(order >= 0, `${dir}: source version ${version} precedes the published ${latest}`);
+  // Automatic releases take the next patch from the published history and never
+  // commit a Cargo.toml bump: a source behind the catalogue is the normal state.
+  if (order < 0) {
+    console.log(`  ✓ ${id}: published ${latest} (source ${version}, versioned by auto-release)`);
+    continue;
+  }
   if (order > 0) {
     assert(allowUnpublished, `${id}: source ${version} is not published (catalogue ${latest}). Run the release workflow, or use --allow-unpublished outside main.`);
     console.log(`  - ${id}: source ${version}, published ${latest} (release pending)`);
