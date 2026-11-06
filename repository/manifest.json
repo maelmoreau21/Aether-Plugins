@@ -1147,6 +1147,24 @@
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
         {
+          "version": "0.1.2",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/tvdb-v0.1.2-beta/tvdb-0.1.2.package.json",
+          "checksum": "254dfc60ab522c48096047d0d75b560c4b9da640a6dcbb3f20306f68ff33698e",
+          "timestamp": "2026-11-06T22:03:23Z",
+          "changelog": "- feat(metadata): localized TMDb and TVDB details within the Core's request budget",
+          "permissions": [
+            "metadata.read",
+            "metadata.write",
+            "images"
+          ],
+          "httpHosts": [
+            "api4.thetvdb.com",
+            "artworks.thetvdb.com"
+          ]
+        },
+        {
           "version": "0.1.1",
           "targetAbi": "1.0",
           "minServerVersion": "0.1.0",
