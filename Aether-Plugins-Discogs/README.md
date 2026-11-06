@@ -1,4 +1,4 @@
-﻿# Discogs
+# Discogs
 
 Métadonnées d'albums via l'[API Discogs](https://www.discogs.com/developers).
 

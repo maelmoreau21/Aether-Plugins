@@ -1,4 +1,4 @@
-﻿use aether_plugin_api::MetadataProviderPlugin;
+use aether_plugin_api::MetadataProviderPlugin;
 use aether_plugin_lrclib::{LrcLibPlugin, handle_lyrics_request};
 use std::io::Read;
 

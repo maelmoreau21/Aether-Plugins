@@ -1,4 +1,4 @@
-﻿# OMDb
+# OMDb
 
 Fournisseur de métadonnées films/séries via [omdbapi.com](https://www.omdbapi.com).
 

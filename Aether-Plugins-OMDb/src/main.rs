@@ -1,4 +1,4 @@
-﻿use aether_plugin_api::{MetadataProviderPlugin, handle_request};
+use aether_plugin_api::{MetadataProviderPlugin, handle_request};
 use aether_plugin_omdb::OmdbPlugin;
 use std::io::Read;
 

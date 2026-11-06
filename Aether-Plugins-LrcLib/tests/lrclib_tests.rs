@@ -1,4 +1,4 @@
-﻿use aether_plugin_api::{
+use aether_plugin_api::{
     DetailsRequest, LyricsRequest, MediaType, MetadataProviderPlugin, ProviderConfig, SearchQuery,
 };
 use aether_plugin_lrclib::{LrcLibPlugin, handle_lyrics_request, parse_lrc};
