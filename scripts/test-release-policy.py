@@ -103,6 +103,34 @@ class PluginsReleasePolicyTests(unittest.TestCase):
             self.assertFalse((workflows / legacy).exists(), legacy)
         self.assertNotIn("publish-develop-plugins.yml", (workflows / "ci.yml").read_text(encoding="utf-8"))
 
+    # 19. Aucune publication automatique sans que les contrôles CI réussissent.
+    def test_19_auto_release_is_gated_on_ci_checks(self):
+        workflows = Path(__file__).resolve().parent.parent / ".github" / "workflows"
+        ci = (workflows / "ci.yml").read_text(encoding="utf-8")
+        auto = (workflows / "auto-release.yml").read_text(encoding="utf-8")
+
+        def job(name):
+            block, inside = [], False
+            for line in auto.splitlines():
+                if line == f"  {name}:":
+                    inside = True
+                elif inside and line.startswith("  ") and not line.startswith("   ") and line.strip().endswith(":"):
+                    break
+                if inside:
+                    block.append(line)
+            return "\n".join(block)
+
+        # ci.yml is reusable, so auto-release.yml runs the very same checks.
+        self.assertIn("\n  workflow_call:", ci)
+        checks = job("checks")
+        self.assertIn("uses: ./.github/workflows/ci.yml", checks)
+        # The caller grants what the called jobs request and nothing more.
+        self.assertIn("contents: read", checks)
+        self.assertNotIn("contents: write", checks)
+        # The publishing job cannot start before the checks have succeeded.
+        self.assertIn("needs: [plan, checks]", job("release"))
+        self.assertNotIn("always()", job("release"))
+
     # Sur develop : incrément bêta
     def test_develop_channel_increments_beta(self):
         diff = "Aether-Plugins-TMDb/src/lib.rs"
