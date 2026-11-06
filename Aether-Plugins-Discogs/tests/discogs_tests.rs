@@ -75,6 +75,7 @@ fn details_request(id: &str) -> DetailsRequest {
         id: id.into(),
         media_type: MediaType::Movie,
         external_ids: Default::default(),
+        ..Default::default()
     }
 }
 

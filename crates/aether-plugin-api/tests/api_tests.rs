@@ -113,6 +113,7 @@ impl MetadataProviderPlugin for MockPlugin {
             images: vec![],
             seasons: vec![],
             translations: Default::default(),
+            ..Default::default()
         })
     }
 
@@ -127,6 +128,7 @@ impl MetadataProviderPlugin for MockPlugin {
                     id: request.id,
                     media_type: request.media_type,
                     external_ids: request.external_ids,
+                    ..Default::default()
                 },
                 config,
             )
@@ -192,6 +194,7 @@ async fn test_details_dispatch() {
         id: "mock-123".into(),
         media_type: MediaType::Movie,
         external_ids: Default::default(),
+        ..Default::default()
     };
     let req = PluginRequest {
         api_version: API_VERSION,
@@ -224,6 +227,7 @@ async fn test_error_dispatch() {
         id: "error-404".into(),
         media_type: MediaType::Movie,
         external_ids: Default::default(),
+        ..Default::default()
     };
     let req = PluginRequest {
         api_version: API_VERSION,

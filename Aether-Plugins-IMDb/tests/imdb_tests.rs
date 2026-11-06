@@ -222,6 +222,7 @@ async fn test_imdb_details_mock() {
                 id: "tt0816692".into(),
                 media_type: MediaType::Movie,
                 external_ids: Default::default(),
+                ..Default::default()
             },
             &config,
         )

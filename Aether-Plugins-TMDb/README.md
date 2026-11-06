@@ -55,3 +55,12 @@ Chaque crédit d'équipe fournit `name`, `role` (`Director`, `Writer` ou
 utilisent exclusivement `image.tmdb.org` ; une photo absente reste absente.
 Les listes `directors` et `writers` restent présentes pour les clients existants.
 Les métadonnées déjà enregistrées doivent être actualisées pour recevoir ces champs.
+
+## Langues (contrat de localisation 2)
+
+`details` répond dans la langue de la bibliothèque (`locale` indique laquelle) et, si le
+Core demande d'autres langues (`languages`), ajoute leurs traductions avec les régions
+distinctes (`fr-FR`, `fr-CA`) en une requête supplémentaire. Les saisons utilisent
+l'identifiant résolu ; l'ensemble reste dans les 10 requêtes et les 64 Kio accordés par
+invocation. Détails, limites et capacités vérifiées :
+[docs/LOCALIZED_METADATA_2026_11_06.md](../docs/LOCALIZED_METADATA_2026_11_06.md).

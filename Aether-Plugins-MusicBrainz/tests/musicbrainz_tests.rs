@@ -116,6 +116,7 @@ async fn details_aggregate_tracks_and_ids() {
                 id: MBID.into(),
                 media_type: MediaType::Movie,
                 external_ids: Default::default(),
+                ..Default::default()
             },
             &config(addr),
         )
@@ -157,6 +158,7 @@ async fn invalid_ids_are_rejected_before_any_request() {
                 id: "../../etc".into(),
                 media_type: MediaType::Movie,
                 external_ids: Default::default(),
+                ..Default::default()
             },
             &ProviderConfig::default(),
         )
@@ -174,6 +176,7 @@ async fn missing_release_is_not_found() {
                 id: "deadbeef-0000".into(),
                 media_type: MediaType::Movie,
                 external_ids: Default::default(),
+                ..Default::default()
             },
             &config(addr),
         )

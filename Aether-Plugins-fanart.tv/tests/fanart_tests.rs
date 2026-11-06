@@ -50,6 +50,7 @@ async fn test_fanart_missing_api_key() {
                 id: "27205".into(),
                 media_type: MediaType::Movie,
                 external_ids: Default::default(),
+                ..Default::default()
             },
             &config,
         )
@@ -147,6 +148,7 @@ async fn test_fanart_movie_details_mock() {
                 id: "27205".into(),
                 media_type: MediaType::Movie,
                 external_ids: Default::default(),
+                ..Default::default()
             },
             &config,
         )

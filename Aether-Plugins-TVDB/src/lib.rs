@@ -74,6 +74,27 @@ fn code(language: &str) -> Result<String, PluginError> {
     };
     Ok(mapped.into())
 }
+/// Two-letter tag for a provider code, when the mapping is unambiguous (`fra` -> `fr`).
+/// The provider reports no regions, so none is invented.
+fn bcp47(code: &str) -> Option<String> {
+    Some(
+        match code {
+            "fra" => "fr",
+            "eng" => "en",
+            "deu" => "de",
+            "spa" => "es",
+            "ita" => "it",
+            "por" => "pt",
+            "jpn" => "ja",
+            "zho" => "zh",
+            "kor" => "ko",
+            "rus" => "ru",
+            "nld" => "nl",
+            _ => return None,
+        }
+        .to_owned(),
+    )
+}
 fn languages(config: &ProviderConfig) -> Result<Vec<String>, PluginError> {
     let mut result = vec![code(config.language.as_deref().unwrap_or("en"))?];
     let fallback = config
@@ -352,12 +373,46 @@ fn metadata(record: &Value, id: &str) -> Result<StructuredMetadata, PluginError>
     Ok(result)
 }
 
+/// Extra translation languages asked by the Core, as provider codes. One request each, so
+/// the list is short: a login, a lookup, the record and the translations must fit the
+/// host's ten requests per invocation. Unsupported tags are skipped, never an error.
+const MAX_EXTRA_LANGUAGES: usize = 3;
+
+fn extra_languages(
+    requested: &[String],
+    config: &ProviderConfig,
+) -> Result<Vec<String>, PluginError> {
+    let known = languages(config)?;
+    let mut extra: Vec<String> = Vec::new();
+    for tag in requested.iter().take(8) {
+        if let Ok(code) = code(tag)
+            && !known.contains(&code)
+            && !extra.contains(&code)
+            && extra.len() < MAX_EXTRA_LANGUAGES
+        {
+            extra.push(code);
+        }
+    }
+    Ok(extra)
+}
+
 async fn details_with_token(
     id: &str,
     ids: &BTreeMap<String, String>,
     media: MediaType,
     token: &str,
     config: &ProviderConfig,
+) -> Result<StructuredMetadata, PluginError> {
+    details_with_languages(id, ids, media, token, config, &[]).await
+}
+
+async fn details_with_languages(
+    id: &str,
+    ids: &BTreeMap<String, String>,
+    media: MediaType,
+    token: &str,
+    config: &ProviderConfig,
+    extra: &[String],
 ) -> Result<StructuredMetadata, PluginError> {
     let id = resolve(id, ids, media, token, config).await?;
     let endpoint = kind(media)?;
@@ -377,7 +432,14 @@ async fn details_with_token(
     }
     let mut title = false;
     let mut overview = false;
-    for language in languages(config)? {
+    // Main language and fallback first; the main text comes from the first one that has it.
+    let mut wanted = languages(config)?;
+    wanted.extend(extra.iter().cloned());
+    result.locale = wanted
+        .first()
+        .map(|l| (*l).clone())
+        .and_then(|code| bcp47(&code));
+    for language in wanted {
         let translation = match http(
             &format!("{endpoint}/{id}/translations/{language}"),
             None,
@@ -405,7 +467,8 @@ async fn details_with_token(
             overview = true;
         }
         result.translations.insert(language, item);
-        if title && overview {
+        // Stop early only when nobody asked for more languages.
+        if title && overview && extra.is_empty() {
             break;
         }
     }
@@ -608,14 +671,15 @@ impl MetadataProviderPlugin for TvdbPlugin {
         config: &ProviderConfig,
     ) -> Result<StructuredMetadata, PluginError> {
         kind(request.media_type)?;
-        languages(config)?;
+        let extra = extra_languages(&request.languages, config)?;
         let token = login(config).await?;
-        details_with_token(
+        details_with_languages(
             &request.id,
             &request.external_ids,
             request.media_type,
             &token,
             config,
+            &extra,
         )
         .await
     }
@@ -665,6 +729,28 @@ pub fn handle_tvdb_extension_request(mut req: ExtensionRequest) -> ExtensionResp
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn requested_languages_are_mapped_deduplicated_and_bounded() {
+        let config = ProviderConfig {
+            language: Some("fr-FR".into()),
+            ..Default::default()
+        };
+        let asked = |tags: &[&str]| tags.iter().map(|t| (*t).to_owned()).collect::<Vec<_>>();
+        // French is the main language and English the default fallback: neither is repeated.
+        assert_eq!(
+            extra_languages(&asked(&["fr-CA", "en-GB", "de", "ja", "es", "it"]), &config).unwrap(),
+            ["deu", "jpn", "spa"],
+            "at most three extra languages, in the Core's order"
+        );
+        assert!(
+            extra_languages(&asked(&["xx-not a tag", ""]), &config)
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(bcp47("fra").as_deref(), Some("fr"));
+        assert_eq!(bcp47("zzz"), None);
+    }
+
     #[test]
     fn languages_are_explicit_and_bounded() {
         assert_eq!(code("fr-FR").unwrap(), "fra");

@@ -242,6 +242,7 @@ impl MetadataProviderPlugin for ImdbPlugin {
                         id: id.clone(),
                         media_type: query.media_type,
                         external_ids: query.external_ids.clone(),
+                        ..Default::default()
                     },
                     config,
                 )
@@ -471,6 +472,7 @@ impl MetadataProviderPlugin for ImdbPlugin {
             images,
             seasons: Vec::new(),
             translations: BTreeMap::new(),
+            ..Default::default()
         })
     }
 

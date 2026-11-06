@@ -77,3 +77,10 @@ Références officielles consultées le 3 novembre 2026 :
 [modèles d'accès](https://support.thetvdb.com/kb/faq.php?id=81),
 [PIN personnel](https://support.thetvdb.com/kb/faq.php?id=82),
 [conditions](https://www.thetvdb.com/tos).
+
+## Langues (contrat de localisation 2)
+
+Au plus trois langues supplémentaires demandées par le Core (`languages`), une requête de
+traduction chacune ; les clés restent les codes à trois lettres du fournisseur, sans
+région. Traductions d'épisodes non implémentées. Voir
+[docs/LOCALIZED_METADATA_2026_11_06.md](../docs/LOCALIZED_METADATA_2026_11_06.md).

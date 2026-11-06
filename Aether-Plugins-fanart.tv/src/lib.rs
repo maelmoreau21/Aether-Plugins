@@ -409,6 +409,7 @@ impl MetadataProviderPlugin for FanartTvPlugin {
             images: all_images,
             seasons: Vec::new(),
             translations: BTreeMap::new(),
+            ..Default::default()
         })
     }
 
@@ -423,6 +424,7 @@ impl MetadataProviderPlugin for FanartTvPlugin {
                     id: request.id,
                     media_type: request.media_type,
                     external_ids: request.external_ids,
+                    ..Default::default()
                 },
                 config,
             )

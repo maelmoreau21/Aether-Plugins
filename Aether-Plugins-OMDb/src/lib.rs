@@ -248,6 +248,7 @@ impl MetadataProviderPlugin for OmdbPlugin {
                         id: id.clone(),
                         media_type: query.media_type,
                         external_ids: query.external_ids.clone(),
+                        ..Default::default()
                     },
                     config,
                 )
@@ -410,6 +411,7 @@ impl MetadataProviderPlugin for OmdbPlugin {
                     id: request.id,
                     media_type: request.media_type,
                     external_ids: request.external_ids,
+                    ..Default::default()
                 },
                 config,
             )
