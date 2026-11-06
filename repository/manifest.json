@@ -1021,10 +1021,29 @@
       "description": "Fournisseur officiel TMDb pour films et séries (métadonnées complètes, casting, affiches et notes)",
       "owner": "Aether Team",
       "category": "Metadata",
-      "imageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/Aether-Plugins-TMDb/assets/banner.svg",
+      "imageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/Aether-Plugins-TMDb/assets/banner.svg",
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
+        {
+          "version": "0.1.5",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/tmdb-v0.1.5-beta/tmdb-0.1.5.package.json",
+          "checksum": "3e1b7ee956a5693b3078f49e6db76bffc1428a13356634837098fbb021ed6e0f",
+          "timestamp": "2026-11-06T22:02:19Z",
+          "changelog": "- test(tmdb): name the translation-failure test after what it checks\n- feat(metadata): localized TMDb and TVDB details within the Core's request budget",
+          "permissions": [
+            "metadata.read",
+            "metadata.write",
+            "images"
+          ],
+          "httpHosts": [
+            "api.themoviedb.org",
+            "image.tmdb.org"
+          ]
+        },
         {
           "version": "0.1.4",
           "targetAbi": "1.0",
