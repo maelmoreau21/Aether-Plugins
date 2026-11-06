@@ -45,7 +45,13 @@ jobs:
       - id: plan
         env:
           BRANCH: ${{ github.ref_name }}
-        run: node scripts/auto-release-plan.cjs
+        run: |
+          set -euo pipefail
+          # Releases of an earlier push may have updated the catalogue after this
+          # commit: plan against the latest one so nothing is published twice.
+          git fetch --tags origin "$BRANCH"
+          git checkout "origin/$BRANCH" -- repository/manifest.json
+          node scripts/auto-release-plan.cjs
 
   release:
     name: Publish ${{ matrix.plugin }} ${{ matrix.version }}
