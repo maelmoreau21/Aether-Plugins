@@ -598,10 +598,22 @@
       "description": "Demandes de films, séries et musique avec validation et suivi natifs. Nécessite le contrat hôte requests ; connexions gérées par le Core.",
       "owner": "Aether Team",
       "category": "Applications",
-      "imageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/main/Aether-Plugins-Requests/assets/banner.svg",
+      "imageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/Aether-Plugins-Requests/assets/banner.svg",
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
+        {
+          "version": "0.1.2",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/media-requests-v0.1.2-beta/media-requests-0.1.2.package.json",
+          "checksum": "7bee4e562c0bc97055cf42151e6c73dbdc68aa21ff05c29434721d3e0e14a9d3",
+          "timestamp": "2026-11-06T22:01:05Z",
+          "changelog": "- feat(metadata): localized TMDb and TVDB details within the Core's request budget",
+          "permissions": [
+            "requests"
+          ]
+        },
         {
           "version": "0.1.1",
           "targetAbi": "1.0",
