@@ -62,11 +62,9 @@ jobs:
         with:
           path: Aether-Plugins
 
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-          components: rustfmt, clippy
+      - name: Set up Rust (version pinned in rust-toolchain.toml)
+        working-directory: Aether-Plugins
+        run: rustup toolchain install
 
       - name: Cache Cargo Dependencies
         uses: Swatinem/rust-cache@v2

@@ -119,11 +119,9 @@ jobs:
             exit 1
           fi
 
-      - name: Set up Rust
+      - name: Set up Rust (version pinned in rust-toolchain.toml)
         if: steps.plan.outputs.listed != 'true'
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
+        run: rustup toolchain install
 
       - name: Cache Cargo
         if: steps.plan.outputs.listed != 'true'

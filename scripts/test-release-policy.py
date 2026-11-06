@@ -168,5 +168,27 @@ class PluginsReleasePolicyTests(unittest.TestCase):
                         self.assertEqual(entry["next_version"], expected)
                         self.assertEqual(entry["bump_type"], bump)
 
+    # 20. Compilateur Rust épinglé, identique en local, en CI et en release.
+    def test_20_rust_toolchain_is_pinned_everywhere(self):
+        import re
+        root = Path(__file__).resolve().parent.parent
+        pin = (root / "rust-toolchain.toml").read_text(encoding="utf-8")
+        channel = re.search(r'(?m)^channel = "(\d+\.\d+\.\d+)"$', pin)
+        self.assertIsNotNone(channel, "channel must be an exact x.y.z version, not stable")
+        for target in ("wasm32-unknown-unknown",):
+            self.assertIn(target, pin)
+        for component in ("rustfmt", "clippy"):
+            self.assertIn(component, pin)
+        # The workspace MSRV cannot be newer than the compiler used to build.
+        msrv = re.search(r'(?m)^rust-version = "(\d+)\.(\d+)"$', (root / "Cargo.toml").read_text(encoding="utf-8"))
+        self.assertIsNotNone(msrv)
+        major, minor, _ = (int(part) for part in channel.group(1).split("."))
+        self.assertLessEqual((int(msrv.group(1)), int(msrv.group(2))), (major, minor))
+        # No workflow floats on `stable`: they all install what the file pins.
+        for name in ("ci.yml", "release.yml"):
+            workflow = (root / ".github" / "workflows" / name).read_text(encoding="utf-8")
+            self.assertNotIn("rust-toolchain@", workflow, name)
+            self.assertIn("rustup toolchain install", workflow, name)
+
 if __name__ == "__main__":
     unittest.main()
