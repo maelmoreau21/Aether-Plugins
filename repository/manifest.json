@@ -452,6 +452,24 @@
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
         {
+          "version": "0.1.5",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/lrclib-v0.1.5-beta/lrclib-0.1.5.package.json",
+          "checksum": "134c419294f81c0e811f33cc8fcfbd5e6aad5f37819af43952a9310a4cb44abf",
+          "timestamp": "2026-11-06T21:55:19Z",
+          "changelog": "- feat(metadata): localized TMDb and TVDB details within the Core's request budget",
+          "permissions": [
+            "metadata.read",
+            "metadata.write",
+            "images"
+          ],
+          "httpHosts": [
+            "lrclib.net"
+          ]
+        },
+        {
           "version": "0.1.4",
           "targetAbi": "1.0",
           "minServerVersion": "0.1.0",
