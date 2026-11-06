@@ -625,6 +625,25 @@
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
         {
+          "version": "0.1.5",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/musicbrainz-v0.1.5-beta/musicbrainz-0.1.5.package.json",
+          "checksum": "5177ba757caa23e7d893b37e31b3e8ca5a2e0b36c6dc3cbe92fc51439e407cb8",
+          "timestamp": "2026-11-06T21:56:15Z",
+          "changelog": "- feat(metadata): localized TMDb and TVDB details within the Core's request budget",
+          "permissions": [
+            "metadata.read",
+            "metadata.write",
+            "images"
+          ],
+          "httpHosts": [
+            "musicbrainz.org",
+            "coverartarchive.org"
+          ]
+        },
+        {
           "version": "0.1.4",
           "targetAbi": "1.0",
           "minServerVersion": "0.1.0",
