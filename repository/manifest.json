@@ -656,6 +656,18 @@
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
         {
+          "version": "0.1.2",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/media-reports-v0.1.2-beta/media-reports-0.1.2.package.json",
+          "checksum": "92f57dfd7459335b8d01335ab38334bdd6722a6e104d24d757b8be77318e9ef2",
+          "timestamp": "2026-11-07T16:10:18Z",
+          "changelog": "- fix(http): typed provider errors, Retry-After and a single request per call in the SDK, TMDb and TVDB",
+          "permissions": [
+            "reports"
+          ]
+        },
+        {
           "version": "0.1.1",
           "targetAbi": "1.0",
           "minServerVersion": "0.1.0",
