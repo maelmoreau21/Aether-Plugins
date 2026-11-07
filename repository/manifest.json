@@ -522,6 +522,24 @@
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
         {
+          "version": "0.1.6",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/lrclib-v0.1.6-beta/lrclib-0.1.6.package.json",
+          "checksum": "b35366ac70b36ce1ae5cb8aa96694ea1dfddcb13b5ae4af5bdacce43d1d490fb",
+          "timestamp": "2026-11-07T16:05:41Z",
+          "changelog": "- fix(http): typed provider errors, Retry-After and a single request per call in the SDK, TMDb and TVDB",
+          "permissions": [
+            "metadata.read",
+            "metadata.write",
+            "images"
+          ],
+          "httpHosts": [
+            "lrclib.net"
+          ]
+        },
+        {
           "version": "0.1.5",
           "targetAbi": "1.0",
           "minServerVersion": "0.1.0",
