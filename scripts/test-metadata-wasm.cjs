@@ -107,8 +107,13 @@ for (const provider of ['imdb', 'omdb']) {
     const url = new URL(request.url);
     assert.equal(request.timeoutSecs, 15);
     if (provider === 'imdb') {
-      assert.equal(url.pathname, '/title/tt0000042/');
-      return '<script type="application/ld+json">{"@type":"Movie","name":"Titre français","datePublished":"1999-01-01"}</script>';
+      // Title pages answer an anti-bot challenge to servers: details come from GraphQL.
+      assert.equal(request.method, 'POST');
+      assert.equal(url.host, 'caching.graphql.imdb.com');
+      assert.equal(request.headers['x-imdb-client-name'], 'imdb-web-next-localized');
+      const query = JSON.parse(Buffer.from(request.body).toString('utf8'));
+      assert.equal(query.variables.id, 'tt0000042');
+      return {data: {title: {titleText: {text: 'Titre français'}, releaseYear: {year: 1999}}}};
     }
     assert.equal(url.searchParams.get('i'), 'tt0000042');
     assert(!url.searchParams.has('s'));
