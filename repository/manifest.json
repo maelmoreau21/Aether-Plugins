@@ -1093,6 +1093,19 @@
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
         {
+          "version": "0.1.5",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/poster-rotator-v0.1.5-beta/poster-rotator-0.1.5.package.json",
+          "checksum": "1034575dd2085ec2e4c41f72b34e48ef487e6d993c814e44b377ac1b90bb8b7f",
+          "timestamp": "2026-11-07T16:09:17Z",
+          "changelog": "- fix(http): typed provider errors, Retry-After and a single request per call in the SDK, TMDb and TVDB",
+          "permissions": [
+            "images"
+          ]
+        },
+        {
           "version": "0.1.4",
           "targetAbi": "1.0",
           "minServerVersion": "0.1.0",
