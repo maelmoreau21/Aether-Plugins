@@ -146,6 +146,25 @@
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
         {
+          "version": "0.1.6",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/fanart-v0.1.6-beta/fanart-0.1.6.package.json",
+          "checksum": "631d65ab6f8ee1b1aa15bf67633421ba833ec0939d062ac151213945d14989cb",
+          "timestamp": "2026-11-07T16:14:47Z",
+          "changelog": "- fix(http): typed provider errors, Retry-After and a single request per call in the SDK, TMDb and TVDB",
+          "permissions": [
+            "metadata.read",
+            "metadata.write",
+            "images"
+          ],
+          "httpHosts": [
+            "webservice.fanart.tv",
+            "assets.fanart.tv"
+          ]
+        },
+        {
           "version": "0.1.5",
           "targetAbi": "1.0",
           "minServerVersion": "0.1.0",
