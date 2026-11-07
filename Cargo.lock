@@ -48,7 +48,7 @@ dependencies = [
 
 [[package]]
 name = "aether-plugin-imdb"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "aether-plugin-api",
  "async-trait",
