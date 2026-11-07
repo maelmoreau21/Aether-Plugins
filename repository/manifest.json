@@ -287,6 +287,27 @@
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
         {
+          "version": "0.1.8",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/imdb-v0.1.8-beta/imdb-0.1.8.package.json",
+          "checksum": "405275dbd5ff74927f70b74342b712b69690b0cba4daf85fb073730cd7fa50f5",
+          "timestamp": "2026-11-07T19:11:16Z",
+          "changelog": "- style(imdb): cargo fmt\n- fix(imdb): read title details from the IMDb GraphQL API (0.1.5)",
+          "permissions": [
+            "metadata.read",
+            "metadata.write",
+            "images"
+          ],
+          "httpHosts": [
+            "v3.sg.media-imdb.com",
+            "imdb.com",
+            "www.imdb.com",
+            "caching.graphql.imdb.com"
+          ]
+        },
+        {
           "version": "0.1.7",
           "targetAbi": "1.0",
           "minServerVersion": "0.1.0",
