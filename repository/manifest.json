@@ -12,6 +12,24 @@
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
         {
+          "version": "0.1.6",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/discogs-v0.1.6-beta/discogs-0.1.6.package.json",
+          "checksum": "acf2a3ce14c64b472d37ebe70ab1151762561b8f9cb492e365dd2706fb2d81aa",
+          "timestamp": "2026-11-07T16:02:24Z",
+          "changelog": "- fix(http): typed provider errors, Retry-After and a single request per call in the SDK, TMDb and TVDB",
+          "permissions": [
+            "metadata.read",
+            "metadata.write",
+            "images"
+          ],
+          "httpHosts": [
+            "api.discogs.com"
+          ]
+        },
+        {
           "version": "0.1.5",
           "targetAbi": "1.0",
           "minServerVersion": "0.1.0",
