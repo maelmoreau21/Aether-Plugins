@@ -10,7 +10,8 @@ use aether_plugin_api::{
 use async_trait::async_trait;
 use serde::Deserialize;
 use std::collections::BTreeMap;
-use std::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
+// The SDK owns the URL encoder and the synchronous guest executor (identical behaviour).
+use aether_plugin_api::http::{block_on_guest, urlencode};
 
 #[cfg(not(target_arch = "wasm32"))]
 use reqwest::header::{AUTHORIZATION, HeaderMap, HeaderValue};
@@ -80,11 +81,17 @@ impl TmdbPlugin {
         if numeric(id) {
             return Ok((id.to_owned(), false));
         }
-        let external = external_ids
-            .get("imdb")
-            .map(|s| (s.trim(), "imdb_id"))
+        // A blank entry is no identifier: it must not shadow a usable one behind it.
+        let present = |key: &str| {
+            external_ids
+                .get(key)
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+        };
+        let external = present("imdb")
+            .map(|s| (s, "imdb_id"))
             .or_else(|| id.starts_with("tt").then_some((id, "imdb_id")))
-            .or_else(|| external_ids.get("tvdb").map(|s| (s.trim(), "tvdb_id")));
+            .or_else(|| present("tvdb").map(|s| (s, "tvdb_id")));
         let Some((external, source)) = external else {
             return Err(PluginError::new(
                 "invalid_tmdb_id",
@@ -111,15 +118,25 @@ impl TmdbPlugin {
         } else {
             "movie_results"
         };
-        found
+        // An external id names one work. Several distinct matches are reported, never
+        // resolved by picking the first: the Core decides what to do with an ambiguity.
+        let mut matches = found
             .get(key)
             .and_then(|v| v.as_array())
-            .and_then(|v| v.first())
-            .and_then(|v| v.get("id"))
-            .and_then(|v| v.as_u64())
-            .filter(|id| *id > 0)
-            .map(|id| (id.to_string(), true))
-            .ok_or_else(|| PluginError::not_found(external))
+            .into_iter()
+            .flatten()
+            .filter_map(|v| v.get("id").and_then(|v| v.as_u64()))
+            .filter(|id| *id > 0);
+        let Some(first) = matches.next() else {
+            return Err(PluginError::not_found(external));
+        };
+        if matches.any(|id| id != first) {
+            return Err(PluginError::new(
+                "ambiguous_match",
+                "The external identifier matches several TMDb entries",
+            ));
+        }
+        Ok((first.to_string(), true))
     }
 
     fn resolve_api_key<'a>(
@@ -165,6 +182,9 @@ impl TmdbPlugin {
         let client = reqwest::Client::builder()
             .timeout(timeout)
             .default_headers(headers)
+            // The Core broker refuses redirects; following one natively would resend the
+            // bearer token to whatever host the answer names.
+            .redirect(reqwest::redirect::Policy::none())
             .build()
             .map_err(|e| PluginError::new("client_error", e.to_string()))?;
 
@@ -192,7 +212,7 @@ impl TmdbPlugin {
 
         let query_string = query_params
             .iter()
-            .map(|(k, v)| format!("{k}={}", urlencoding::encode(v)))
+            .map(|(k, v)| format!("{k}={}", urlencode(v)))
             .collect::<Vec<_>>()
             .join("&");
 
@@ -219,51 +239,44 @@ impl TmdbPlugin {
                 timeout_secs: config.timeout_secs.map(|s| s as u32),
             };
 
+            // One request, no retry: the Core turns 429/503 into a durable cooldown. The
+            // request URL carries the v3 key, so neither error path may echo it.
             let resp = media_extension_sdk::host_http_fetch(&host_req)
-                .map_err(|e| PluginError::new(e.code, e.message))?;
-
-            if resp.status == 429 {
-                return Err(PluginError::rate_limited(5));
+                .map_err(aether_plugin_api::http::host_error)?;
+            if let Some(error) = aether_plugin_api::http::classify_status(
+                resp.status,
+                aether_plugin_api::http::retry_after_from_headers(&resp.headers),
+                "TMDb",
+                endpoint,
+            ) {
+                return Err(error);
             }
-            if resp.status == 401 {
-                return Err(PluginError::new("unauthorized", "Invalid TMDb API key"));
-            }
-            if resp.status != 200 {
-                return Err(PluginError::new(
-                    "provider_error",
-                    format!("TMDb returned HTTP status {}", resp.status),
-                ));
-            }
-
-            serde_json::from_slice(&resp.body)
-                .map_err(|e| PluginError::new("parse_error", e.to_string()))
+            serde_json::from_slice(&resp.body).map_err(|e| aether_plugin_api::http::json_error(&e))
         }
 
         #[cfg(not(target_arch = "wasm32"))]
         {
             let (client, _, _) = self.build_client(config, api_key.as_ref())?;
-            let req = client.get(&full_url);
-            let res = req
+            let res = client
+                .get(&full_url)
                 .send()
                 .await
-                .map_err(|e| PluginError::new("network_error", e.to_string()))?;
-
-            if res.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
-                return Err(PluginError::rate_limited(5));
+                .map_err(aether_plugin_api::http::transport_error)?;
+            let retry_after = aether_plugin_api::http::retry_after_secs(
+                res.headers()
+                    .get("retry-after")
+                    .and_then(|value| value.to_str().ok()),
+            );
+            if let Some(error) = aether_plugin_api::http::classify_status(
+                res.status().as_u16(),
+                retry_after,
+                "TMDb",
+                endpoint,
+            ) {
+                return Err(error);
             }
-            if res.status() == reqwest::StatusCode::UNAUTHORIZED {
-                return Err(PluginError::new("unauthorized", "Invalid TMDb API key"));
-            }
-            if !res.status().is_success() {
-                return Err(PluginError::new(
-                    "provider_error",
-                    format!("TMDb returned status {}", res.status()),
-                ));
-            }
-
-            res.json()
-                .await
-                .map_err(|e| PluginError::new("parse_error", e.to_string()))
+            let body = aether_plugin_api::http::read_body(res).await?;
+            serde_json::from_slice(&body).map_err(|e| aether_plugin_api::http::json_error(&e))
         }
     }
 }
@@ -582,38 +595,6 @@ struct TmdbSearchResult {
     poster_path: Option<String>,
     vote_average: Option<f64>,
 }
-
-mod urlencoding {
-    pub fn encode(s: &str) -> String {
-        let mut result = String::with_capacity(s.len() * 2);
-        for b in s.bytes() {
-            match b {
-                b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
-                    result.push(b as char)
-                }
-                _ => {
-                    use std::fmt::Write;
-                    let _ = write!(result, "%{b:02X}");
-                }
-            }
-        }
-        result
-    }
-}
-
-// Lightweight synchronous runner for guest WebAssembly execution
-fn block_on_guest<F: std::future::Future>(future: F) -> F::Output {
-    let raw_waker = RawWaker::new(std::ptr::null(), &VTABLE);
-    let waker = unsafe { Waker::from_raw(raw_waker) };
-    let mut cx = Context::from_waker(&waker);
-    let mut pinned = std::pin::pin!(future);
-    match pinned.as_mut().poll(&mut cx) {
-        Poll::Ready(output) => output,
-        Poll::Pending => panic!("Guest Wasm async operation did not complete synchronously"),
-    }
-}
-static VTABLE: RawWakerVTable =
-    RawWakerVTable::new(|p| RawWaker::new(p, &VTABLE), |_| {}, |_| {}, |_| {});
 
 impl TmdbPlugin {
     /// Wire form of `details`: the structured metadata plus the `originalLanguage`
@@ -1017,7 +998,7 @@ const MAX_TRANSLATIONS: usize = 16;
 fn is_fatal(error: &PluginError) -> bool {
     matches!(
         error.code.as_str(),
-        "unauthorized" | "rate_limited" | "missing_api_key"
+        "unauthorized" | "forbidden" | "rate_limited" | "missing_api_key"
     )
 }
 

@@ -20,21 +20,166 @@ pub fn urlencode(input: &str) -> String {
     out
 }
 
+/// Largest provider body accepted. Mirrors the Core broker (`DEFAULT_MAX_RESPONSE_SIZE`), so a
+/// native run fails the same way a Wasm run does instead of buffering an unbounded body.
+pub const MAX_RESPONSE_BYTES: usize = 262_144;
+
+/// Spacing hint reported with a 429 that carries no usable `Retry-After`.
+const DEFAULT_RATE_LIMIT_HINT_SECS: u64 = 10;
+
+/// Parse a `Retry-After` header given as delta-seconds, bounded to one second..one day.
+///
+/// The HTTP-date form is deliberately not interpreted: a Wasm guest has no clock, and the Core
+/// broker already turns the date into the durable provider cooldown. Such a value yields `None`.
+pub fn retry_after_secs(value: Option<&str>) -> Option<u64> {
+    let value = value?.trim();
+    if value.is_empty() || !value.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    value.parse::<u64>().ok().map(|s| s.clamp(1, 86_400))
+}
+
+/// `Retry-After` of a brokered response (the broker lower-cases header names).
+pub fn retry_after_from_headers(
+    headers: &std::collections::BTreeMap<String, String>,
+) -> Option<u64> {
+    retry_after_secs(
+        headers
+            .iter()
+            .find(|(name, _)| name.eq_ignore_ascii_case("retry-after"))
+            .map(|(_, value)| value.as_str()),
+    )
+}
+
 /// Map a provider HTTP status to a typed error (`None` when the status is a success).
+///
+/// | status | code | meaning |
+/// |---|---|---|
+/// | 401 | `unauthorized` | credentials missing or invalid |
+/// | 403 | `forbidden` | credentials valid but access refused (plan, licence, IP) |
+/// | 404, 410 | `not_found` | the work does not exist |
+/// | 408 | `timeout` | the provider gave up waiting |
+/// | 429 | `rate_limited` | quota reached, `retry_after_secs` from `Retry-After` |
+/// | 502-504 | `provider_unavailable` | provider outage, `retry_after_secs` when announced |
+/// | 3xx | `provider_redirect_refused` | the broker never follows redirects |
+/// | other | `provider_error` | anything else |
+///
+/// Nothing here retries: the SDK performs exactly one request per call.
+pub fn classify_status(
+    status: u16,
+    retry_after: Option<u64>,
+    provider: &str,
+    what: &str,
+) -> Option<PluginError> {
+    // One `format!` for every class keeps the Wasm modules small (they sit close to the
+    // runtime's module size limit).
+    let (code, summary) = match status {
+        200..=299 => return None,
+        404 | 410 => return Some(PluginError::not_found(what)),
+        429 => {
+            return Some(PluginError::rate_limited(
+                retry_after.unwrap_or(DEFAULT_RATE_LIMIT_HINT_SECS),
+            ));
+        }
+        300..=399 => ("provider_redirect_refused", "answered with a redirect"),
+        401 => ("unauthorized", "rejected the credentials"),
+        403 => ("forbidden", "refused access with these credentials"),
+        408 => ("timeout", "timed out"),
+        502..=504 => ("provider_unavailable", "is unavailable"),
+        _ => ("provider_error", "returned an unexpected status"),
+    };
+    let mut error = PluginError::new(code, format!("{provider} {summary} (HTTP {status})"));
+    if code == "provider_unavailable" {
+        error.retry_after_secs = retry_after;
+    }
+    Some(error)
+}
+
+/// [`classify_status`] without a `Retry-After` value.
 pub fn status_error(status: u16, provider: &str, what: &str) -> Option<PluginError> {
-    match status {
-        200..=299 => None,
-        404 => Some(PluginError::not_found(what)),
-        429 => Some(PluginError::rate_limited(10)),
-        503 => Some(PluginError::rate_limited(5)),
-        401 | 403 => Some(PluginError::new(
-            "unauthorized",
-            format!("{provider} rejected the credentials (HTTP {status})"),
-        )),
-        _ => Some(PluginError::new(
-            "provider_error",
-            format!("{provider} returned HTTP status {status}"),
-        )),
+    classify_status(status, None, provider, what)
+}
+
+/// Convert a Core broker error. Codes are bounded and kept (`quota_exceeded`,
+/// `domain_not_allowed`, `response_too_large`...); two are normalised so plugins can match one
+/// vocabulary: `dns_timeout` becomes `timeout` and the broker cooldown `provider_rate_limited`
+/// becomes `rate_limited`. The broker message is built from the request error and may embed the
+/// request URL, API key included, so it is dropped: the code says what happened.
+pub fn host_error(error: crate::HostHttpError) -> PluginError {
+    let code: String = match error.code.as_str() {
+        "dns_timeout" => "timeout".into(),
+        "provider_rate_limited" => "rate_limited".into(),
+        other => other
+            .chars()
+            .filter(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-'))
+            .take(64)
+            .collect(),
+    };
+    let code = if code.is_empty() {
+        "network_error".into()
+    } else {
+        code
+    };
+    let message = format!("Host HTTP broker: {code}");
+    PluginError::new(code, message)
+}
+
+/// Decode a provider body. A document that stops early (cut connection, empty 200) is
+/// `truncated_response`; any other defect is `parse_error`.
+pub fn parse_body(body: &[u8]) -> Result<serde_json::Value, PluginError> {
+    serde_json::from_slice(body).map_err(|e| json_error(&e))
+}
+
+/// Typed form of a body decoding failure (see [`parse_body`]), for plugins that decode
+/// straight into their own structures.
+pub fn json_error(error: &serde_json::Error) -> PluginError {
+    if error.is_eof() {
+        PluginError::new("truncated_response", "The provider response ended early")
+    } else {
+        PluginError::new("parse_error", error.to_string())
+    }
+}
+
+/// Native transport failure without the request URL (it may carry an API key).
+#[cfg(not(target_arch = "wasm32"))]
+pub fn transport_error(error: reqwest::Error) -> PluginError {
+    let error = error.without_url();
+    if error.is_timeout() {
+        PluginError::new("timeout", "The provider did not answer in time")
+    } else {
+        PluginError::new("network_error", "The provider could not be reached")
+    }
+}
+
+/// Read a native response body up to [`MAX_RESPONSE_BYTES`].
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn read_body(mut response: reqwest::Response) -> Result<Vec<u8>, PluginError> {
+    let mut body = Vec::new();
+    loop {
+        match response.chunk().await {
+            Ok(Some(chunk)) => {
+                if body.len() + chunk.len() > MAX_RESPONSE_BYTES {
+                    return Err(PluginError::new(
+                        "response_too_large",
+                        "The provider response exceeds the size limit",
+                    ));
+                }
+                body.extend_from_slice(&chunk);
+            }
+            Ok(None) => return Ok(body),
+            Err(e) if e.is_timeout() => {
+                return Err(PluginError::new(
+                    "timeout",
+                    "The provider stopped sending data",
+                ));
+            }
+            Err(_) => {
+                return Err(PluginError::new(
+                    "truncated_response",
+                    "The connection ended before the whole response arrived",
+                ));
+            }
+        }
     }
 }
 
@@ -42,7 +187,9 @@ pub fn status_error(status: u16, provider: &str, what: &str) -> Option<PluginErr
 ///
 /// Reserves the next free slot for key and waits for it, so concurrent callers are spaced out.
 /// On wasm32 guests there is no clock or timer: the Aether host broker must enforce provider
-/// limits there, and providers answering 429/503 are mapped to `rate_limited`.
+/// limits there, and a provider answering 429 is mapped to `rate_limited`. The SDK never sleeps
+/// or retries on its own account: the Core turns a 429/503 into a durable cooldown and the
+/// caller decides when to ask again.
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn throttle(key: &str, min_interval: std::time::Duration) {
     use std::collections::HashMap;
@@ -97,35 +244,41 @@ pub async fn get_json(
             body: None,
             timeout_secs: config.timeout_secs.map(|s| s as u32),
         };
-        let resp =
-            crate::host_http_fetch(&request).map_err(|e| PluginError::new(e.code, e.message))?;
-        if let Some(err) = status_error(resp.status, provider, what) {
+        let resp = crate::host_http_fetch(&request).map_err(host_error)?;
+        if let Some(err) = classify_status(
+            resp.status,
+            retry_after_from_headers(&resp.headers),
+            provider,
+            what,
+        ) {
             return Err(err);
         }
-        serde_json::from_slice(&resp.body)
-            .map_err(|e| PluginError::new("parse_error", e.to_string()))
+        parse_body(&resp.body)
     }
     #[cfg(not(target_arch = "wasm32"))]
     {
         let timeout = std::time::Duration::from_secs(config.timeout_secs.unwrap_or(10));
+        // No redirect: the Core broker refuses them, and following one would resend the
+        // caller's headers (credentials included) to whatever host the provider names.
         let client = reqwest::Client::builder()
             .timeout(timeout)
+            .redirect(reqwest::redirect::Policy::none())
             .build()
             .map_err(|e| PluginError::new("client_error", e.without_url().to_string()))?;
         let mut req = client.get(url).header("Accept", "application/json");
         for (k, v) in headers {
             req = req.header(*k, *v);
         }
-        let res = req
-            .send()
-            .await
-            .map_err(|e| PluginError::new("network_error", e.without_url().to_string()))?;
-        if let Some(err) = status_error(res.status().as_u16(), provider, what) {
+        let res = req.send().await.map_err(transport_error)?;
+        let retry_after = retry_after_secs(
+            res.headers()
+                .get("retry-after")
+                .and_then(|value| value.to_str().ok()),
+        );
+        if let Some(err) = classify_status(res.status().as_u16(), retry_after, provider, what) {
             return Err(err);
         }
-        res.json()
-            .await
-            .map_err(|e| PluginError::new("parse_error", e.without_url().to_string()))
+        parse_body(&read_body(res).await?)
     }
 }
 
@@ -286,5 +439,118 @@ mod tests {
         assert_eq!(status_error(429, "p", "x").unwrap().code, "rate_limited");
         assert_eq!(status_error(401, "p", "x").unwrap().code, "unauthorized");
         assert_eq!(status_error(500, "p", "x").unwrap().code, "provider_error");
+    }
+
+    #[test]
+    fn every_failure_class_has_its_own_code() {
+        for (status, code) in [
+            (401, "unauthorized"),
+            (403, "forbidden"),
+            (404, "not_found"),
+            (410, "not_found"),
+            (408, "timeout"),
+            (429, "rate_limited"),
+            (502, "provider_unavailable"),
+            (503, "provider_unavailable"),
+            (504, "provider_unavailable"),
+            (302, "provider_redirect_refused"),
+            (400, "provider_error"),
+            (500, "provider_error"),
+            (501, "provider_error"),
+        ] {
+            let error = classify_status(status, None, "P", "x").unwrap();
+            assert_eq!(error.code, code, "HTTP {status}");
+            assert!(!error.message.contains("http"), "HTTP {status}");
+        }
+        assert!(classify_status(204, None, "P", "x").is_none());
+    }
+
+    #[test]
+    fn retry_after_is_honoured_not_invented() {
+        assert_eq!(
+            classify_status(429, Some(7), "P", "x")
+                .unwrap()
+                .retry_after_secs,
+            Some(7)
+        );
+        // No usable header: the historical hint on 429, nothing on an outage.
+        assert_eq!(
+            classify_status(429, None, "P", "x")
+                .unwrap()
+                .retry_after_secs,
+            Some(10)
+        );
+        assert_eq!(
+            classify_status(503, None, "P", "x")
+                .unwrap()
+                .retry_after_secs,
+            None
+        );
+        assert_eq!(
+            classify_status(503, Some(30), "P", "x")
+                .unwrap()
+                .retry_after_secs,
+            Some(30)
+        );
+        assert_eq!(retry_after_secs(Some(" 120 ")), Some(120));
+        assert_eq!(retry_after_secs(Some("0")), Some(1));
+        assert_eq!(retry_after_secs(Some("999999")), Some(86_400));
+        // HTTP-date and garbage need a clock: left to the Core broker.
+        assert_eq!(
+            retry_after_secs(Some("Wed, 21 Oct 2026 07:28:00 GMT")),
+            None
+        );
+        assert_eq!(retry_after_secs(Some("-5")), None);
+        assert_eq!(retry_after_secs(Some("")), None);
+        assert_eq!(retry_after_secs(None), None);
+        let headers =
+            std::collections::BTreeMap::from([("Retry-After".to_string(), "9".to_string())]);
+        assert_eq!(retry_after_from_headers(&headers), Some(9));
+    }
+
+    #[test]
+    fn broker_errors_keep_their_code_and_lose_the_url() {
+        let leaked = crate::HostHttpError {
+            code: "network_error".into(),
+            message: "error sending request for url (https://api.example.org/3/movie/1?api_key=SECRET&x=1)".into(),
+        };
+        let error = host_error(leaked);
+        assert_eq!(error.code, "network_error");
+        assert!(!error.message.contains("SECRET"), "{}", error.message);
+        assert!(!error.message.contains("example.org"), "{}", error.message);
+        assert!(!error.message.contains("http"), "{}", error.message);
+        for (broker, plugin) in [
+            ("dns_timeout", "timeout"),
+            ("provider_rate_limited", "rate_limited"),
+            ("quota_exceeded", "quota_exceeded"),
+            ("domain_not_allowed", "domain_not_allowed"),
+            ("response_too_large", "response_too_large"),
+            ("", "network_error"),
+        ] {
+            let error = host_error(crate::HostHttpError {
+                code: broker.into(),
+                message: "x".into(),
+            });
+            assert_eq!(error.code, plugin, "{broker}");
+        }
+        assert_eq!(
+            host_error(crate::HostHttpError {
+                code: "a b/../c".into(),
+                message: "x".into()
+            })
+            .code,
+            "abc"
+        );
+    }
+
+    #[test]
+    fn truncated_documents_are_told_apart_from_malformed_ones() {
+        assert_eq!(
+            parse_body(br#"{"a":[1,2"#).unwrap_err().code,
+            "truncated_response"
+        );
+        assert_eq!(parse_body(b"").unwrap_err().code, "truncated_response");
+        assert_eq!(parse_body(b"<html>").unwrap_err().code, "parse_error");
+        assert_eq!(parse_body(br#"{"a":1}"#).unwrap()["a"], 1);
     }
 }

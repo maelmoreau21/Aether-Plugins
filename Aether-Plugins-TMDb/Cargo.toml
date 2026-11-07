@@ -31,6 +31,7 @@ reqwest.workspace = true
 clap.workspace = true
 
 [dev-dependencies]
+tokio = { workspace = true, features = ["net", "io-util", "time"] }
 hyper.workspace = true
 hyper-util.workspace = true
 http-body-util.workspace = true

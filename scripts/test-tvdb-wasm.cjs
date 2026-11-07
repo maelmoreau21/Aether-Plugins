@@ -16,7 +16,8 @@ function invoke(operation, input, broker) {
     assert.equal(new URL(request.url).origin, 'https://api4.thetvdb.com');
     assert(request.timeoutSecs <= 6);
     const response = broker(request);
-    return write({Ok: {status: response.status ?? 200, headers: {}, body: [...Buffer.from(JSON.stringify(response.body ?? {status:'success',data:response.data}))]}});
+    if (response.hostError) return write({Err: response.hostError});
+    return write({Ok: {status: response.status ?? 200, headers: response.headers ?? {}, body: [...Buffer.from(response.raw ?? JSON.stringify(response.body ?? {status:'success',data:response.data}))]}});
   }}});
   const request = write({apiVersion:1, operation, input});
   const output = guest.exports.media_run(Number(request >> 32n), Number(request & 0xffffffffn));
@@ -90,9 +91,26 @@ const images=invoke('metadata.images',{id:'42',mediaType:'movie',language:'fr-FR
   throw new Error(`Unexpected endpoint ${url.pathname}`);
 });
 assert.equal(images.length,2);assert.equal(images[0].imageType,'poster');assert.equal(images[1].imageType,'backdrop');
-for(const [status,code] of [[401,'unauthorized'],[403,'unauthorized'],[404,'not_found'],[429,'rate_limited'],[503,'rate_limited'],[302,'provider_redirect_refused']]) {
+for(const [status,code] of [[401,'unauthorized'],[403,'forbidden'],[404,'not_found'],[408,'timeout'],[429,'rate_limited'],[500,'provider_error'],[503,'provider_unavailable'],[504,'provider_unavailable'],[302,'provider_redirect_refused']]) {
   assert.deepEqual(invoke('metadata.details',{id:'42',mediaType:'movie',config},()=>({status,body:{message:'secret-url?key=private'}})),error(code));
 }
+// A provider throttle: exactly one request reaches the broker (no retry), and the plugin
+// reports rate_limited whatever `Retry-After` says (the Core owns the cooldown).
+for (const status of [429, 503]) {
+  let requests = 0;
+  const throttled = invoke('metadata.details',{id:'42',mediaType:'movie',config},request=>{requests++;return {status,headers:{'retry-after':'120'},body:{}};});
+  assert.equal(requests, 1, `HTTP ${status} must not be retried`);
+  assert.equal(throttled.error, status === 429 ? 'rate_limited' : 'provider_unavailable');
+}
+// Broker refusals keep their code, lose the message (it can embed the request URL) and a
+// DNS timeout reads as a timeout.
+for (const [brokerCode, code] of [['quota_exceeded','quota_exceeded'],['response_too_large','provider_response_too_large'],['dns_timeout','timeout'],['provider_rate_limited','rate_limited'],['network_error','network_error']]) {
+  const refused = invoke('metadata.details',{id:'42',mediaType:'movie',config},()=>({hostError:{code:brokerCode,message:'error sending request for url (https://api4.thetvdb.com/v4/login?apikey=private)'}}));
+  assert.deepEqual(refused,error(code));
+}
+// Truncated provider documents are told apart from malformed ones.
+assert.deepEqual(invoke('metadata.details',{id:'42',mediaType:'movie',config},request=>request.url.endsWith('/login')?login(request):{raw:'{"status":"succ'}),error('truncated_response'));
+assert.deepEqual(invoke('metadata.details',{id:'42',mediaType:'movie',config},request=>request.url.endsWith('/login')?login(request):{raw:'<html>maintenance</html>'}),error('invalid_provider_response'));
 assert.deepEqual(invoke('metadata.search',{title:'Ignored',externalIds:{imdb:'tt0042'},mediaType:'movie',config},request=>request.url.endsWith('/login')?login(request):{data:[{movie:{id:42}},{movie:{id:43}}]}),error('ambiguous_match'));
 assert.deepEqual(invoke('metadata.details',{id:'42',externalIds:{imdb:'tt0042'},mediaType:'movie',config},request=>request.url.endsWith('/login')?login(request):{data:{id:42,remoteIds:[{sourceName:'IMDB',id:'tt9999'}]}}),error('identity_mismatch'));
 console.log('TVDB guest passed offline: access models, identity priority/type, translations/fallback, images, ambiguity, auth/rate/partial errors and secret-free output.');
