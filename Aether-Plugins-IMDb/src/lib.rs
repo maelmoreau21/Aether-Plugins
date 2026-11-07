@@ -661,7 +661,11 @@ fn metadata_from_graphql(
         .ok_or_else(|| PluginError::new("parse_error", "IMDb title without a name"))?;
     let original = text(&title["originalTitleText"]["text"]).filter(|o| *o != name);
     let date = &title["releaseDate"];
-    let release_date = match (date["year"].as_u64(), date["month"].as_u64(), date["day"].as_u64()) {
+    let release_date = match (
+        date["year"].as_u64(),
+        date["month"].as_u64(),
+        date["day"].as_u64(),
+    ) {
         (Some(y), Some(m), Some(d)) => Some(format!("{y:04}-{m:02}-{d:02}")),
         _ => None,
     };
@@ -714,8 +718,12 @@ fn metadata_from_graphql(
         posters.push(MediaImage {
             url,
             image_type: ImageType::Poster,
-            width: title["primaryImage"]["width"].as_u64().and_then(|v| u32::try_from(v).ok()),
-            height: title["primaryImage"]["height"].as_u64().and_then(|v| u32::try_from(v).ok()),
+            width: title["primaryImage"]["width"]
+                .as_u64()
+                .and_then(|v| u32::try_from(v).ok()),
+            height: title["primaryImage"]["height"]
+                .as_u64()
+                .and_then(|v| u32::try_from(v).ok()),
             language: None,
             rating: None,
             vote_count: None,
@@ -782,8 +790,12 @@ mod graphql_tests {
         assert_eq!(m.actors[0].role.as_deref(), Some("Cooper"));
         assert_eq!(m.mpaa.as_deref(), Some("PG-13"));
         assert_eq!(m.posters.len(), 1);
-        assert_eq!(m.external_ids.get("imdb").map(String::as_str), Some("tt0816692"));
-        let missing = metadata_from_graphql("tt0000001", &serde_json::json!({"data":{"title":null}}));
+        assert_eq!(
+            m.external_ids.get("imdb").map(String::as_str),
+            Some("tt0816692")
+        );
+        let missing =
+            metadata_from_graphql("tt0000001", &serde_json::json!({"data":{"title":null}}));
         assert_eq!(missing.unwrap_err().code, "not_found");
     }
 }
