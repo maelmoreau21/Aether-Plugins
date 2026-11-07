@@ -7,6 +7,8 @@ use std::collections::BTreeMap;
 const API: &str = "https://api.opensubtitles.com/api/v1";
 const USER_AGENT: &str = "Aether OpenSubtitles v0.1.0";
 const MAX_RESPONSE: usize = 262_144;
+/// Items returned per page; the Core rejects a larger list.
+const MAX_ITEMS: usize = 60;
 type Outcome = Result<Value, &'static str>;
 
 pub fn manifest() -> Value {
@@ -42,12 +44,19 @@ struct Input {
     media_type: String,
     #[serde(default)]
     external_ids: BTreeMap<String, String>,
+    /// Identifiers of the series, for an episode whose own identifiers are unknown.
+    #[serde(default)]
+    parent_external_ids: BTreeMap<String, String>,
     #[serde(default)]
     language: String,
     forced: Option<bool>,
     sdh: Option<bool>,
     season_number: Option<u32>,
     episode_number: Option<u32>,
+    /// OpenSubtitles "moviehash": 16 hexadecimal digits. Never Aether's own fingerprint.
+    movie_hash: Option<String>,
+    /// Only return files the provider matched by `movie_hash`.
+    require_hash: Option<bool>,
     page: Option<u32>,
     file_id: Option<String>,
 }
@@ -59,49 +68,152 @@ fn numeric(value: &str) -> bool {
         && value.bytes().any(|b| b != b'0')
 }
 
-fn search_query(input: &Input) -> Result<(String, &'static str), &'static str> {
-    if input.language.is_empty()
-        || input.language.len() > 16
-        || !input
-            .language
-            .bytes()
-            .all(|c| c.is_ascii_lowercase() || c == b'-')
-    {
-        return Err("invalid_language");
+/// A blank value is "not provided", so it never shadows a usable identifier; a non-blank
+/// malformed one is an error rather than a silent fallback to a weaker criterion.
+fn identifier(
+    ids: &BTreeMap<String, String>,
+    key: &str,
+    imdb_prefix: bool,
+) -> Result<Option<String>, &'static str> {
+    let Some(raw) = ids.get(key).map(|v| v.trim()).filter(|v| !v.is_empty()) else {
+        return Ok(None);
+    };
+    let value = if imdb_prefix {
+        raw.strip_prefix("tt")
+            .or_else(|| raw.strip_prefix("TT"))
+            .unwrap_or(raw)
+    } else {
+        raw
+    };
+    if !numeric(value) {
+        return Err("invalid_external_id");
     }
+    Ok(Some(value.trim_start_matches('0').to_string()))
+}
+
+/// The hash OpenSubtitles asks for is 64 KiB at each end of the file plus its size, as a 64-bit
+/// sum rendered as 16 hex digits. Aether's own content fingerprint (`b3s1:<size>:<hex>`, BLAKE3
+/// over samples) has another length, alphabet and meaning: it is refused here, never forwarded.
+fn movie_hash(raw: &str) -> Result<String, &'static str> {
+    let hash = raw.trim().to_ascii_lowercase();
+    if hash.len() == 16
+        && hash.bytes().all(|b| b.is_ascii_hexdigit())
+        && hash.bytes().any(|b| b != b'0')
+    {
+        Ok(hash)
+    } else {
+        Err("invalid_movie_hash")
+    }
+}
+
+/// `pt_BR`, `pt-BR` and `PT-br` all become `pt-br`. A primary code of 2-3 letters, optionally one
+/// region/script subtag of 2-4 letters or digits (`pt-br`, `zh-cn`, `zh-hant`, `es-419`).
+fn normalize_language(raw: &str) -> Option<String> {
+    let value = raw.trim().replace('_', "-").to_ascii_lowercase();
+    let mut parts = value.split('-');
+    let primary = parts.next()?;
+    if !(2..=3).contains(&primary.len()) || !primary.bytes().all(|b| b.is_ascii_lowercase()) {
+        return None;
+    }
+    let mut subtags = 0;
+    for part in parts {
+        subtags += 1;
+        if subtags > 1
+            || !(2..=4).contains(&part.len())
+            || !part.bytes().all(|b| b.is_ascii_alphanumeric())
+        {
+            return None;
+        }
+    }
+    Some(value)
+}
+
+/// A request for `pt-br` accepts only `pt-br`; a request for `pt` accepts every Portuguese
+/// variant; the provider's own spelling (`pt-BR`, `pt_BR`) is irrelevant.
+fn language_matches(requested: &str, found: &str) -> bool {
+    found == requested || (!requested.contains('-') && found.split('-').next() == Some(requested))
+}
+
+/// The Core only admits alphabetic subtags (`es-419` would invalidate the whole page), so a
+/// numeric region is reduced to its primary language.
+fn public_language(found: &str) -> &str {
+    if found
+        .split('-')
+        .all(|p| p.bytes().all(|b| b.is_ascii_alphabetic()))
+    {
+        found
+    } else {
+        found.split('-').next().unwrap_or(found)
+    }
+}
+
+fn search_query(input: &Input) -> Result<(String, &'static str), &'static str> {
+    let language = normalize_language(&input.language).ok_or("invalid_language")?;
+    let media = match input.media_type.as_str() {
+        "movie" => "movie",
+        "episode" => "episode",
+        _ => return Err("unsupported_media_type"),
+    };
+    let hash = match input.movie_hash.as_deref().map(str::trim) {
+        None | Some("") => None,
+        Some(raw) => Some(movie_hash(raw)?),
+    };
+    if input.require_hash == Some(true) && hash.is_none() {
+        return Err("movie_hash_required");
+    }
+    let imdb = identifier(&input.external_ids, "imdb", true)?;
+    let tmdb = identifier(&input.external_ids, "tmdb", false)?;
+    let (parent_imdb, parent_tmdb) = if media == "episode" {
+        (
+            identifier(&input.parent_external_ids, "imdb", true)?,
+            identifier(&input.parent_external_ids, "tmdb", false)?,
+        )
+    } else {
+        (None, None)
+    };
     let mut query = BTreeMap::<&str, String>::new();
-    query.insert("languages", input.language.clone());
-    let identity = if let Some(imdb) = input.external_ids.get("imdb") {
-        let value = imdb.strip_prefix("tt").unwrap_or(imdb);
-        if !numeric(value) {
-            return Err("invalid_external_id");
+    query.insert("languages", language);
+    query.insert("type", media.into());
+    if let Some(hash) = &hash {
+        query.insert("moviehash", hash.clone());
+        if input.require_hash == Some(true) {
+            query.insert("moviehash_match", "only".into());
         }
-        query.insert("imdb_id", value.trim_start_matches('0').to_string());
+    }
+    // An episode's own identifier or file hash designates it; otherwise it can only be found
+    // through its series and numbers, which must then both be present.
+    let episode_identified = imdb.is_some() || tmdb.is_some() || hash.is_some();
+    if media == "episode"
+        && !episode_identified
+        && (input.season_number.is_none() || input.episode_number.is_none())
+    {
+        return Err("season_episode_required");
+    }
+    let identified = if let Some(imdb) = imdb {
+        query.insert("imdb_id", imdb);
         true
-    } else if let Some(tmdb) = input.external_ids.get("tmdb") {
-        if !numeric(tmdb) {
-            return Err("invalid_external_id");
-        }
-        query.insert("tmdb_id", tmdb.trim_start_matches('0').to_string());
+    } else if let Some(tmdb) = tmdb {
+        query.insert("tmdb_id", tmdb);
+        true
+    } else if let Some(imdb) = parent_imdb {
+        query.insert("parent_imdb_id", imdb);
+        true
+    } else if let Some(tmdb) = parent_tmdb {
+        query.insert("parent_tmdb_id", tmdb);
         true
     } else {
+        hash.is_some()
+    };
+    if !identified {
         if input.title.trim().is_empty() || input.title.len() > 512 {
             return Err("invalid_title");
         }
         query.insert("query", input.title.trim().to_lowercase());
-        if let Some(year) = input.year {
+        // The work's year is the series' for an episode and would exclude every other season.
+        if let (Some(year), "movie") = (input.year, media) {
             query.insert("year", year.to_string());
         }
-        false
-    };
-    query.insert(
-        "type",
-        match input.media_type.as_str() {
-            "movie" => "movie".into(),
-            "episode" => "episode".into(),
-            _ => return Err("unsupported_media_type"),
-        },
-    );
+    }
     if let Some(forced) = input.forced {
         query.insert(
             "foreign_parts_only",
@@ -114,12 +226,18 @@ fn search_query(input: &Input) -> Result<(String, &'static str), &'static str> {
             if sdh { "only" } else { "exclude" }.into(),
         );
     }
-    for (key, value) in [
-        ("season_number", input.season_number),
-        ("episode_number", input.episode_number),
-    ] {
-        if let Some(value) = value {
-            query.insert(key, value.to_string());
+    if media == "episode" {
+        for (key, value) in [
+            ("season_number", input.season_number),
+            ("episode_number", input.episode_number),
+        ] {
+            match value {
+                Some(value) if value > 9999 => return Err("invalid_episode_number"),
+                Some(value) => {
+                    query.insert(key, value.to_string());
+                }
+                None => {}
+            }
         }
     }
     if let Some(page) = input.page {
@@ -141,23 +259,51 @@ fn search_query(input: &Input) -> Result<(String, &'static str), &'static str> {
             })
             .collect::<Vec<_>>()
             .join("&"),
-        if identity { "identity" } else { "title" },
+        if identified { "identity" } else { "title" },
     ))
 }
 
-fn search_result(value: Value, basis: &str) -> Outcome {
+/// What the caller asked for. The provider is trusted to filter, never to be right about it.
+struct Wanted<'a> {
+    language: &'a str,
+    forced: Option<bool>,
+    sdh: Option<bool>,
+}
+
+fn clean_label(text: Option<&str>) -> Option<String> {
+    let label: String = text?
+        .chars()
+        .filter(|c| !c.is_control())
+        .take(128)
+        .collect();
+    let label = label.trim();
+    (!label.is_empty()).then(|| label.to_string())
+}
+
+fn search_result(value: Value, basis: &str, wanted: &Wanted) -> Outcome {
     let data = value["data"]
         .as_array()
         .ok_or("invalid_provider_response")?;
-    let mut items = Vec::new();
-    for result in data.iter().take(60) {
+    let mut items: Vec<Value> = Vec::new();
+    let mut hash_matches = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for result in data.iter().take(MAX_ITEMS) {
         let a = &result["attributes"];
-        let Some(language) = a["language"]
+        let Some(found) = a["language"]
             .as_str()
+            .map(|v| v.trim().replace('_', "-").to_ascii_lowercase())
             .filter(|v| !v.is_empty() && v.len() <= 16)
         else {
             continue;
         };
+        let forced = a["foreign_parts_only"].as_bool().unwrap_or(false);
+        let sdh = a["hearing_impaired"].as_bool().unwrap_or(false);
+        if !language_matches(wanted.language, &found)
+            || wanted.forced.is_some_and(|w| w != forced)
+            || wanted.sdh.is_some_and(|w| w != sdh)
+        {
+            continue;
+        }
         let Some(files) = a["files"].as_array() else {
             continue;
         };
@@ -165,30 +311,33 @@ fn search_result(value: Value, basis: &str) -> Outcome {
             let Some(id) = file["file_id"].as_u64().filter(|id| *id > 0) else {
                 continue;
             };
-            let label: String = a["release"]
-                .as_str()
-                .filter(|s| !s.is_empty())
-                .or_else(|| file["file_name"].as_str())
-                .unwrap_or("OpenSubtitles")
-                .chars()
-                .filter(|c| !c.is_control())
-                .take(128)
-                .collect();
-            items.push(
-                json!({"id":id.to_string(),"language":language,"label":label,
-                "forced":a["foreign_parts_only"].as_bool().unwrap_or(false),
-                "sdh":a["hearing_impaired"].as_bool().unwrap_or(false),
-                "match":basis,"downloadCount":a["download_count"].as_u64().unwrap_or(0)}),
-            );
-            if items.len() >= 60 {
-                break;
+            // The Core refuses the whole page when an identifier repeats.
+            if !seen.insert(id) {
+                continue;
             }
-        }
-        if items.len() >= 60 {
-            break;
+            let label = clean_label(a["release"].as_str())
+                .or_else(|| clean_label(file["file_name"].as_str()))
+                .unwrap_or_else(|| "OpenSubtitles".into());
+            hash_matches.push(a["moviehash_match"].as_bool().unwrap_or(false));
+            items.push(
+                json!({"id":id.to_string(),"language":public_language(&found),"label":label,
+                "forced":forced,"sdh":sdh,"match":basis,
+                "hashMatch":hash_matches.last(),
+                "machineTranslated":a["machine_translated"].as_bool().unwrap_or(false),
+                "aiTranslated":a["ai_translated"].as_bool().unwrap_or(false),
+                "downloadCount":a["download_count"].as_u64().unwrap_or(0)}),
+            );
         }
     }
-    Ok(json!({"items":items,"totalPages":value["total_pages"].as_u64().unwrap_or(1).min(100)}))
+    // Files matching the caller's own video come first; the provider's order is kept otherwise.
+    let mut order: Vec<usize> = (0..items.len()).collect();
+    order.sort_by_key(|i| !hash_matches[*i]);
+    let items: Vec<Value> = order
+        .into_iter()
+        .take(MAX_ITEMS)
+        .map(|i| items[i].clone())
+        .collect();
+    Ok(json!({"items":items,"totalPages":value["total_pages"].as_u64().unwrap_or(1).clamp(1, 100)}))
 }
 
 fn download_result(value: Value) -> Outcome {
@@ -203,7 +352,9 @@ fn download_result(value: Value) -> Outcome {
     ]
     .iter()
     .any(|prefix| url.starts_with(prefix))
-        || url.chars().any(char::is_control)
+        || url
+            .chars()
+            .any(|c| c.is_control() || c.is_whitespace() || c == '\\')
     {
         return Err("download_host_denied");
     }
@@ -217,12 +368,51 @@ fn download_result(value: Value) -> Outcome {
     Ok(result)
 }
 
+#[derive(Clone, Copy, PartialEq)]
+enum Call {
+    Login,
+    Search,
+    Download,
+}
+
+/// Documented statuses, mapped to the codes the other providers use. Nothing is retried: a
+/// download consumes allowance even when the answer is lost, and the Core keeps the cooldown.
+fn status_code(status: u16, call: Call) -> Option<&'static str> {
+    Some(match status {
+        200..=299 => return None,
+        401 if call == Call::Login => "invalid_credentials",
+        401 | 403 => "unauthorized",
+        404 | 410 => "not_found",
+        400 | 422 => "invalid_request",
+        406 if call == Call::Download => "download_quota_exceeded",
+        408 => "timeout",
+        429 | 503 => "rate_limited",
+        502 | 504 => "provider_unavailable",
+        300..=399 => "provider_redirect_refused",
+        _ => "provider_error",
+    })
+}
+
+/// Broker refusals keep their meaning instead of all becoming `network_error`.
+#[cfg(target_arch = "wasm32")]
+fn broker_code(code: &str) -> &'static str {
+    match code {
+        "dns_timeout" | "timeout" => "timeout",
+        "quota_exceeded" => "quota_exceeded",
+        "provider_rate_limited" => "rate_limited",
+        "response_too_large" => "provider_response_too_large",
+        "domain_not_allowed" => "domain_not_allowed",
+        _ => "network_error",
+    }
+}
+
 async fn request(
     url: &str,
     body: Option<Value>,
     key: &str,
     token: Option<&str>,
     config: &ProviderConfig,
+    call: Call,
 ) -> Outcome {
     let mut headers: BTreeMap<String, String> = BTreeMap::from([
         ("Api-Key".into(), key.into()),
@@ -247,7 +437,7 @@ async fn request(
             body,
             timeout_secs: Some(config.timeout_secs.unwrap_or(6).clamp(1, 6) as u32),
         })
-        .map_err(|_| "network_error")?;
+        .map_err(|error| broker_code(&error.code))?;
         (response.status, response.body)
     };
     #[cfg(not(target_arch = "wasm32"))]
@@ -270,10 +460,22 @@ async fn request(
         if let Some(body) = body {
             req = req.body(body);
         }
-        let mut response = req.send().await.map_err(|_| "network_error")?;
+        let mut response = req.send().await.map_err(|e| {
+            if e.is_timeout() {
+                "timeout"
+            } else {
+                "network_error"
+            }
+        })?;
         let status = response.status().as_u16();
         let mut bytes = Vec::new();
-        while let Some(chunk) = response.chunk().await.map_err(|_| "network_error")? {
+        while let Some(chunk) = response.chunk().await.map_err(|e| {
+            if e.is_timeout() {
+                "timeout"
+            } else {
+                "truncated_response"
+            }
+        })? {
             if bytes.len() + chunk.len() > MAX_RESPONSE {
                 return Err("provider_response_too_large");
             }
@@ -284,14 +486,16 @@ async fn request(
     if bytes.len() > MAX_RESPONSE {
         return Err("provider_response_too_large");
     }
-    match status {
-        200..=299 => serde_json::from_slice(&bytes).map_err(|_| "invalid_provider_response"),
-        401 | 403 => Err("unauthorized"),
-        406 => Err("download_quota_exceeded"),
-        429 | 503 => Err("rate_limited"),
-        300..=399 => Err("provider_redirect_refused"),
-        _ => Err("provider_error"),
+    if let Some(code) = status_code(status, call) {
+        return Err(code);
     }
+    serde_json::from_slice(&bytes).map_err(|e| {
+        if e.is_eof() {
+            "truncated_response"
+        } else {
+            "invalid_provider_response"
+        }
+    })
 }
 
 pub async fn run(req: ExtensionRequest) -> ExtensionResponse {
@@ -302,6 +506,17 @@ pub async fn run(req: ExtensionRequest) -> ExtensionResponse {
         api_version: 1,
         result,
     }
+}
+
+/// The API root. Only a native run (tests, tooling) may be pointed elsewhere; the Wasm module
+/// never leaves `api.opensubtitles.com` / `vip-api.opensubtitles.com`.
+fn api_root(config: &ProviderConfig) -> String {
+    #[cfg(not(target_arch = "wasm32"))]
+    if let Some(base) = &config.base_url {
+        return base.trim_end_matches('/').to_string();
+    }
+    let _ = config;
+    API.to_string()
 }
 
 async fn run_inner(req: &ExtensionRequest) -> Outcome {
@@ -350,15 +565,17 @@ async fn run_inner(req: &ExtensionRequest) -> Outcome {
         .get("username")
         .filter(|v| !v.trim().is_empty());
     let password = config.extra.get("password").filter(|v| !v.is_empty());
+    let root = api_root(&config);
     let (base, token) = match (username, password) {
-        (None, None) => (API.to_string(), None),
+        (None, None) => (root, None),
         (Some(username), Some(password)) => {
             let login = request(
-                &format!("{API}/login"),
+                &format!("{root}/login"),
                 Some(json!({"username":username,"password":password})),
                 key,
                 None,
                 &config,
+                Call::Login,
             )
             .await?;
             let host = login["base_url"]
@@ -376,6 +593,12 @@ async fn run_inner(req: &ExtensionRequest) -> Outcome {
         _ => return Err("incomplete_credentials"),
     };
     if let Some((query, basis)) = query {
+        let language = normalize_language(&input.language).ok_or("invalid_language")?;
+        let wanted = Wanted {
+            language: &language,
+            forced: input.forced,
+            sdh: input.sdh,
+        };
         search_result(
             request(
                 &format!("{base}/subtitles?{query}"),
@@ -383,9 +606,11 @@ async fn run_inner(req: &ExtensionRequest) -> Outcome {
                 key,
                 token.as_deref(),
                 &config,
+                Call::Search,
             )
             .await?,
             basis,
+            &wanted,
         )
     } else {
         download_result(
@@ -395,6 +620,7 @@ async fn run_inner(req: &ExtensionRequest) -> Outcome {
                 key,
                 token.as_deref(),
                 &config,
+                Call::Download,
             )
             .await?,
         )
@@ -407,79 +633,4 @@ pub fn handle_extension(req: ExtensionRequest) -> ExtensionResponse {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    fn input(value: Value) -> Input {
-        serde_json::from_value(value).unwrap()
-    }
-    #[test]
-    fn identity_query_does_not_guess_title_or_hash() {
-        let (query,basis)=search_query(&input(json!({"title":"Wrong title","year":2020,"mediaType":"movie","language":"fr","externalIds":{"imdb":"tt0133093"},"forced":true,"sdh":false}))).unwrap();
-        assert_eq!(basis, "identity");
-        assert_eq!(
-            query,
-            "foreign_parts_only=only&hearing_impaired=exclude&imdb_id=133093&languages=fr&type=movie"
-        );
-        assert!(!query.contains("moviehash"));
-    }
-    #[test]
-    fn fallback_query_and_invalid_inputs() {
-        let (query, basis) = search_query(&input(
-            json!({"title":"A Film","year":1999,"mediaType":"movie","language":"en"}),
-        ))
-        .unwrap();
-        assert_eq!(basis, "title");
-        assert!(query.contains("query=a+film"));
-        assert!(query.contains("year=1999"));
-        for value in [
-            json!({"mediaType":"movie","language":"../en"}),
-            json!({"title":"x","mediaType":"series","language":"fr"}),
-            json!({"title":"x","mediaType":"movie","language":"fr","page":0}),
-        ] {
-            assert!(search_query(&input(value)).is_err());
-        }
-    }
-    #[test]
-    fn search_flattens_files_and_preserves_flags() {
-        let result=search_result(json!({"total_pages":3,"data":[{"attributes":{"language":"fr","foreign_parts_only":true,"hearing_impaired":true,"release":"Release","files":[{"file_id":42},{"file_id":43}]}}]}),"identity").unwrap();
-        assert_eq!(result["items"].as_array().unwrap().len(), 2);
-        assert_eq!(result["items"][0]["id"], "42");
-        assert_eq!(result["items"][0]["forced"], true);
-        assert_eq!(result["items"][0]["sdh"], true);
-        assert!(search_result(json!({"secret":"never returned"}), "title").is_err());
-    }
-    #[test]
-    fn download_hosts_and_quotas_are_validated() {
-        let output=download_result(json!({"link":"https://dl.opensubtitles.com/download/opaque","remaining":0,"reset_time_utc":"2026-11-04T00:00:00Z","token":"secret"})).unwrap();
-        assert_eq!(output["remaining"], 0);
-        assert!(output.get("token").is_none());
-        for link in [
-            "http://dl.opensubtitles.com/x",
-            "https://dl.opensubtitles.com.evil/x",
-            "https://127.0.0.1/x",
-            "https://dl.opensubtitles.com@evil/x",
-        ] {
-            assert!(download_result(json!({"link":link})).is_err());
-        }
-    }
-    #[tokio::test]
-    async fn invalid_calls_never_need_network_or_reveal_secrets() {
-        let req = |op: &str, input| ExtensionRequest {
-            api_version: 1,
-            operation: op.into(),
-            input,
-        };
-        assert_eq!(
-            run(req("subtitles.search", json!({}))).await.result,
-            json!({"error":"missing_api_key"})
-        );
-        let result = run(req(
-            "subtitles.download",
-            json!({"fileId":"../secret","config":{"api_key":"fake-secret"}}),
-        ))
-        .await
-        .result;
-        assert_eq!(result, json!({"error":"invalid_file_id"}));
-        assert!(!result.to_string().contains("fake-secret"));
-    }
-}
+mod tests;

@@ -1,0 +1,13 @@
+{
+  "total_pages": 1,
+  "data": [
+    {"attributes": {"language": "pt-BR", "release": "Brazilian full", "foreign_parts_only": false, "hearing_impaired": false, "files": [{"file_id": 201}]}},
+    {"attributes": {"language": "pt-PT", "release": "European full", "foreign_parts_only": false, "hearing_impaired": false, "files": [{"file_id": 202}]}},
+    {"attributes": {"language": "pt-BR", "release": "Brazilian SDH", "foreign_parts_only": false, "hearing_impaired": true, "files": [{"file_id": 203}]}},
+    {"attributes": {"language": "pt-BR", "release": "Brazilian forced", "foreign_parts_only": true, "hearing_impaired": false, "files": [{"file_id": 204}]}},
+    {"attributes": {"language": "pt", "release": "Generic Portuguese", "files": [{"file_id": 205}]}},
+    {"attributes": {"language": "es-419", "release": "Latin American Spanish", "files": [{"file_id": 206}]}},
+    {"attributes": {"language": "zh-CN", "release": "Simplified", "files": [{"file_id": 207}]}},
+    {"attributes": {"language": "pt_BR", "release": "Underscore spelling", "machine_translated": true, "ai_translated": false, "files": [{"file_id": 208}]}}
+  ]
+}
