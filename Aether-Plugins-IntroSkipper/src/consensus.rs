@@ -1,6 +1,6 @@
 use crate::chapters::ChapterClassifier;
 use crate::credits::CreditsDetector;
-use crate::matcher::FingerprintMatcher;
+use crate::matcher::{FingerprintMatcher, normalize_rate};
 use crate::types::{
     DetectionMethod, EpisodeData, EpisodeDetectionResult, IntroMarker, IntroSkipperConfig,
     MarkerType,
@@ -126,7 +126,7 @@ impl<'a> SeasonAnalyzer<'a> {
             let ep_a = fp_episodes[idx_a];
             let ep_b = fp_episodes[idx_b];
             if let (Some(a), Some(b)) = (ep_a.fingerprint_rate, ep_b.fingerprint_rate)
-                && (a - b).abs() > 0.01
+                && (normalize_rate(Some(a)) - normalize_rate(Some(b))).abs() > 0.01
             {
                 continue;
             }

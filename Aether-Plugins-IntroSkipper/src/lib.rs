@@ -13,7 +13,9 @@ use aether_plugin_api::{
 pub use chapters::ChapterClassifier;
 pub use consensus::SeasonAnalyzer;
 pub use credits::CreditsDetector;
-pub use matcher::{DEFAULT_FINGERPRINT_RATE, FingerprintMatcher};
+pub use matcher::{
+    DEFAULT_FINGERPRINT_RATE, FingerprintMatcher, LEGACY_FINGERPRINT_RATE, normalize_rate,
+};
 pub use types::*;
 
 #[derive(Clone, Default)]

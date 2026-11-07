@@ -59,10 +59,35 @@ Les valeurs numériques JSON et les chaînes du formulaire d'administration sont
 acceptées. La fenêtre de recherche ne modifie pas les chapitres nommés ; le
 maximum des crédits s'applique aux chapitres et à la comparaison acoustique.
 
-Ces limites n'allongent pas l'extraction du Node : le code hôte actuel conserve
-au plus 2500 empreintes en tête (~290 s) et 1500 en queue (~174 s pour un épisode
-long). Le plugin cherche uniquement dans les empreintes disponibles. Une fenêtre
+Ces limites n'allongent pas l'extraction du Node : le code hôte conserve au plus
+2500 empreintes en tête (300 s en produisent 2423) et 1500 en queue (186 s jusqu'à la
+fin du fichier). Le plugin cherche uniquement dans les empreintes disponibles. Une fenêtre
 entièrement silencieuse ou plate est écartée même si l'audio hors fenêtre varie.
 Le bouton de détection par chapitres désactive aussi `intro.parse_chapters`.
 Les nouveaux champs apparaîtront dans l'administration après construction et
 installation d'un paquet contenant ce schéma ; aucun paquet signé n'est modifié.
+
+---
+
+## 🎯 Débit des empreintes, lots et limites mesurées
+
+- Les empreintes Chromaprint ont un débit de **11025 / 1365 = 8,0769 par seconde**. Jusqu'au
+  7 novembre 2026 le Node annonçait 8,6133 : tous les horaires étaient étirés de 6 %. Le
+  plugin lit désormais cette valeur historique comme le débit réel (`normalize_rate`).
+- L'hôte doit envoyer **3 épisodes au plus** par `intro.detect` : la requête Wasm est plafonnée à
+  65 536 octets (3 épisodes complets en pèsent 62 915) et le bac à sable à 200 M de carburant
+  (3 épisodes en consomment 105 M, un quatrième dépasse les deux limites).
+- Une répétition n'est pas une ouverture : un jingle de studio commun à tous les épisodes est
+  signalé comme ouverture, avec une confiance de 0,99. La confiance mesure l'accord entre épisodes,
+  pas la probabilité d'avoir raison. Aucune détection parfaite n'est promise.
+- Un récapitulatif n'est reconnu que par ses chapitres ; la corrélation acoustique ne produit que
+  des ouvertures et des génériques.
+
+Mesures, corpus et limites : `docs/INTRO_SKIPPER_2026_11_07.md`. Reproduction (Docker, image avec
+ffmpeg et Chromaprint) :
+
+```bash
+node Aether-Plugins-IntroSkipper/tests/corpus/build-corpus.mjs      # régénère tests/corpus/intro
+cargo test --release -p aether-plugin-intro-skipper -- --nocapture  # tableaux de précision, temps, mémoire
+node scripts/test-intro-skipper-wasm.cjs                            # le vrai module Wasm
+```

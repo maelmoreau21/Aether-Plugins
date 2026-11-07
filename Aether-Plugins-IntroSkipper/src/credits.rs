@@ -22,13 +22,9 @@ impl<'a> CreditsDetector<'a> {
         let tail_start_a = ep_a.tail_start?;
         let tail_start_b = ep_b.tail_start?;
 
-        let rate_a = ep_a
-            .fingerprint_rate
-            .unwrap_or(crate::matcher::DEFAULT_FINGERPRINT_RATE);
-        let rate_b = ep_b
-            .fingerprint_rate
-            .unwrap_or(crate::matcher::DEFAULT_FINGERPRINT_RATE);
-        if !rate_a.is_finite() || !rate_b.is_finite() || (rate_a - rate_b).abs() > 0.01 {
+        let rate_a = crate::matcher::normalize_rate(ep_a.fingerprint_rate);
+        let rate_b = crate::matcher::normalize_rate(ep_b.fingerprint_rate);
+        if (rate_a - rate_b).abs() > 0.01 {
             return None;
         }
 

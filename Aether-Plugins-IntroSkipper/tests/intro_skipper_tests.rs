@@ -680,3 +680,63 @@ fn test_post_credits_scene_detection() {
         "Post-credits scene preserved!"
     );
 }
+
+#[test]
+fn fingerprint_rate_is_the_chromaprint_rate_and_the_legacy_mislabel_is_corrected() {
+    use aether_plugin_intro_skipper::{
+        DEFAULT_FINGERPRINT_RATE, LEGACY_FINGERPRINT_RATE, normalize_rate,
+    };
+    // 11025 Hz audio, one item every 1365 samples.
+    assert!((DEFAULT_FINGERPRINT_RATE - 8.076923).abs() < 1e-5);
+    assert_eq!(normalize_rate(None), DEFAULT_FINGERPRINT_RATE);
+    assert_eq!(normalize_rate(Some(f64::NAN)), DEFAULT_FINGERPRINT_RATE);
+    assert_eq!(
+        normalize_rate(Some(f64::INFINITY)),
+        DEFAULT_FINGERPRINT_RATE
+    );
+    // What Aether hosts announced before 7 November 2026.
+    assert_eq!(
+        normalize_rate(Some(LEGACY_FINGERPRINT_RATE)),
+        DEFAULT_FINGERPRINT_RATE
+    );
+    // Any other announced rate is the host's own business.
+    assert_eq!(normalize_rate(Some(10.0)), 10.0);
+
+    // A theme of 60 s at the real rate is reported as 60 s whichever label the host used.
+    let noise = |seed: u32, n: usize| {
+        let mut x = seed;
+        (0..n)
+            .map(|_| {
+                x = x.wrapping_mul(1664525).wrapping_add(1013904223);
+                x ^ (x >> 13)
+            })
+            .collect::<Vec<u32>>()
+    };
+    let theme = noise(0xA5A5_1234, 485);
+
+    let (mut a, mut b) = (noise(7, 100), noise(99, 300));
+    a.extend(&theme);
+    b.extend(&theme);
+    let config = aether_plugin_intro_skipper::IntroSkipperConfig::default();
+    for rate in [
+        Some(DEFAULT_FINGERPRINT_RATE),
+        Some(LEGACY_FINGERPRINT_RATE),
+        None,
+    ] {
+        let m = aether_plugin_intro_skipper::FingerprintMatcher::new(&config, rate)
+            .find_best_match(&a, &b)
+            .expect("match");
+        assert!(
+            (m.offset_a - 100.0 / DEFAULT_FINGERPRINT_RATE).abs() < 1.0,
+            "{m:?}"
+        );
+        assert!(
+            (m.offset_b - 300.0 / DEFAULT_FINGERPRINT_RATE).abs() < 1.0,
+            "{m:?}"
+        );
+        assert!(
+            (m.duration - 485.0 / DEFAULT_FINGERPRINT_RATE).abs() < 1.5,
+            "{m:?}"
+        );
+    }
+}
