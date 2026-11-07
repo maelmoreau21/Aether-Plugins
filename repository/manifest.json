@@ -1206,6 +1206,25 @@
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
         {
+          "version": "0.1.6",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/tmdb-v0.1.6-beta/tmdb-0.1.6.package.json",
+          "checksum": "252951c25072619265643014bd6ac0901e1543bc2ab41376104877d47fb730df",
+          "timestamp": "2026-11-07T16:12:38Z",
+          "changelog": "- fix(http): typed provider errors, Retry-After and a single request per call in the SDK, TMDb and TVDB",
+          "permissions": [
+            "metadata.read",
+            "metadata.write",
+            "images"
+          ],
+          "httpHosts": [
+            "api.themoviedb.org",
+            "image.tmdb.org"
+          ]
+        },
+        {
           "version": "0.1.5",
           "targetAbi": "1.0",
           "minServerVersion": "0.1.0",
