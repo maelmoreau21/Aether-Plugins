@@ -180,7 +180,9 @@ impl MetadataProviderPlugin for OmdbPlugin {
             version: env!("CARGO_PKG_VERSION").into(),
             category: "Metadata".into(),
             provider: "OMDb".into(),
-            http_hosts: vec!["www.omdbapi.com".into()],
+            // OMDb posters are served by m.media-amazon.com: the Core downloads a chosen
+            // image only from a host the package declares.
+            http_hosts: vec!["www.omdbapi.com".into(), "m.media-amazon.com".into()],
             description: "Métadonnées films et séries via l'Open Movie Database (clé API requise)"
                 .into(),
             author: "Aether Team".into(),

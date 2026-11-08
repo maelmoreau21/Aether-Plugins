@@ -20,6 +20,7 @@ const DEFAULT_TITLE_URL: &str = "https://www.imdb.com/title";
 /// body (anti-bot challenge) to every non-browser client, so details come from here.
 const DEFAULT_GRAPHQL_URL: &str = "https://caching.graphql.imdb.com/";
 const GRAPHQL_HOST: &str = "caching.graphql.imdb.com";
+const IMAGE_HOST: &str = "m.media-amazon.com";
 const TITLE_QUERY: &str = "query AetherTitle($id: ID!) { title(id: $id) { titleText { text } originalTitleText { text } releaseYear { year } releaseDate { year month day } ratingsSummary { aggregateRating voteCount } runtime { seconds } plot { plotText { plainText } } genres { genres { text } } certificate { rating } primaryImage { url width height } directors: credits(first: 5, filter: {categories: [\"director\"]}) { edges { node { name { nameText { text } } } } } writers: credits(first: 5, filter: {categories: [\"writer\"]}) { edges { node { name { nameText { text } } } } } cast: credits(first: 15, filter: {categories: [\"actor\", \"actress\"]}) { edges { node { name { nameText { text } primaryImage { url } } ... on Cast { characters { name } } } } } } }";
 
 #[derive(Clone, Default)]
@@ -263,7 +264,9 @@ impl MetadataProviderPlugin for ImdbPlugin {
             version: env!("CARGO_PKG_VERSION").into(),
             category: "Metadata".into(),
             provider: "imdb".into(),
-            http_hosts: vec!["v3.sg.media-imdb.com".into(), "imdb.com".into(), "www.imdb.com".into(), GRAPHQL_HOST.into()],
+            // Posters and cast photos are served by m.media-amazon.com: the Core downloads
+            // a chosen image only from a host the package declares.
+            http_hosts: vec!["v3.sg.media-imdb.com".into(), "imdb.com".into(), "www.imdb.com".into(), GRAPHQL_HOST.into(), IMAGE_HOST.into()],
             description: "Fournisseur de métadonnées IMDb (notes mondiales de référence, votes, casting et recherche instantanée)".into(),
             author: "Aether Team".into(),
             license: "MIT OR Apache-2.0".into(),
