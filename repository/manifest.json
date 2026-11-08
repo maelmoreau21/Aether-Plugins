@@ -498,6 +498,19 @@
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
         {
+          "version": "0.3.0",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/intro-skipper-v0.3.0-beta/intro-skipper-0.3.0.package.json",
+          "checksum": "fdd72d2c8b8476b85536c17992154351d3b6ce7ab86d744152cf33b0f5e2dafa",
+          "timestamp": "2026-11-08T22:10:01Z",
+          "changelog": "- feat(intro-skipper): 0.3.0 - film end credits read from the picture",
+          "permissions": [
+            "playback.markers"
+          ]
+        },
+        {
           "version": "0.2.1",
           "targetAbi": "1.0",
           "minServerVersion": "0.1.0",
