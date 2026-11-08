@@ -498,6 +498,19 @@
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
         {
+          "version": "0.2.1",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/intro-skipper-v0.2.1-beta/intro-skipper-0.2.1.package.json",
+          "checksum": "6c9d472ed3fd7d02ce389b93c6232d32008def59f22d00df3ff613ba236f7b4f",
+          "timestamp": "2026-11-08T16:22:37Z",
+          "changelog": "- feat(intro-skipper): refine chapter placement, film ambiguity, and edge snapping",
+          "permissions": [
+            "playback.markers"
+          ]
+        },
+        {
           "version": "0.2.0",
           "targetAbi": "1.0",
           "minServerVersion": "0.1.0",
