@@ -31,7 +31,8 @@ Intro Skipper classe des chapitres et compare des empreintes déjà fournies par
 - `manifest` : retourne le manifeste complet du plugin et son schéma de configuration.
 - `intro.detect` / `markers.detect` : analyse une liste d'épisodes et produit des candidats. L'hôte doit fournir des épisodes d'une seule série et saison, avec des empreintes de même cadence.
 - `intro.match_fingerprints` : compare deux séries d'empreintes acoustiques et retourne le segment commun.
-- `intro.parse_chapters` : extrait les marqueurs d'intro/crédits à partir des chapitres du conteneur.
+- `intro.parse_chapters` : extrait les marqueurs d'intro/crédits à partir des chapitres du conteneur. Avec `"mediaType": "movie"`, le générique d'un film peut atteindre `max_movie_credits_duration` et la forme des chapitres n'est pas lue.
+- Les épisodes d'`intro.detect` peuvent porter leurs `chapters` (`start`, `end`, `title`) : un chapitre nommé est gardé tel quel et confirmé par l'audio, une limite audio se cale sur un chapitre proche, et les chapitres sans nom d'un animé révèlent l'opening et l'ending par leur durée et leur position.
 
 ---
 
@@ -48,6 +49,9 @@ Intro Skipper classe des chapitres et compare des empreintes déjà fournies par
 | `search_window_start` | number | `0` | Début de recherche acoustique pour exclure un résumé récurrent |
 | `enable_chapter_detection` | boolean | `true` | Détection préalable par chapitres |
 | `enable_fingerprint_detection` | boolean | `true` | Détection acoustique par empreintes |
+| `enable_chapter_structure` | boolean | `true` | Opening/ending déduits des chapitres sans nom (75–100 s, début et fin de l'épisode) |
+| `chapter_snap_window` | number | `3` | Calage d'une limite audio sur un chapitre à moins de N s (0 à 10, 0 = jamais) |
+| `max_movie_credits_duration` | number | `900` | Durée maximale du générique de fin d'un film (jusqu'à 1200 s) |
 | `detect_intro` / `detect_credits` / `detect_recap` / `detect_preview` | boolean | `true` | Types de segments rapportés |
 | `min_consensus_votes` | select | `1` | Comparaisons d'épisodes concordantes exigées (1 à 3) |
 | `intro_start_offset` / `intro_end_offset` | number | `0` | Décalage des bornes de l'intro (−30 à 30 s) |

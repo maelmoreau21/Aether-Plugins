@@ -93,11 +93,18 @@ pub struct IntroSkipperConfig {
     pub max_intro_duration: f64,
     pub min_credits_duration: f64,
     pub max_credits_duration: f64,
+    /// Longest credits chapter accepted for a film (film credits often run 8 to 15 minutes).
+    pub max_movie_credits_duration: f64,
     pub similarity_threshold: f64,
     pub search_window_start: f64,
     pub search_window_end: f64,
     pub enable_chapter_detection: bool,
     pub enable_fingerprint_detection: bool,
+    /// Guess the opening and ending of an anime episode from the length and position of its
+    /// unnamed chapters.
+    pub enable_chapter_structure: bool,
+    /// Acoustic boundaries move to a chapter mark this close (seconds, 0 = never).
+    pub chapter_snap_window: f64,
     /// Which segment kinds are reported at all.
     pub detect_intro: bool,
     pub detect_credits: bool,
@@ -123,11 +130,14 @@ impl Default for IntroSkipperConfig {
             max_intro_duration: 120.0,
             min_credits_duration: 10.0,
             max_credits_duration: 300.0,
+            max_movie_credits_duration: 900.0,
             similarity_threshold: 0.75,
             search_window_start: 0.0,
             search_window_end: 600.0, // First 10 minutes
             enable_chapter_detection: true,
             enable_fingerprint_detection: true,
+            enable_chapter_structure: true,
+            chapter_snap_window: 3.0,
             detect_intro: true,
             detect_credits: true,
             detect_recap: true,
@@ -163,6 +173,8 @@ impl IntroSkipperConfig {
             self.max_intro_duration,
             self.min_credits_duration,
             self.max_credits_duration,
+            self.max_movie_credits_duration,
+            self.chapter_snap_window,
             self.search_window_start,
             self.search_window_end,
             self.similarity_threshold,
@@ -174,6 +186,8 @@ impl IntroSkipperConfig {
             || !(self.min_intro_duration..=600.0).contains(&self.max_intro_duration)
             || !(1.0..=300.0).contains(&self.min_credits_duration)
             || !(self.min_credits_duration..=300.0).contains(&self.max_credits_duration)
+            || !(self.min_credits_duration..=1200.0).contains(&self.max_movie_credits_duration)
+            || !(0.0..=10.0).contains(&self.chapter_snap_window)
             || !(0.0..600.0).contains(&self.search_window_start)
             || !(self.search_window_start..=600.0).contains(&self.search_window_end)
             || self.search_window_end - self.search_window_start < self.min_intro_duration
@@ -233,6 +247,11 @@ impl IntroSkipperConfig {
             ("max_intro_duration", &mut base.max_intro_duration),
             ("min_credits_duration", &mut base.min_credits_duration),
             ("max_credits_duration", &mut base.max_credits_duration),
+            (
+                "max_movie_credits_duration",
+                &mut base.max_movie_credits_duration,
+            ),
+            ("chapter_snap_window", &mut base.chapter_snap_window),
             ("similarity_threshold", &mut base.similarity_threshold),
             ("search_window_start", &mut base.search_window_start),
             ("search_window_end", &mut base.search_window_end),
@@ -253,6 +272,10 @@ impl IntroSkipperConfig {
             (
                 "enable_fingerprint_detection",
                 &mut base.enable_fingerprint_detection,
+            ),
+            (
+                "enable_chapter_structure",
+                &mut base.enable_chapter_structure,
             ),
             ("detect_intro", &mut base.detect_intro),
             ("detect_credits", &mut base.detect_credits),

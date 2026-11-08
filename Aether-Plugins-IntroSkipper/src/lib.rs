@@ -1,6 +1,7 @@
 //! High-performance Intro & Credits Detection Plugin for Aether.
 //! Optimized Rust implementation inspired by https://github.com/intro-skipper/intro-skipper
 
+pub mod adjust;
 pub mod chapters;
 pub mod consensus;
 pub mod credits;
@@ -10,7 +11,7 @@ pub mod types;
 use aether_plugin_api::{
     ConfigField, ConfigOption, MediaType, PluginCapability, PluginManifest, ProviderConfig,
 };
-pub use chapters::ChapterClassifier;
+pub use chapters::{ChapterClassifier, MediaKind};
 pub use consensus::SeasonAnalyzer;
 pub use credits::CreditsDetector;
 pub use matcher::{
@@ -36,7 +37,7 @@ impl IntroSkipperPlugin {
             provider: "Intro Skipper".into(),
             permissions: vec!["playback.markers".into()],
             http_hosts: Vec::new(), // Zero external network access required - pure local analysis
-            description: "Détection automatique ultra-rapide des introductions et génériques de fin par empreintes audio et chapitres".into(),
+            description: "Détection des introductions, génériques de fin, résumés et aperçus des séries, animés et films : chapitres du fichier, forme des chapitres d'animé et empreintes audio communes à une saison".into(),
             author: "Aether Team".into(),
             license: "AGPL-3.0-only".into(),
             target_abi: "1.0".into(),
@@ -45,7 +46,12 @@ impl IntroSkipperPlugin {
             checksum: None,
             banner: Some("assets/banner.svg".into()),
             capabilities: vec![PluginCapability::Details],
-            supported_media_types: vec![MediaType::TvShow, MediaType::Episode, MediaType::Anime],
+            supported_media_types: vec![
+                MediaType::Movie,
+                MediaType::TvShow,
+                MediaType::Episode,
+                MediaType::Anime,
+            ],
             default_priority: 50,
             config_schema: config_schema(),
         }
@@ -183,9 +189,14 @@ pub fn handle_intro_skipper_request(
                 .and_then(|v| serde_json::from_value(v.clone()).ok())
                 .unwrap_or_default();
 
+            let media = if req.input.get("mediaType").and_then(|v| v.as_str()) == Some("movie") {
+                MediaKind::Movie
+            } else {
+                MediaKind::Episode
+            };
             let classifier = ChapterClassifier::new(&config);
             let markers = config.finalize(
-                classifier.parse_markers(episode_id, &chapters, duration),
+                classifier.parse_markers_for(episode_id, &chapters, duration, media),
                 duration,
             );
             serde_json::to_value(markers).unwrap_or_default()
@@ -317,6 +328,19 @@ pub fn config_schema() -> Vec<ConfigField> {
             "Compare les empreintes audio des épisodes d'une même saison. Nécessite un ffmpeg avec Chromaprint sur le Node.",
             true,
         ),
+        toggle(
+            "enable_chapter_structure",
+            "Deviner l'opening et l'ending des chapitres sans nom",
+            "Pour les animés dont les chapitres ne portent pas de nom (« Chapitre 02 ») : les deux chapitres de la durée d'une chanson (75 à 100 s), au début et à la fin, sont proposés comme opening et ending. Confirmés par l'audio, ils sont appliqués.",
+            true,
+        ),
+        field(
+            "chapter_snap_window",
+            "Caler l'audio sur les chapitres (s)",
+            "De 0 à 10 secondes. Une limite trouvée par l'audio à moins de cette distance d'un chapitre se cale sur le chapitre. 0 : jamais.",
+            "number",
+            "3",
+        ),
         // Intro limits
         field(
             "min_intro_duration",
@@ -360,6 +384,13 @@ pub fn config_schema() -> Vec<ConfigField> {
             "De la durée minimale à 300 secondes. S'applique aux chapitres et à l'analyse audio.",
             "number",
             "300",
+        ),
+        field(
+            "max_movie_credits_duration",
+            "Durée maximale du générique de fin d'un film (s)",
+            "De la durée minimale à 1200 secondes. Les films n'ont pas d'épisodes à comparer : leur générique vient de leurs chapitres.",
+            "number",
+            "900",
         ),
         // Acoustic matching
         field(

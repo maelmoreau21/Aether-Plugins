@@ -754,7 +754,7 @@ fn parse_chapters(config: serde_json::Value) -> serde_json::Value {
                     {"title": "Previously", "start": 0.0, "end": 40.0},
                     {"title": "Opening - Medley", "start": 40.0, "end": 130.0},
                     {"title": "Part A", "start": 130.0, "end": 1380.0},
-                    {"title": "Staff Roll", "start": 1380.0, "end": 1470.0},
+                    {"title": "Rideau", "start": 1380.0, "end": 1470.0},
                     {"title": "Next Time", "start": 1470.0, "end": 1500.0}
                 ],
                 "config": config
@@ -775,12 +775,12 @@ fn kinds(result: &serde_json::Value) -> Vec<String> {
 
 #[test]
 fn custom_chapter_keywords_extend_builtin_names() {
-    // "Staff Roll" is not a built-in credits name; "Opening - Medley" starts with one.
+    // "Rideau" is not a built-in credits name; "Opening - Medley" starts with one.
     assert_eq!(
         kinds(&parse_chapters(serde_json::json!({}))),
         ["recap", "intro", "preview"]
     );
-    let result = parse_chapters(serde_json::json!({"credits_keywords": "staff roll, Générique"}));
+    let result = parse_chapters(serde_json::json!({"credits_keywords": "rideau, Générique"}));
     assert_eq!(kinds(&result), ["recap", "intro", "credits", "preview"]);
 }
 
@@ -789,7 +789,7 @@ fn disabled_kinds_are_not_reported() {
     let result = parse_chapters(serde_json::json!({
         "detect_recap": "false",
         "detect_preview": false,
-        "credits_keywords": "staff roll"
+        "credits_keywords": "rideau"
     }));
     assert_eq!(kinds(&result), ["intro", "credits"]);
 }
@@ -800,7 +800,7 @@ fn boundary_offsets_shift_and_clamp_segments() {
         "intro_start_offset": "2",
         "intro_end_offset": "-3.5",
         "credits_start_offset": 10,
-        "credits_keywords": "staff roll"
+        "credits_keywords": "rideau"
     }));
     let markers = result.as_array().unwrap();
     let intro = markers.iter().find(|m| m["markerType"] == "intro").unwrap();
