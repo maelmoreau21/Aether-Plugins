@@ -110,7 +110,9 @@ pub struct IntroSkipperConfig {
     pub detect_credits: bool,
     pub detect_recap: bool,
     pub detect_preview: bool,
-    /// Agreeing episode comparisons an acoustic segment needs before it is reported.
+    /// Agreeing episode comparisons an acoustic segment needs before it is reported. Capped at
+    /// the comparisons a batch allows (two per episode in the Core's three-episode batches);
+    /// values 3 and 4 are still accepted from older settings.
     pub min_consensus_votes: u32,
     /// Seconds added to the detected boundaries (negative values move them earlier).
     pub intro_start_offset: f64,
@@ -156,6 +158,10 @@ impl Default for IntroSkipperConfig {
 
 /// Largest boundary shift accepted, in seconds, in either direction.
 pub const MAX_BOUNDARY_OFFSET: f64 = 30.0;
+/// Longest credits segment the Aether host stores (seconds).
+pub const MAX_CREDITS_SEGMENT: f64 = 1200.0;
+/// Longest intro, recap or preview segment the Aether host stores (seconds).
+pub const MAX_OTHER_SEGMENT: f64 = 600.0;
 const MAX_KEYWORDS: usize = 32;
 const MAX_KEYWORD_LEN: usize = 64;
 
@@ -214,7 +220,10 @@ impl IntroSkipperConfig {
 
     /// Final pass shared by every operation: drops disabled kinds and applies the
     /// configured boundary offsets, clamped to the episode. A segment shorter than one
-    /// second after adjustment is dropped rather than reported.
+    /// second after adjustment is dropped rather than reported. A segment longer than the host
+    /// accepts ([`MAX_CREDITS_SEGMENT`], [`MAX_OTHER_SEGMENT`]) is shortened, since one marker
+    /// over the limit makes the host reject the whole answer: credits keep their end, other
+    /// segments their start.
     pub fn finalize(&self, markers: Vec<IntroMarker>, duration: f64) -> Vec<IntroMarker> {
         let limit = if duration.is_finite() && duration > 0.0 {
             duration
@@ -235,6 +244,11 @@ impl IntroSkipperConfig {
                 }
                 marker.start = marker.start.clamp(0.0, limit);
                 marker.end = marker.end.clamp(0.0, limit);
+                if marker.marker_type == MarkerType::Credits {
+                    marker.start = marker.start.max(marker.end - MAX_CREDITS_SEGMENT);
+                } else {
+                    marker.end = marker.end.min(marker.start + MAX_OTHER_SEGMENT);
+                }
                 (marker.end - marker.start >= 1.0).then_some(marker)
             })
             .collect()

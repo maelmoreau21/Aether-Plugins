@@ -5,17 +5,38 @@ use crate::types::{ChapterItem, DetectionMethod, IntroMarker, IntroSkipperConfig
 
 /// Confidence of a segment read from a chapter whose name says what it is.
 pub const NAMED_CHAPTER_CONFIDENCE: f64 = 0.98;
-/// Unnamed chapters shaped like an opening AND an ending (each confirms the other).
-pub const STRUCTURE_CONFIRMED_CONFIDENCE: f64 = 0.86;
-/// A single unnamed chapter shaped like an opening or an ending: shown to the administrator as
-/// a proposal, below the default playback floor (80 %) unless the audio agrees.
+/// An unnamed chapter shaped like an opening or an ending: shown to the administrator as a
+/// proposal, below the default playback floor (80 %), until the audio agrees with it. An opening
+/// and an ending found together do not confirm each other: both come from the same weak signal
+/// (a drama chaptered at its ad breaks can have a song-length cold open and final scene).
 pub const STRUCTURE_ALONE_CONFIDENCE: f64 = 0.72;
+/// A guess from the shape of the chapters that the audio of the batch was compared for and did
+/// not find: the episodes do not share it, so it is most likely story.
+pub const STRUCTURE_UNHEARD_CONFIDENCE: f64 = 0.6;
+/// A film chapter named only by a word that is also a common scene title ("Opening", "Ending",
+/// "Fin", "Introduction"): a proposal, not a skip.
+pub const AMBIGUOUS_NAME_CONFIDENCE: f64 = 0.72;
 
 /// Length of a TV-size anime song, the shape the structural guess looks for (seconds).
 const SONG_MIN: f64 = 75.0;
 const SONG_MAX: f64 = 100.0;
+/// An opening chapter that also holds the sponsor card runs a little longer than the song.
+const OPENING_WITH_CARD_MAX: f64 = 115.0;
 /// Episodes longer than this are not guessed from structure (films, specials).
 const STRUCTURE_MAX_DURATION: f64 = 75.0 * 60.0;
+/// Film title sequences often run two to four minutes: a film's opening may last this long
+/// even when `max_intro_duration` (sized for episodes) is shorter.
+pub const MOVIE_MAX_INTRO_DURATION: f64 = 300.0;
+
+/// Where a named segment may sit. An opening or a recap starts in the first 40 % of the file
+/// (and in its first 15 minutes); credits end in its last quarter (or within the longest
+/// credits of its end); a preview starts in its last quarter.
+const EARLY_SHARE: f64 = 0.4;
+const EARLY_LIMIT: f64 = 900.0;
+const LATE_SHARE: f64 = 0.75;
+/// A bare "Générique" or "Titles" is the end credits when it starts after this share of the
+/// file, the opening otherwise.
+const CLOSING_SHARE: f64 = 0.6;
 
 /// Kind of a chapter for one operation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -46,6 +67,9 @@ const INTRO_NAMES: &[&str] = &[
     "opening title",
     "opening sequence",
     "opening animation",
+    "opening theme song",
+    "op start",
+    "intro animation",
     "op",
     "op theme",
     "op song",
@@ -74,13 +98,18 @@ const INTRO_NAMES: &[&str] = &[
     "sigla di apertura",
     "オープニング",
     "オープニングテーマ",
+    "오프닝",
+    "片头",
+    "片头曲",
 ];
 
 const CREDITS_NAMES: &[&str] = &[
     "credits",
     "credit",
+    "credits start",
     "the credits",
     "end credits",
+    "end credits start",
     "end credit",
     "ending credits",
     "closing credits",
@@ -89,11 +118,14 @@ const CREDITS_NAMES: &[&str] = &[
     "end title",
     "closing titles",
     "ending",
+    "ending start",
     "ending theme",
+    "ending theme song",
     "ending song",
     "ending music",
     "ending animation",
     "ed",
+    "ed start",
     "ed theme",
     "ed song",
     "nc ed",
@@ -119,6 +151,9 @@ const CREDITS_NAMES: &[&str] = &[
     "sigla di chiusura",
     "エンディング",
     "エンディングテーマ",
+    "엔딩",
+    "片尾",
+    "片尾曲",
 ];
 
 const RECAP_NAMES: &[&str] = &[
@@ -212,6 +247,39 @@ const NOT_CREDITS: &[&str] = &[
     "stinger",
 ];
 
+/// Built-in names that a film's chapters also use as scene titles ("1. Opening", "24. Ending",
+/// "Introduction"). In a film they are read only as proposals, unless a clearer name of the
+/// same kind ("Main Titles", "End Credits") is next to them.
+const AMBIGUOUS_FILM_NAMES: &[&str] = &[
+    "intro",
+    "introduction",
+    "opening",
+    "ouverture",
+    "theme",
+    "titles",
+    "ending",
+    "closing",
+    "fin",
+];
+
+/// Built-in names that say "titles" without saying which: "Générique" alone is the opening
+/// near the start and the end credits near the end.
+const POSITIONAL_NAMES: &[&str] = &["generique", "titles"];
+
+const KINDS: [MarkerType; 4] = [
+    MarkerType::Intro,
+    MarkerType::Credits,
+    MarkerType::Recap,
+    MarkerType::Preview,
+];
+
+/// What a chapter name says: its kind, and whether, in a film, it may just be a scene title.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct NameReading {
+    kind: MarkerType,
+    ambiguous: bool,
+}
+
 impl<'a> ChapterClassifier<'a> {
     pub fn new(config: &'a IntroSkipperConfig) -> Self {
         Self { config }
@@ -238,46 +306,109 @@ impl<'a> ChapterClassifier<'a> {
     }
 
     /// Built-in names plus the administrator's own (`*_keywords` settings). A custom
-    /// keyword matches the whole title or its first words ("opening" matches "Opening 2").
+    /// keyword matches the whole title, one of its parts ("12 - Générique") or their first
+    /// words ("opening" matches "Opening 2"), numbering set aside.
     pub fn matches(&self, kind: MarkerType, title: &str) -> bool {
-        if classify_builtin(title) == Some(kind) {
-            return true;
-        }
-        let custom = match kind {
+        self.custom_matches(kind, title) || classify_builtin(title) == Some(kind)
+    }
+
+    fn keywords(&self, kind: MarkerType) -> &[String] {
+        match kind {
             MarkerType::Intro => &self.config.intro_keywords,
             MarkerType::Credits => &self.config.credits_keywords,
             MarkerType::Recap => &self.config.recap_keywords,
             MarkerType::Preview => &self.config.preview_keywords,
-        };
+        }
+    }
+
+    fn custom_matches(&self, kind: MarkerType, title: &str) -> bool {
+        let custom = self.keywords(kind);
         if custom.is_empty() {
             return false;
         }
-        let clean = clean_text(title);
+        let full = clean_text(title);
+        if NOT_CREDITS.iter().any(|phrase| full.contains(phrase)) {
+            return false;
+        }
+        let mut names = vec![strip_numbering(&full), full];
+        names.extend(name_parts(title).iter().map(|part| strip_numbering(part)));
         custom.iter().any(|keyword| {
-            clean == *keyword
-                || clean
-                    .strip_prefix(keyword.as_str())
-                    .is_some_and(|rest| rest.starts_with(' '))
+            names.iter().any(|name| {
+                name == keyword
+                    || name
+                        .strip_prefix(keyword.as_str())
+                        .is_some_and(|rest| rest.starts_with(' '))
+            })
         })
     }
 
-    /// The kind a chapter name announces, custom keywords included.
+    /// The kind a chapter name announces, custom keywords included. The administrator's names
+    /// come first: "Générique" listed as a credits name wins over its built-in reading.
     pub fn classify(&self, title: &str) -> Option<MarkerType> {
-        [
-            MarkerType::Intro,
-            MarkerType::Credits,
-            MarkerType::Recap,
-            MarkerType::Preview,
-        ]
-        .into_iter()
-        .find(|kind| self.matches(*kind, title))
+        KINDS
+            .into_iter()
+            .find(|kind| self.custom_matches(*kind, title))
+            .or_else(|| classify_builtin(title))
+    }
+
+    /// [`Self::classify`] for a chapter starting at `start` in a file of `duration` seconds:
+    /// a bare "Générique" late in the file is the end credits.
+    fn read_name(&self, title: &str, start: f64, duration: f64) -> Option<NameReading> {
+        if let Some(kind) = KINDS
+            .into_iter()
+            .find(|kind| self.custom_matches(*kind, title))
+        {
+            return Some(NameReading {
+                kind,
+                ambiguous: false,
+            });
+        }
+        let (kind, head) = builtin_match(title)?;
+        let late = duration.is_finite() && duration > 0.0 && start >= duration * CLOSING_SHARE;
+        let kind = if late && POSITIONAL_NAMES.contains(&head.as_str()) {
+            MarkerType::Credits
+        } else {
+            kind
+        };
+        Some(NameReading {
+            kind,
+            ambiguous: AMBIGUOUS_FILM_NAMES.contains(&head.as_str()),
+        })
+    }
+
+    /// Whether a named segment sits where its kind can be: a "Credits" chapter at minute 1, a
+    /// "Teaser" cold open or an "Opening" scene halfway through a film is not skipped.
+    fn placed(
+        &self,
+        kind: MarkerType,
+        media: MediaKind,
+        start: f64,
+        end: f64,
+        duration: f64,
+    ) -> bool {
+        if !(duration.is_finite() && duration > 0.0) {
+            return true;
+        }
+        match kind {
+            MarkerType::Intro | MarkerType::Recap => {
+                start <= (duration * EARLY_SHARE).min(EARLY_LIMIT)
+            }
+            MarkerType::Credits => {
+                end >= duration * LATE_SHARE || duration - end <= self.bounds(kind, media).1
+            }
+            MarkerType::Preview => start >= duration * LATE_SHARE,
+        }
     }
 
     fn bounds(&self, kind: MarkerType, media: MediaKind) -> (f64, f64) {
         match kind {
             MarkerType::Intro => (
                 self.config.min_intro_duration,
-                self.config.max_intro_duration,
+                if media == MediaKind::Movie {
+                    self.config.max_intro_duration.max(MOVIE_MAX_INTRO_DURATION)
+                } else {
+                    self.config.max_intro_duration
+                },
             ),
             MarkerType::Credits => (
                 self.config.min_credits_duration,
@@ -303,8 +434,9 @@ impl<'a> ChapterClassifier<'a> {
     }
 
     /// Named chapters first; consecutive chapters of the same kind ("Ending" then "Credits")
-    /// form one segment. Without a named opening or ending, an episode's unnamed chapters are
-    /// read for their shape (see [`Self::structural_markers`]).
+    /// form one segment, kept only where its kind can sit in the file (see [`Self::placed`]).
+    /// Without a named opening or ending, an episode's unnamed chapters are read for their
+    /// shape (see [`Self::structural_markers`]).
     pub fn parse_markers_for(
         &self,
         episode_id: &str,
@@ -313,42 +445,68 @@ impl<'a> ChapterClassifier<'a> {
         media: MediaKind,
     ) -> Vec<IntroMarker> {
         let spans = chapter_spans(chapters, episode_duration);
+        let readings: Vec<Option<NameReading>> = spans
+            .iter()
+            .map(|span| self.read_name(&span.title, span.start, episode_duration))
+            .collect();
+        let kind_of = |i: usize| readings[i].map(|reading| reading.kind);
         let mut markers: Vec<IntroMarker> = Vec::new();
         let mut i = 0;
         while i < spans.len() {
-            let Some(kind) = self.classify(&spans[i].title) else {
+            let Some(kind) = kind_of(i) else {
                 i += 1;
                 continue;
             };
-            let first = i;
-            let mut end = spans[i].end;
-            while i + 1 < spans.len() && self.classify(&spans[i + 1].title) == Some(kind) {
-                i += 1;
-                end = spans[i].end;
+            let (mut first, mut last) = (i, i);
+            while last + 1 < spans.len() && kind_of(last + 1) == Some(kind) {
+                last += 1;
             }
-            let start = spans[first].start;
-            let (min, max) = self.bounds(kind, media);
-            let length = end - start;
-            // One segment of each kind: the opening is the first one, the credits the last.
-            let already = markers.iter().position(|m| m.marker_type == kind);
-            if length >= min && length <= max {
-                let marker = IntroMarker {
-                    id: format!("{episode_id}-{kind}-chap-{first}"),
-                    start,
-                    end,
-                    marker_type: kind,
-                    confidence: NAMED_CHAPTER_CONFIDENCE,
-                    method: DetectionMethod::Chapter,
-                };
-                match (already, kind) {
-                    (None, _) => markers.push(marker),
-                    (Some(index), MarkerType::Credits | MarkerType::Preview) => {
-                        markers[index] = marker
+            i = last + 1;
+            let mut confidence = NAMED_CHAPTER_CONFIDENCE;
+            if media == MediaKind::Movie {
+                // "Ending" (the finale) then "End Credits": the segment is the credits only.
+                // A segment named only by such words is a proposal.
+                let clear = |k: usize| readings[k].is_some_and(|reading| !reading.ambiguous);
+                if (first..=last).any(clear) {
+                    while !clear(first) {
+                        first += 1;
                     }
-                    _ => {}
+                    while !clear(last) {
+                        last -= 1;
+                    }
+                } else {
+                    confidence = AMBIGUOUS_NAME_CONFIDENCE;
                 }
             }
-            i += 1;
+            let (start, end) = (spans[first].start, spans[last].end);
+            let (min, max) = self.bounds(kind, media);
+            let length = end - start;
+            if length < min
+                || length > max
+                || !self.placed(kind, media, start, end, episode_duration)
+            {
+                continue;
+            }
+            let marker = IntroMarker {
+                id: format!("{episode_id}-{kind}-chap-{first}"),
+                start,
+                end,
+                marker_type: kind,
+                confidence,
+                method: DetectionMethod::Chapter,
+            };
+            // One segment of each kind: the clearest name wins; between equals, the opening is
+            // the first one and the credits the last.
+            match markers.iter().position(|m| m.marker_type == kind) {
+                None => markers.push(marker),
+                Some(index) => {
+                    let current = markers[index].confidence;
+                    let later_wins = matches!(kind, MarkerType::Credits | MarkerType::Preview);
+                    if confidence > current || (later_wins && confidence >= current) {
+                        markers[index] = marker;
+                    }
+                }
+            }
         }
 
         if media == MediaKind::Episode && self.config.enable_chapter_structure {
@@ -379,7 +537,9 @@ impl<'a> ChapterClassifier<'a> {
     /// Anime releases are chaptered "avant / opening / part A / part B / ending / preview" even
     /// when the chapters carry no name: the opening and the ending are the two chapters as long
     /// as a TV-size song (75–100 s), the first in the opening third, the second just before the
-    /// end (or a short preview). Only unnamed chapters are read this way.
+    /// end (or a short preview). Only unnamed chapters are read this way, and every guess is a
+    /// proposal ([`STRUCTURE_ALONE_CONFIDENCE`]) until the audio agrees: nothing tells an anime
+    /// from a drama chaptered at its ad breaks.
     pub fn structural_markers(
         &self,
         episode_id: &str,
@@ -392,14 +552,20 @@ impl<'a> ChapterClassifier<'a> {
         if spans.iter().any(|span| !is_generic_title(&span.title)) {
             return Vec::new();
         }
-        let song = |span: &ChapterSpan| (SONG_MIN..=SONG_MAX).contains(&(span.end - span.start));
-        // A cold open ("avant") can itself last as long as a song: when the first chapter and
-        // another one both have the shape, the opening is the one after the cold open.
+        let length = |span: &ChapterSpan| span.end - span.start;
+        let song = |span: &ChapterSpan| (SONG_MIN..=SONG_MAX).contains(&length(span));
         let openings: Vec<usize> = (0..spans.len())
             .filter(|&i| song(&spans[i]) && spans[i].start <= (duration * 0.4).min(600.0))
             .collect();
+        // A cold open ("avant") can itself last as long as a song. When it is followed by a
+        // song-length chapter, or by one a little longer (the sponsor card cut into the
+        // opening), the opening is that second chapter; otherwise the first match is.
+        let long_opening = spans
+            .get(1)
+            .is_some_and(|span| length(span) > SONG_MAX && length(span) <= OPENING_WITH_CARD_MAX);
         let opening = match openings.as_slice() {
-            [0, second, ..] => Some(*second),
+            [0, 1, ..] => Some(1),
+            [0, ..] if long_opening => Some(1),
             [first, ..] => Some(*first),
             [] => None,
         };
@@ -412,13 +578,8 @@ impl<'a> ChapterClassifier<'a> {
                 && (tail_after <= 3.0
                     || (i + 1 == spans.len() - 1 && (5.0..=45.0).contains(&tail_after)))
         });
-        let confidence = if opening.is_some() && ending.is_some() {
-            STRUCTURE_CONFIRMED_CONFIDENCE
-        } else {
-            STRUCTURE_ALONE_CONFIDENCE
-        };
         let mut markers = Vec::new();
-        let mut push = |kind: MarkerType, index: usize, confidence: f64| {
+        let mut push = |kind: MarkerType, index: usize| {
             let span = &spans[index];
             let (min, max) = self.bounds(kind, MediaKind::Episode);
             if (min..=max).contains(&(span.end - span.start)) {
@@ -427,22 +588,28 @@ impl<'a> ChapterClassifier<'a> {
                     start: span.start,
                     end: span.end,
                     marker_type: kind,
-                    confidence,
+                    confidence: STRUCTURE_ALONE_CONFIDENCE,
                     method: DetectionMethod::Chapter,
                 });
             }
         };
         if let Some(index) = opening {
-            push(MarkerType::Intro, index, confidence);
+            push(MarkerType::Intro, index);
         }
         if let Some(index) = ending {
-            push(MarkerType::Credits, index, confidence);
+            push(MarkerType::Credits, index);
             if index + 1 == spans.len() - 1 {
-                push(MarkerType::Preview, index + 1, STRUCTURE_ALONE_CONFIDENCE);
+                push(MarkerType::Preview, index + 1);
             }
         }
         markers
     }
+}
+
+/// Whether a marker is a guess from the shape of unnamed chapters (see
+/// [`ChapterClassifier::structural_markers`]).
+pub fn is_structural(marker: &IntroMarker) -> bool {
+    marker.method == DetectionMethod::Chapter && marker.id.contains("-shape-")
 }
 
 /// One chapter with its resolved end (next chapter, or the end of the file).
@@ -524,6 +691,11 @@ pub fn is_generic_title(title: &str) -> bool {
 /// "OP1: Song", "♪ Ending") and each part is compared whole, after its numbering ("01", "2",
 /// "v2") is set aside, so "Opening Night" or "The Ending of Act I" do not match.
 fn classify_builtin(title: &str) -> Option<MarkerType> {
+    builtin_match(title).map(|(kind, _)| kind)
+}
+
+/// [`classify_builtin`] with the name part that matched, numbering set aside.
+fn builtin_match(title: &str) -> Option<(MarkerType, String)> {
     let full = clean_text(title);
     if NOT_CREDITS.iter().any(|phrase| full.contains(phrase)) {
         return None;
@@ -550,14 +722,15 @@ fn classify_builtin(title: &str) -> Option<MarkerType> {
         } else {
             None
         };
-        if found.is_some() {
-            return found;
+        if let Some(kind) = found {
+            return Some((kind, head));
         }
     }
     None
 }
 
-/// The name split at its separators, each part normalized like [`clean_text`].
+/// The name split at its separators (quotes included: `Opening "Kaikai Kitan"`), each part
+/// normalized like [`clean_text`].
 fn name_parts(title: &str) -> Vec<String> {
     let mut parts = Vec::new();
     let mut current = String::new();
@@ -578,6 +751,10 @@ fn name_parts(title: &str) -> Vec<String> {
                 | '+'
                 | '«'
                 | '»'
+                | '"'
+                | '“'
+                | '”'
+                | '„'
                 | '「'
                 | '」'
                 | '『'

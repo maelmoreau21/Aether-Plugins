@@ -137,8 +137,8 @@ fn unnamed_anime_chapters_reveal_opening_ending_and_preview() {
         (1290.0, 1380.0)
     );
     assert_eq!(find(MarkerType::Preview).start, 1380.0);
-    // Both found: each confirms the other and clears the default playback floor (0.80).
-    assert!(find(MarkerType::Intro).confidence >= 0.85);
+    // Kept below the default playback floor (0.80) until the audio confirms it.
+    assert_eq!(find(MarkerType::Intro).confidence, 0.72);
     assert_eq!(find(MarkerType::Intro).method, DetectionMethod::Chapter);
 
     // Scene titles (a film, a drama) are not guessed from.

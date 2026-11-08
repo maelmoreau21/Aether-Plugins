@@ -36,14 +36,47 @@ pub fn snap_segment(
     window: f64,
     analysed_end: Option<f64>,
 ) -> (f64, f64) {
+    snap_segment_in(
+        kind,
+        start,
+        end,
+        duration,
+        boundaries,
+        window,
+        (None, analysed_end),
+    )
+}
+
+/// [`snap_segment`] with both edges of the analysed audio: `(start, end)`. A match that starts
+/// at the start edge (credits that begin before the analysed tail) can reach a chapter mark up
+/// to [`TRUNCATED_EXTENSION`] earlier, one that stops at the end edge a mark that much later.
+/// Pass the match's own boundary as an edge when the match was cut at the edge of the other
+/// episode of the comparison.
+pub fn snap_segment_in(
+    kind: MarkerType,
+    start: f64,
+    end: f64,
+    duration: f64,
+    boundaries: &[f64],
+    window: f64,
+    analysed: (Option<f64>, Option<f64>),
+) -> (f64, f64) {
     let mut s = start;
     let mut e = end;
+    let cut_start = analysed.0.is_some_and(|edge| s <= edge + 2.0);
     if kind == MarkerType::Intro && s <= START_SNAP {
         s = 0.0;
+    } else if cut_start && window > 0.0 {
+        s = boundaries
+            .iter()
+            .copied()
+            .filter(|p| *p >= s - TRUNCATED_EXTENSION && *p <= s + window)
+            .min_by(|a, b| (a - s).abs().total_cmp(&(b - s).abs()))
+            .unwrap_or(s);
     } else {
         s = nearest(boundaries, s, window);
     }
-    let truncated = analysed_end.is_some_and(|edge| e >= edge - 2.0);
+    let truncated = analysed.1.is_some_and(|edge| e >= edge - 2.0);
     if kind == MarkerType::Credits && duration > 0.0 && e >= duration - END_SNAP {
         e = duration;
     } else if truncated {

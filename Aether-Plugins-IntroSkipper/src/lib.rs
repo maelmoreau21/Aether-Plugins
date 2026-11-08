@@ -331,7 +331,7 @@ pub fn config_schema() -> Vec<ConfigField> {
         toggle(
             "enable_chapter_structure",
             "Deviner l'opening et l'ending des chapitres sans nom",
-            "Pour les animés dont les chapitres ne portent pas de nom (« Chapitre 02 ») : les deux chapitres de la durée d'une chanson (75 à 100 s), au début et à la fin, sont proposés comme opening et ending. Confirmés par l'audio, ils sont appliqués.",
+            "Pour les animés dont les chapitres ne portent pas de nom (« Chapitre 02 ») : les chapitres de la durée d'une chanson (75 à 100 s), au début et à la fin, sont proposés comme opening et ending (72 %, sous le seuil de lecture). Ils ne sont appliqués que si l'audio de la saison les confirme ; si l'audio ne les retrouve pas, leur confiance baisse.",
             true,
         ),
         field(
@@ -352,7 +352,7 @@ pub fn config_schema() -> Vec<ConfigField> {
         field(
             "max_intro_duration",
             "Durée maximale de l'intro (s)",
-            "Jusqu'à 600 secondes. Les génériques d'animé font souvent 90 s.",
+            "Jusqu'à 600 secondes. Les génériques d'animé font souvent 90 s. Le générique d'ouverture d'un film peut atteindre au moins 300 s.",
             "number",
             "120",
         ),
@@ -403,13 +403,9 @@ pub fn config_schema() -> Vec<ConfigField> {
         choice(
             "min_consensus_votes",
             "Accord minimal entre épisodes",
-            "Nombre de comparaisons d'épisodes qui doivent retrouver la même séquence. « 2 » écarte les coïncidences mais demande au moins trois épisodes analysés.",
+            "Nombre de comparaisons d'épisodes qui doivent retrouver la même séquence. « 2 » écarte les coïncidences mais demande au moins trois épisodes analysés. Aether compare chaque épisode à deux autres au plus : une exigence plus haute n'est jamais atteinte et est ramenée à 2.",
             "1",
-            &[
-                ("1", "1 — tolérant"),
-                ("2", "2 — strict"),
-                ("3", "3 — très strict"),
-            ],
+            &[("1", "1 — tolérant"), ("2", "2 — strict")],
         ),
         // Boundary adjustments
         field(
