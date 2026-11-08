@@ -964,6 +964,25 @@
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
         {
+          "version": "0.1.7",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/omdb-v0.1.7-beta/omdb-0.1.7.package.json",
+          "checksum": "27032494b9bf81f0cdf3e7b5a5f273fd62f788fbac3093daea216924bda86328",
+          "timestamp": "2026-11-08T00:17:47Z",
+          "changelog": "- fix(imdb,omdb): declare m.media-amazon.com, where their posters are served",
+          "permissions": [
+            "metadata.read",
+            "metadata.write",
+            "images"
+          ],
+          "httpHosts": [
+            "www.omdbapi.com",
+            "m.media-amazon.com"
+          ]
+        },
+        {
           "version": "0.1.6",
           "targetAbi": "1.0",
           "minServerVersion": "0.1.0",
