@@ -17,6 +17,35 @@ pub struct TvdbPlugin;
 fn failure(code: &str) -> PluginError {
     PluginError::new(code, "TheTVDB request could not be completed")
 }
+/// Typed error of a non-2xx status (401 `unauthorized`, 403 `forbidden`, 404 `not_found`,
+/// 429 `rate_limited`, 502-504 `provider_unavailable`, 3xx `provider_redirect_refused`...).
+fn status_failure(status: u16, retry_after: Option<u64>) -> PluginError {
+    let error =
+        aether_plugin_api::http::classify_status(status, retry_after, "TheTVDB", "TheTVDB item")
+            .unwrap_or_else(|| failure("provider_error"));
+    tidy(error)
+}
+/// Every error of this plugin carries the same neutral message: the code says what happened
+/// and nothing from the provider, the broker or the request is echoed. An oversized body keeps
+/// the code this plugin has always used, `provider_response_too_large`.
+fn tidy(mut error: PluginError) -> PluginError {
+    if error.code == "response_too_large" {
+        error.code = "provider_response_too_large".into();
+    }
+    error.message = failure("").message;
+    error
+}
+/// Errors that make every further call pointless: the whole request must fail with them.
+fn is_fatal(error: &PluginError) -> bool {
+    matches!(
+        error.code.as_str(),
+        "unauthorized" | "forbidden" | "rate_limited" | "quota_exceeded" | "missing_api_key"
+    )
+}
+/// A present, non-blank identifier. Blank entries must not shadow a usable one.
+fn present<'a>(ids: &'a BTreeMap<String, String>, key: &str) -> Option<&'a str> {
+    ids.get(key).map(|v| v.trim()).filter(|v| !v.is_empty())
+}
 fn identifier(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 16
@@ -74,6 +103,27 @@ fn code(language: &str) -> Result<String, PluginError> {
     };
     Ok(mapped.into())
 }
+/// Two-letter tag for a provider code, when the mapping is unambiguous (`fra` -> `fr`).
+/// The provider reports no regions, so none is invented.
+fn bcp47(code: &str) -> Option<String> {
+    Some(
+        match code {
+            "fra" => "fr",
+            "eng" => "en",
+            "deu" => "de",
+            "spa" => "es",
+            "ita" => "it",
+            "por" => "pt",
+            "jpn" => "ja",
+            "zho" => "zh",
+            "kor" => "ko",
+            "rus" => "ru",
+            "nld" => "nl",
+            _ => return None,
+        }
+        .to_owned(),
+    )
+}
 fn languages(config: &ProviderConfig) -> Result<Vec<String>, PluginError> {
     let mut result = vec![code(config.language.as_deref().unwrap_or("en"))?];
     let fallback = config
@@ -110,9 +160,22 @@ async fn http(
     let body = body
         .map(|v| serde_json::to_vec(&v).map_err(|_| failure("invalid_input")))
         .transpose()?;
-    let url = format!("{API}/{endpoint}");
+    // Only a native run (tests, local CLI) may point elsewhere; the Wasm guest always reaches
+    // the host-allowlisted TheTVDB endpoint, so no permission is widened.
+    #[cfg(not(target_arch = "wasm32"))]
+    let base = config
+        .base_url
+        .as_deref()
+        .map(|b| b.trim().trim_end_matches('/'))
+        .filter(|b| b.starts_with("http://") || b.starts_with("https://"))
+        .unwrap_or(API);
     #[cfg(target_arch = "wasm32")]
-    let (status, bytes) = {
+    let base = API;
+    let url = format!("{base}/{endpoint}");
+    // One request per call and never a retry: `login` is a POST, and a 429/503 becomes a
+    // Core-side cooldown. `Retry-After` is passed on when the provider announces it.
+    #[cfg(target_arch = "wasm32")]
+    let (status, retry_after, bytes) = {
         let response = aether_plugin_api::host_http_fetch(&aether_plugin_api::HostHttpRequest {
             url,
             method: if body.is_some() { "POST" } else { "GET" }.into(),
@@ -120,11 +183,12 @@ async fn http(
             body,
             timeout_secs: Some(config.timeout_secs.unwrap_or(6).clamp(1, 6) as u32),
         })
-        .map_err(|_| failure("network_error"))?;
-        (response.status, response.body)
+        .map_err(|e| tidy(aether_plugin_api::http::host_error(e)))?;
+        let retry_after = aether_plugin_api::http::retry_after_from_headers(&response.headers);
+        (response.status, retry_after, response.body)
     };
     #[cfg(not(target_arch = "wasm32"))]
-    let (status, bytes) = {
+    let (status, retry_after, bytes) = {
         let client = reqwest::Client::builder()
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
@@ -144,34 +208,39 @@ async fn http(
         if let Some(body) = body {
             req = req.body(body);
         }
-        let mut response = req.send().await.map_err(|_| failure("network_error"))?;
-        let status = response.status().as_u16();
-        let mut bytes = Vec::new();
-        while let Some(chunk) = response
-            .chunk()
+        let response = req
+            .send()
             .await
-            .map_err(|_| failure("network_error"))?
-        {
-            if bytes.len() + chunk.len() > MAX_RESPONSE {
-                return Err(failure("provider_response_too_large"));
-            }
-            bytes.extend_from_slice(&chunk);
+            .map_err(|e| tidy(aether_plugin_api::http::transport_error(e)))?;
+        let status = response.status().as_u16();
+        let retry_after = aether_plugin_api::http::retry_after_secs(
+            response
+                .headers()
+                .get("retry-after")
+                .and_then(|value| value.to_str().ok()),
+        );
+        // An error status is classified before its body is downloaded.
+        if !(200..=299).contains(&status) {
+            return Err(status_failure(status, retry_after));
         }
-        (status, bytes)
+        let bytes = aether_plugin_api::http::read_body(response)
+            .await
+            .map_err(tidy)?;
+        (status, retry_after, bytes)
     };
     if bytes.len() > MAX_RESPONSE {
         return Err(failure("provider_response_too_large"));
     }
-    match status {
-        200..=299 => {}
-        401 | 403 => return Err(failure("unauthorized")),
-        404 => return Err(failure("not_found")),
-        429 | 503 => return Err(failure("rate_limited")),
-        300..=399 => return Err(failure("provider_redirect_refused")),
-        _ => return Err(failure("provider_error")),
+    if !(200..=299).contains(&status) {
+        return Err(status_failure(status, retry_after));
     }
-    let result: Value =
-        serde_json::from_slice(&bytes).map_err(|_| failure("invalid_provider_response"))?;
+    let result: Value = serde_json::from_slice(&bytes).map_err(|e| {
+        if e.is_eof() {
+            failure("truncated_response")
+        } else {
+            failure("invalid_provider_response")
+        }
+    })?;
     if result["status"].as_str() != Some("success") || result.get("data").is_none() {
         return Err(failure("invalid_provider_response"));
     }
@@ -219,15 +288,13 @@ async fn resolve(
         }
         return Ok(id.to_string());
     }
-    if let Some(id) = ids.get("tvdb") {
+    if let Some(id) = present(ids, "tvdb") {
         if !identifier(id) {
             return Err(failure("invalid_tvdb_id"));
         }
-        return Ok(id.clone());
+        return Ok(id.to_string());
     }
-    let imdb = ids
-        .get("imdb")
-        .ok_or_else(|| failure("identity_required"))?;
+    let imdb = present(ids, "imdb").ok_or_else(|| failure("identity_required"))?;
     if !imdb.strip_prefix("tt").is_some_and(identifier) {
         return Err(failure("invalid_external_id"));
     }
@@ -352,12 +419,46 @@ fn metadata(record: &Value, id: &str) -> Result<StructuredMetadata, PluginError>
     Ok(result)
 }
 
+/// Extra translation languages asked by the Core, as provider codes. One request each, so
+/// the list is short: a login, a lookup, the record and the translations must fit the
+/// host's ten requests per invocation. Unsupported tags are skipped, never an error.
+const MAX_EXTRA_LANGUAGES: usize = 3;
+
+fn extra_languages(
+    requested: &[String],
+    config: &ProviderConfig,
+) -> Result<Vec<String>, PluginError> {
+    let known = languages(config)?;
+    let mut extra: Vec<String> = Vec::new();
+    for tag in requested.iter().take(8) {
+        if let Ok(code) = code(tag)
+            && !known.contains(&code)
+            && !extra.contains(&code)
+            && extra.len() < MAX_EXTRA_LANGUAGES
+        {
+            extra.push(code);
+        }
+    }
+    Ok(extra)
+}
+
 async fn details_with_token(
     id: &str,
     ids: &BTreeMap<String, String>,
     media: MediaType,
     token: &str,
     config: &ProviderConfig,
+) -> Result<StructuredMetadata, PluginError> {
+    details_with_languages(id, ids, media, token, config, &[]).await
+}
+
+async fn details_with_languages(
+    id: &str,
+    ids: &BTreeMap<String, String>,
+    media: MediaType,
+    token: &str,
+    config: &ProviderConfig,
+    extra: &[String],
 ) -> Result<StructuredMetadata, PluginError> {
     let id = resolve(id, ids, media, token, config).await?;
     let endpoint = kind(media)?;
@@ -370,14 +471,22 @@ async fn details_with_token(
     .await?;
     let mut result = metadata(&record, &id)?;
     // A reverse IMDb lookup must confirm the identity before automatic application.
-    if let Some(imdb) = ids.get("imdb")
-        && result.external_ids.get("imdb") != Some(imdb)
+    if let Some(imdb) = present(ids, "imdb")
+        && result.external_ids.get("imdb").map(String::as_str) != Some(imdb)
     {
         return Err(failure("identity_mismatch"));
     }
     let mut title = false;
     let mut overview = false;
-    for language in languages(config)? {
+    // Main language and fallback first; the main text comes from the first one that has it.
+    let mut wanted = languages(config)?;
+    let core_languages = wanted.len();
+    wanted.extend(extra.iter().cloned());
+    result.locale = wanted
+        .first()
+        .map(|l| (*l).clone())
+        .and_then(|code| bcp47(&code));
+    for (position, language) in wanted.into_iter().enumerate() {
         let translation = match http(
             &format!("{endpoint}/{id}/translations/{language}"),
             None,
@@ -388,6 +497,9 @@ async fn details_with_token(
         {
             Ok(value) => value,
             Err(e) if e.code == "not_found" => continue,
+            // A language added on request must not erase the record already read: only a
+            // failure that dooms every call (credentials, quota) is worth reporting.
+            Err(e) if position >= core_languages && !is_fatal(&e) => continue,
             Err(e) => return Err(e),
         };
         let item = TranslationItem {
@@ -405,7 +517,8 @@ async fn details_with_token(
             overview = true;
         }
         result.translations.insert(language, item);
-        if title && overview {
+        // Stop early only when nobody asked for more languages.
+        if title && overview && extra.is_empty() {
             break;
         }
     }
@@ -518,8 +631,8 @@ impl MetadataProviderPlugin for TvdbPlugin {
         let mut config = config.clone();
         config.language = query.language.clone().or(config.language);
         languages(&config)?;
-        let identified =
-            query.external_ids.contains_key("tvdb") || query.external_ids.contains_key("imdb");
+        let identified = present(&query.external_ids, "tvdb").is_some()
+            || present(&query.external_ids, "imdb").is_some();
         if query.media_type == MediaType::Episode && !identified {
             return Err(failure("episode_identity_required"));
         }
@@ -608,14 +721,15 @@ impl MetadataProviderPlugin for TvdbPlugin {
         config: &ProviderConfig,
     ) -> Result<StructuredMetadata, PluginError> {
         kind(request.media_type)?;
-        languages(config)?;
+        let extra = extra_languages(&request.languages, config)?;
         let token = login(config).await?;
-        details_with_token(
+        details_with_languages(
             &request.id,
             &request.external_ids,
             request.media_type,
             &token,
             config,
+            &extra,
         )
         .await
     }
@@ -665,6 +779,28 @@ pub fn handle_tvdb_extension_request(mut req: ExtensionRequest) -> ExtensionResp
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn requested_languages_are_mapped_deduplicated_and_bounded() {
+        let config = ProviderConfig {
+            language: Some("fr-FR".into()),
+            ..Default::default()
+        };
+        let asked = |tags: &[&str]| tags.iter().map(|t| (*t).to_owned()).collect::<Vec<_>>();
+        // French is the main language and English the default fallback: neither is repeated.
+        assert_eq!(
+            extra_languages(&asked(&["fr-CA", "en-GB", "de", "ja", "es", "it"]), &config).unwrap(),
+            ["deu", "jpn", "spa"],
+            "at most three extra languages, in the Core's order"
+        );
+        assert!(
+            extra_languages(&asked(&["xx-not a tag", ""]), &config)
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(bcp47("fra").as_deref(), Some("fr"));
+        assert_eq!(bcp47("zzz"), None);
+    }
+
     #[test]
     fn languages_are_explicit_and_bounded() {
         assert_eq!(code("fr-FR").unwrap(), "fra");

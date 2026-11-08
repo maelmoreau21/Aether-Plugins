@@ -245,10 +245,9 @@ fn representative_24_episodes_benchmark_and_accuracy() {
         similarity_threshold: 0.70,
         search_window_start: 0.0,
         search_window_end: 600.0,
-        auto_skip_intro: true,
-        auto_skip_credits: true,
         enable_chapter_detection: true,
         enable_fingerprint_detection: true,
+        ..Default::default()
     };
 
     let analyzer = SeasonAnalyzer::new(&config);

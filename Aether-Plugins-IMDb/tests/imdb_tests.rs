@@ -1,5 +1,5 @@
 use aether_plugin_api::{
-    DetailsRequest, MediaType, MetadataProviderPlugin, ProviderConfig, SearchQuery,
+    DetailsRequest, ImagesRequest, MediaType, MetadataProviderPlugin, ProviderConfig, SearchQuery,
 };
 use aether_plugin_imdb::ImdbPlugin;
 
@@ -40,7 +40,7 @@ async fn test_imdb_suggestion_mock() {
                         io,
                         service_fn(|req: Request<hyper::body::Incoming>| async move {
                             let path = req.uri().path();
-                            if path.contains("interstellar") {
+                            if path.contains("interstellar") || path.ends_with("/x/tt0816692.json") {
                                 let mock_json = r#"{
                                     "d": [
                                         {
@@ -110,6 +110,20 @@ async fn test_imdb_suggestion_mock() {
         items[0].poster_url.as_deref(),
         Some("https://m.media-amazon.com/images/M/interstellar.jpg")
     );
+    // Images come from the suggestion API: the title page is behind an anti-bot challenge.
+    let images = plugin
+        .images(
+            ImagesRequest {
+                id: "tt0816692".into(),
+                media_type: MediaType::Movie,
+                external_ids: Default::default(),
+            },
+            &config,
+        )
+        .await
+        .unwrap();
+    assert_eq!(images.len(), 1);
+    assert_eq!(images[0].width, Some(1000));
 }
 
 #[tokio::test]
@@ -208,6 +222,7 @@ async fn test_imdb_details_mock() {
                 id: "tt0816692".into(),
                 media_type: MediaType::Movie,
                 external_ids: Default::default(),
+                ..Default::default()
             },
             &config,
         )

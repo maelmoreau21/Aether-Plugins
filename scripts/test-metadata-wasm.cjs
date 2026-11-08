@@ -62,13 +62,58 @@ const result = invoke('tmdb', 'metadata.search', {title: 'Titre', year: 2000, co
 assert.equal(searches, 2);
 assert.equal(result[0].id, '42');
 
+// Provider failures as the real TMDb guest sees them from the broker: one request each (no
+// retry), a distinct code per class, and never the API key (it travels in the request URL).
+function invokeRaw(provider, operation, input, broker) {
+  const module = new WebAssembly.Module(fs.readFileSync(path.join(root, `aether_plugin_${provider}.wasm`)));
+  let guest;
+  const write = value => {
+    const bytes = Buffer.from(JSON.stringify(value));
+    const ptr = guest.exports.media_alloc(bytes.length) >>> 0;
+    new Uint8Array(guest.exports.memory.buffer, ptr, bytes.length).set(bytes);
+    return (BigInt(ptr) << 32n) | BigInt(bytes.length);
+  };
+  guest = new WebAssembly.Instance(module, { aether: { aether_host_http(ptr, len) {
+    const request = JSON.parse(Buffer.from(guest.exports.memory.buffer, ptr, len).toString('utf8'));
+    const reply = broker(request);
+    if (reply.hostError) return write({ Err: reply.hostError });
+    return write({ Ok: { status: reply.status, headers: reply.headers ?? {}, body: [...Buffer.from(reply.raw ?? '{}')] } });
+  } } });
+  const packed = write({apiVersion: 1, operation, input});
+  const output = guest.exports.media_run(Number(packed >> 32n), Number(packed & 0xffffffffn));
+  return JSON.parse(Buffer.from(guest.exports.memory.buffer, Number(output >> 32n), Number(output & 0xffffffffn)).toString('utf8')).result;
+}
+for (const [reply, code] of [
+  [{status: 401}, 'unauthorized'],
+  [{status: 403}, 'forbidden'],
+  [{status: 404}, 'not_found'],
+  [{status: 429, headers: {'retry-after': '120'}}, 'rate_limited'],
+  [{status: 500}, 'provider_error'],
+  [{status: 503, headers: {'retry-after': '120'}}, 'provider_unavailable'],
+  [{status: 200, raw: '{"id":42,"ti'}, 'truncated_response'],
+  [{hostError: {code: 'dns_timeout', message: 'timed out resolving https://api.themoviedb.org/3/movie/42?api_key=synthetic'}}, 'timeout'],
+  [{hostError: {code: 'network_error', message: 'error sending request for url (https://api.themoviedb.org/3/movie/42?api_key=synthetic)'}}, 'network_error'],
+  [{hostError: {code: 'quota_exceeded', message: 'Maximum 10 HTTP requests per invocation exceeded'}}, 'quota_exceeded'],
+]) {
+  let requests = 0;
+  const failed = invokeRaw('tmdb', 'metadata.details', {id: '42', mediaType: 'movie', config}, () => { requests++; return reply; });
+  assert.equal(failed.error, code, JSON.stringify(reply));
+  assert.equal(requests, 1, `${JSON.stringify(reply)} must not be retried`);
+  assert(!JSON.stringify(failed).includes('synthetic'), 'the API key must never be echoed');
+}
+
 for (const provider of ['imdb', 'omdb']) {
   const result = invoke(provider, 'metadata.search', {title: 'Wrong title', year: 1900, externalIds: {imdb: 'tt0000042'}, config}, request => {
     const url = new URL(request.url);
     assert.equal(request.timeoutSecs, 15);
     if (provider === 'imdb') {
-      assert.equal(url.pathname, '/title/tt0000042/');
-      return '<script type="application/ld+json">{"@type":"Movie","name":"Titre français","datePublished":"1999-01-01"}</script>';
+      // Title pages answer an anti-bot challenge to servers: details come from GraphQL.
+      assert.equal(request.method, 'POST');
+      assert.equal(url.host, 'caching.graphql.imdb.com');
+      assert.equal(request.headers['x-imdb-client-name'], 'imdb-web-next-localized');
+      const query = JSON.parse(Buffer.from(request.body).toString('utf8'));
+      assert.equal(query.variables.id, 'tt0000042');
+      return {data: {title: {titleText: {text: 'Titre français'}, releaseYear: {year: 1999}}}};
     }
     assert.equal(url.searchParams.get('i'), 'tt0000042');
     assert(!url.searchParams.has('s'));

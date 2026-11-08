@@ -16,4 +16,4 @@ reqwest = { workspace = true }
 tokio = { version = "1", features = ["time"] }
 
 [dev-dependencies]
-tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "time"] }

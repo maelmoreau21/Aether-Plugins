@@ -1,4 +1,4 @@
-﻿use aether_plugin_api::{
+use aether_plugin_api::{
     DetailsRequest, LyricsRequest, MediaType, MetadataProviderPlugin, ProviderConfig, SearchQuery,
 };
 use aether_plugin_lrclib::{LrcLibPlugin, handle_lyrics_request, parse_lrc};
@@ -144,6 +144,7 @@ async fn trait_search_and_details_use_ids() {
                 id: items[0].id.clone(),
                 media_type: MediaType::Movie,
                 external_ids: Default::default(),
+                ..Default::default()
             },
             &config(addr),
         )
@@ -156,6 +157,7 @@ async fn trait_search_and_details_use_ids() {
                 id: "abc".into(),
                 media_type: MediaType::Movie,
                 external_ids: Default::default(),
+                ..Default::default()
             },
             &config(addr),
         )

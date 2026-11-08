@@ -134,6 +134,7 @@ async fn details_and_images_are_structured() {
                 id: "tt0816692".into(),
                 media_type: MediaType::Movie,
                 external_ids: Default::default(),
+                ..Default::default()
             },
             &cfg,
         )
@@ -169,6 +170,7 @@ async fn errors_are_typed_and_do_not_leak_the_key() {
         id: "tt0816692".into(),
         media_type: MediaType::Movie,
         external_ids: Default::default(),
+        ..Default::default()
     };
     let missing = plugin.details(req(), &ProviderConfig::default()).await;
     assert_eq!(missing.unwrap_err().code, "missing_api_key");
@@ -190,7 +192,7 @@ async fn errors_are_typed_and_do_not_leak_the_key() {
 #[test]
 fn manifest_declares_host_and_secret_field() {
     let m = OmdbPlugin::new().manifest();
-    assert_eq!(m.http_hosts, vec!["www.omdbapi.com"]);
+    assert_eq!(m.http_hosts, vec!["www.omdbapi.com", "m.media-amazon.com"]);
     assert!(
         m.config_schema
             .iter()

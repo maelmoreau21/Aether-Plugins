@@ -1,6 +1,8 @@
 //! High-performance Intro & Credits Detection Plugin for Aether.
 //! Optimized Rust implementation inspired by https://github.com/intro-skipper/intro-skipper
 
+pub mod adjust;
+pub mod blackframe;
 pub mod chapters;
 pub mod consensus;
 pub mod credits;
@@ -10,10 +12,12 @@ pub mod types;
 use aether_plugin_api::{
     ConfigField, ConfigOption, MediaType, PluginCapability, PluginManifest, ProviderConfig,
 };
-pub use chapters::ChapterClassifier;
+pub use chapters::{ChapterClassifier, MediaKind};
 pub use consensus::SeasonAnalyzer;
 pub use credits::CreditsDetector;
-pub use matcher::{DEFAULT_FINGERPRINT_RATE, FingerprintMatcher};
+pub use matcher::{
+    DEFAULT_FINGERPRINT_RATE, FingerprintMatcher, LEGACY_FINGERPRINT_RATE, normalize_rate,
+};
 pub use types::*;
 
 #[derive(Clone, Default)]
@@ -29,12 +33,12 @@ impl IntroSkipperPlugin {
             api_version: 1,
             id: "intro-skipper".into(),
             name: "Intro Skipper".into(),
-            version: "0.1.0".into(),
+            version: env!("CARGO_PKG_VERSION").into(),
             category: "Playback".into(),
             provider: "Intro Skipper".into(),
             permissions: vec!["playback.markers".into()],
             http_hosts: Vec::new(), // Zero external network access required - pure local analysis
-            description: "Détection automatique ultra-rapide des introductions et génériques de fin par empreintes audio et chapitres".into(),
+            description: "Détection des introductions, génériques de fin, résumés et aperçus des séries, animés et films : chapitres du fichier, forme des chapitres d'animé et empreintes audio communes à une saison".into(),
             author: "Aether Team".into(),
             license: "AGPL-3.0-only".into(),
             target_abi: "1.0".into(),
@@ -43,132 +47,14 @@ impl IntroSkipperPlugin {
             checksum: None,
             banner: Some("assets/banner.svg".into()),
             capabilities: vec![PluginCapability::Details],
-            supported_media_types: vec![MediaType::TvShow, MediaType::Episode, MediaType::Anime],
-            default_priority: 50,
-            config_schema: vec![
-                ConfigField {
-                    key: "min_intro_duration".into(),
-                    label: "Durée minimale d'intro (s)".into(),
-                    description: "Longueur minimale en secondes pour qu'un segment soit identifié comme intro".into(),
-                    field_type: "number".into(),
-                    default_value: Some("15".into()),
-                    required: false,
-                    secret: false,
-                    options: Vec::new(),
-                },
-                ConfigField {
-                    key: "max_intro_duration".into(),
-                    label: "Durée maximale d'intro (s)".into(),
-                    description: "Longueur maximale en secondes d'un générique d'ouverture".into(),
-                    field_type: "number".into(),
-                    default_value: Some("120".into()),
-                    required: false,
-                    secret: false,
-                    options: Vec::new(),
-                },
-                ConfigField {
-                    key: "min_credits_duration".into(),
-                    label: "Durée minimale de crédits (s)".into(),
-                    description: "Longueur minimale d'un générique de fin".into(),
-                    field_type: "number".into(),
-                    default_value: Some("10".into()),
-                    required: false,
-                    secret: false,
-                    options: Vec::new(),
-                },
-                ConfigField {
-                    key: "max_credits_duration".into(),
-                    label: "Durée maximale du générique de fin (s)".into(),
-                    description: "De la durée minimale à 300 secondes. Limite les marqueurs par chapitres et empreintes ; n'allonge pas l'extraction audio du Node.".into(),
-                    field_type: "number".into(),
-                    default_value: Some("300".into()),
-                    required: false,
-                    secret: false,
-                    options: Vec::new(),
-                },
-                ConfigField {
-                    key: "similarity_threshold".into(),
-                    label: "Seuil de similarité audio".into(),
-                    description: "Seuil de corrélation acoustique (0.70 à 0.90 recommandé)".into(),
-                    field_type: "number".into(),
-                    default_value: Some("0.75".into()),
-                    required: false,
-                    secret: false,
-                    options: Vec::new(),
-                },
-                ConfigField {
-                    key: "search_window_start".into(),
-                    label: "Début de recherche acoustique de l'intro (s)".into(),
-                    description: "Ignorer l'audio avant cette position (0 à moins de 600 s), par exemple un résumé récurrent. La fenêtre doit contenir la durée minimale d'intro.".into(),
-                    field_type: "number".into(),
-                    default_value: Some("0".into()),
-                    required: false,
-                    secret: false,
-                    options: Vec::new(),
-                },
-                ConfigField {
-                    key: "search_window_end".into(),
-                    label: "Fenêtre de recherche intro (s)".into(),
-                    description: "Fin de la fenêtre acoustique, plafond 600 secondes. La recherche reste limitée aux empreintes fournies (Node actuel : environ 290 s). Les chapitres nommés restent indépendants.".into(),
-                    field_type: "number".into(),
-                    default_value: Some("600".into()),
-                    required: false,
-                    secret: false,
-                    options: Vec::new(),
-                },
-                ConfigField {
-                    key: "auto_skip_intro".into(),
-                    label: "Passer l'intro automatiquement".into(),
-                    description: "Sauter le générique sans intervention manuelle dès son commencement".into(),
-                    field_type: "boolean".into(),
-                    default_value: Some("false".into()),
-                    required: false,
-                    secret: false,
-                    options: vec![
-                        ConfigOption { label: "Désactivé".into(), value: "false".into() },
-                        ConfigOption { label: "Activé".into(), value: "true".into() },
-                    ],
-                },
-                ConfigField {
-                    key: "auto_skip_credits".into(),
-                    label: "Passer les crédits automatiquement".into(),
-                    description: "Passer directement à l'épisode suivant lors du générique de fin".into(),
-                    field_type: "boolean".into(),
-                    default_value: Some("false".into()),
-                    required: false,
-                    secret: false,
-                    options: vec![
-                        ConfigOption { label: "Désactivé".into(), value: "false".into() },
-                        ConfigOption { label: "Activé".into(), value: "true".into() },
-                    ],
-                },
-                ConfigField {
-                    key: "enable_chapter_detection".into(),
-                    label: "Détection par chapitres".into(),
-                    description: "Utiliser les chapitres nommés du conteneur MKV/MP4 si disponibles".into(),
-                    field_type: "boolean".into(),
-                    default_value: Some("true".into()),
-                    required: false,
-                    secret: false,
-                    options: vec![
-                        ConfigOption { label: "Activé".into(), value: "true".into() },
-                        ConfigOption { label: "Désactivé".into(), value: "false".into() },
-                    ],
-                },
-                ConfigField {
-                    key: "enable_fingerprint_detection".into(),
-                    label: "Détection acoustique (Chromaprint)".into(),
-                    description: "Analyser les empreintes audio pour repérer les séquences récurrentes".into(),
-                    field_type: "boolean".into(),
-                    default_value: Some("true".into()),
-                    required: false,
-                    secret: false,
-                    options: vec![
-                        ConfigOption { label: "Activé".into(), value: "true".into() },
-                        ConfigOption { label: "Désactivé".into(), value: "false".into() },
-                    ],
-                },
+            supported_media_types: vec![
+                MediaType::Movie,
+                MediaType::TvShow,
+                MediaType::Episode,
+                MediaType::Anime,
             ],
+            default_priority: 50,
+            config_schema: config_schema(),
         }
     }
 }
@@ -282,7 +168,17 @@ pub fn handle_intro_skipper_request(
         }
 
         "intro.parse_chapters" => {
-            if !config.enable_chapter_detection {
+            let media = if req.input.get("mediaType").and_then(|v| v.as_str()) == Some("movie") {
+                MediaKind::Movie
+            } else {
+                MediaKind::Episode
+            };
+            // A film's picture can still give its credits when its chapters are not read.
+            let frames = (media == MediaKind::Movie)
+                .then(|| blackframe::BlackFrameScan::from_input(&req.input))
+                .flatten()
+                .filter(|_| config.enable_black_frame_detection);
+            if !config.enable_chapter_detection && frames.is_none() {
                 return media_extension_sdk::ExtensionResponse {
                     api_version: 1,
                     result: serde_json::json!([]),
@@ -305,7 +201,23 @@ pub fn handle_intro_skipper_request(
                 .unwrap_or_default();
 
             let classifier = ChapterClassifier::new(&config);
-            let markers = classifier.parse_markers(episode_id, &chapters, duration);
+            let mut markers = if config.enable_chapter_detection {
+                classifier.parse_markers_for(episode_id, &chapters, duration, media)
+            } else {
+                Vec::new()
+            };
+            if media == MediaKind::Movie {
+                // The chapter marks still place the picture's boundaries.
+                blackframe::film_credits(
+                    &config,
+                    episode_id,
+                    &mut markers,
+                    frames.as_ref(),
+                    &crate::chapters::chapter_spans(&chapters, duration),
+                    duration,
+                );
+            }
+            let markers = config.finalize(markers, duration);
             serde_json::to_value(markers).unwrap_or_default()
         }
 
@@ -331,4 +243,245 @@ pub fn handle_raw_extension_request(
 ) -> media_extension_sdk::ExtensionResponse {
     let plugin = IntroSkipperPlugin::new();
     handle_intro_skipper_request(&plugin, req)
+}
+
+fn field(key: &str, label: &str, description: &str, kind: &str, default: &str) -> ConfigField {
+    ConfigField {
+        key: key.into(),
+        label: label.into(),
+        description: description.into(),
+        field_type: kind.into(),
+        default_value: Some(default.into()),
+        required: false,
+        secret: false,
+        options: Vec::new(),
+    }
+}
+
+fn toggle(key: &str, label: &str, description: &str, default: bool) -> ConfigField {
+    let (on, off) = (
+        ConfigOption {
+            label: "Activé".into(),
+            value: "true".into(),
+        },
+        ConfigOption {
+            label: "Désactivé".into(),
+            value: "false".into(),
+        },
+    );
+    ConfigField {
+        options: if default {
+            vec![on, off]
+        } else {
+            vec![off, on]
+        },
+        ..field(
+            key,
+            label,
+            description,
+            "boolean",
+            if default { "true" } else { "false" },
+        )
+    }
+}
+
+fn choice(
+    key: &str,
+    label: &str,
+    description: &str,
+    default: &str,
+    options: &[(&str, &str)],
+) -> ConfigField {
+    ConfigField {
+        options: options
+            .iter()
+            .map(|(value, label)| ConfigOption {
+                label: (*label).into(),
+                value: (*value).into(),
+            })
+            .collect(),
+        ..field(key, label, description, "select", default)
+    }
+}
+
+/// Administration form, in the order it is shown. Every key is read by
+/// `IntroSkipperConfig::from_provider_config`; skipping on playback is a viewer
+/// preference of the Aether player, not a detection setting.
+pub fn config_schema() -> Vec<ConfigField> {
+    vec![
+        // What is detected
+        toggle(
+            "detect_intro",
+            "Détecter les génériques d'ouverture",
+            "Repérer l'intro par chapitres et par empreintes audio communes aux épisodes d'une saison.",
+            true,
+        ),
+        toggle(
+            "detect_credits",
+            "Détecter les génériques de fin",
+            "Repérer le générique de fin pour proposer de le passer ou d'enchaîner l'épisode suivant.",
+            true,
+        ),
+        toggle(
+            "detect_recap",
+            "Détecter les résumés (« Précédemment »)",
+            "Uniquement par chapitres nommés : l'audio d'un résumé change à chaque épisode.",
+            true,
+        ),
+        toggle(
+            "detect_preview",
+            "Détecter les aperçus de l'épisode suivant",
+            "Uniquement par chapitres nommés (« Preview », « Prochain épisode », « Jikai »…).",
+            true,
+        ),
+        // How it is detected
+        toggle(
+            "enable_chapter_detection",
+            "Utiliser les chapitres du fichier",
+            "Les chapitres nommés des MKV/MP4 (« Intro », « Opening », « Générique de fin »…) donnent un résultat immédiat et précis.",
+            true,
+        ),
+        toggle(
+            "enable_fingerprint_detection",
+            "Utiliser l'analyse audio (Chromaprint)",
+            "Compare les empreintes audio des épisodes d'une même saison. Nécessite un ffmpeg avec Chromaprint sur le Node.",
+            true,
+        ),
+        toggle(
+            "enable_chapter_structure",
+            "Deviner l'opening et l'ending des chapitres sans nom",
+            "Pour les animés dont les chapitres ne portent pas de nom (« Chapitre 02 ») : les chapitres de la durée d'une chanson (75 à 100 s), au début et à la fin, sont proposés comme opening et ending (72 %, sous le seuil de lecture). Ils ne sont appliqués que si l'audio de la saison les confirme ; si l'audio ne les retrouve pas, leur confiance baisse.",
+            true,
+        ),
+        toggle(
+            "enable_black_frame_detection",
+            "Lire le générique de fin des films à l'image",
+            "Le Node analyse les 20 dernières minutes d'un film (images clés seulement) : un long passage noir portant du texte est le générique. Il se cale sur le chapitre le plus proche et confirme un chapitre « Fin » ou « Ending ». Un fondu au noir ou une scène de nuit ne comptent pas.",
+            true,
+        ),
+        field(
+            "chapter_snap_window",
+            "Caler l'audio sur les chapitres (s)",
+            "De 0 à 10 secondes. Une limite trouvée par l'audio à moins de cette distance d'un chapitre se cale sur le chapitre. 0 : jamais.",
+            "number",
+            "3",
+        ),
+        // Intro limits
+        field(
+            "min_intro_duration",
+            "Durée minimale de l'intro (s)",
+            "De 1 à 600 secondes. Une séquence commune plus courte n'est pas une intro (jingle, logo).",
+            "number",
+            "15",
+        ),
+        field(
+            "max_intro_duration",
+            "Durée maximale de l'intro (s)",
+            "Jusqu'à 600 secondes. Les génériques d'animé font souvent 90 s. Le générique d'ouverture d'un film peut atteindre au moins 300 s.",
+            "number",
+            "120",
+        ),
+        field(
+            "search_window_start",
+            "Début de la recherche de l'intro (s)",
+            "Ignorer l'audio avant cette position (0 à moins de 600 s), par exemple un résumé ou une séquence pré-générique. La fenêtre doit contenir la durée minimale.",
+            "number",
+            "0",
+        ),
+        field(
+            "search_window_end",
+            "Fin de la recherche de l'intro (s)",
+            "Plafond 600 secondes. La recherche reste limitée aux empreintes fournies par le Node (environ les 5 premières minutes).",
+            "number",
+            "600",
+        ),
+        // Credits limits
+        field(
+            "min_credits_duration",
+            "Durée minimale du générique de fin (s)",
+            "De 1 à 300 secondes.",
+            "number",
+            "10",
+        ),
+        field(
+            "max_credits_duration",
+            "Durée maximale du générique de fin (s)",
+            "De la durée minimale à 300 secondes. S'applique aux chapitres et à l'analyse audio.",
+            "number",
+            "300",
+        ),
+        field(
+            "max_movie_credits_duration",
+            "Durée maximale du générique de fin d'un film (s)",
+            "De la durée minimale à 1200 secondes. Les films n'ont pas d'épisodes à comparer : leur générique vient de leurs chapitres.",
+            "number",
+            "900",
+        ),
+        // Acoustic matching
+        field(
+            "similarity_threshold",
+            "Seuil de similarité audio",
+            "De 0.50 à 1.00. Plus haut : moins de faux positifs mais plus d'intros manquées (0.70 à 0.85 recommandé).",
+            "number",
+            "0.75",
+        ),
+        choice(
+            "min_consensus_votes",
+            "Accord minimal entre épisodes",
+            "Nombre de comparaisons d'épisodes qui doivent retrouver la même séquence. « 2 » écarte les coïncidences mais demande au moins trois épisodes analysés. Aether compare chaque épisode à deux autres au plus : une exigence plus haute n'est jamais atteinte et est ramenée à 2.",
+            "1",
+            &[("1", "1 — tolérant"), ("2", "2 — strict")],
+        ),
+        // Boundary adjustments
+        field(
+            "intro_start_offset",
+            "Décalage du début de l'intro (s)",
+            "De -30 à 30 secondes, appliqué à chaque intro détectée. Positif : l'intro commence plus tard.",
+            "number",
+            "0",
+        ),
+        field(
+            "intro_end_offset",
+            "Décalage de la fin de l'intro (s)",
+            "De -30 à 30 secondes. Négatif : le saut s'arrête plus tôt pour ne pas couper le début de l'épisode.",
+            "number",
+            "0",
+        ),
+        field(
+            "credits_start_offset",
+            "Décalage du début du générique de fin (s)",
+            "De -30 à 30 secondes. Positif : garder une scène post-générique ou les dernières répliques.",
+            "number",
+            "0",
+        ),
+        // Custom chapter names
+        field(
+            "intro_keywords",
+            "Noms de chapitre supplémentaires — intro",
+            "Séparés par des virgules, sans tenir compte de la casse ni des accents. Exemple : Thème, Opening Song.",
+            "text",
+            "",
+        ),
+        field(
+            "credits_keywords",
+            "Noms de chapitre supplémentaires — générique de fin",
+            "Séparés par des virgules. Exemple : Staff Roll, Ending Song.",
+            "text",
+            "",
+        ),
+        field(
+            "recap_keywords",
+            "Noms de chapitre supplémentaires — résumé",
+            "Séparés par des virgules. Exemple : Dans l'épisode précédent.",
+            "text",
+            "",
+        ),
+        field(
+            "preview_keywords",
+            "Noms de chapitre supplémentaires — aperçu",
+            "Séparés par des virgules. Exemple : Bande-annonce, Next Time.",
+            "text",
+            "",
+        ),
+    ]
 }

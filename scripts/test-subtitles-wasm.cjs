@@ -50,10 +50,37 @@ const download = invoke('subtitles.download', {fileId: '42', config: {api_key: '
   return {body: {link: 'https://dl.opensubtitles.com/download/fixture', remaining: 0, reset_time_utc: '2026-11-04T00:00:00Z'}};
 });
 assert.equal(download.remaining, 0);
-for (const [status, code] of [[401, 'unauthorized'], [403, 'unauthorized'], [406, 'download_quota_exceeded'], [429, 'rate_limited'], [503, 'rate_limited'], [302, 'provider_redirect_refused']]) {
+for (const [status, code] of [[401, 'unauthorized'], [403, 'unauthorized'], [404, 'not_found'], [400, 'invalid_request'], [406, 'download_quota_exceeded'], [408, 'timeout'], [429, 'rate_limited'], [503, 'rate_limited'], [502, 'provider_unavailable'], [302, 'provider_redirect_refused'], [500, 'provider_error']]) {
   const output = invoke('subtitles.download', {fileId: '42', config: {api_key: 'fixture-api-key'}}, () => ({status, body: {message: 'provider-secret'}}));
   assert.deepEqual(output, {error: code});
 }
+// Official hash + series identifiers + regional variant, through the real guest.
+let seen;
+const hashed = invoke('subtitles.search', {mediaType: 'episode', title: 'Series', externalIds: {imdb: ' '}, parentExternalIds: {imdb: 'tt0903747'}, seasonNumber: 2, episodeNumber: 5, movieHash: '8E245D9679D31E12', language: 'pt-BR', sdh: false, config: {api_key: 'fixture-api-key'}}, request => {
+  seen = new URL(request.url);
+  return {body: {total_pages: 1, data: [
+    {attributes: {language: 'pt-PT', release: 'European', files: [{file_id: 1}]}},
+    {attributes: {language: 'pt-BR', release: 'Other cut', files: [{file_id: 2}]}},
+    {attributes: {language: 'pt-BR', release: 'Exact cut', moviehash_match: true, files: [{file_id: 3}]}},
+    {attributes: {language: 'pt-BR', release: 'For the deaf', hearing_impaired: true, files: [{file_id: 4}]}},
+  ]}};
+});
+assert.equal(seen.searchParams.get('moviehash'), '8e245d9679d31e12');
+assert.equal(seen.searchParams.get('languages'), 'pt-br');
+assert.equal(seen.searchParams.get('parent_imdb_id'), '903747');
+assert.equal(seen.searchParams.get('season_number'), '2');
+assert.equal(seen.searchParams.get('episode_number'), '5');
+assert.equal(seen.searchParams.get('hearing_impaired'), 'exclude');
+assert.equal(seen.searchParams.has('query'), false);
+assert.deepEqual(hashed.items.map(i => i.id), ['3', '2']);
+assert.equal(hashed.items[0].hashMatch, true);
+assert.equal(hashed.items[0].match, 'identity');
+// Aether's own fingerprint never reaches the provider.
+assert.deepEqual(invoke('subtitles.search', {mediaType: 'movie', title: 'x', language: 'fr', movieHash: 'b3s1:1048576:0123456789abcdef0123456789abcdef', config: {api_key: 'fixture-api-key'}}, () => {throw new Error('invalid hash reached network');}), {error: 'invalid_movie_hash'});
+// A refused login is reported as such, costs exactly one request and is not retried.
+let loginCalls = 0;
+assert.deepEqual(invoke('subtitles.search', {mediaType: 'movie', title: 'x', language: 'fr', config}, () => {loginCalls++; return {status: 401, body: {message: 'provider-secret'}};}), {error: 'invalid_credentials'});
+assert.equal(loginCalls, 1);
 assert.deepEqual(invoke('subtitles.download', {fileId: '../bad', config}, () => {throw new Error('invalid input reached network');}), {error: 'invalid_file_id'});
 assert.deepEqual(invoke('subtitles.download', {fileId: '42', config: {api_key: 'fixture-api-key'}}, () => ({body: {link: 'https://localhost/private'}})), {error: 'download_host_denied'});
 console.log('OpenSubtitles guest: search/login/VIP/download/quotas/errors/SSRF contract passed offline.');

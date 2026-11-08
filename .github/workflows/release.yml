@@ -44,6 +44,22 @@ on:
         required: false
         type: boolean
         default: false
+  # Called by auto-release.yml for every plugin changed on develop or main.
+  workflow_call:
+    inputs:
+      plugin:
+        required: true
+        type: string
+      version:
+        required: true
+        type: string
+      changelog:
+        required: false
+        type: string
+      prerelease:
+        required: false
+        type: boolean
+        default: false
   push:
     tags:
       - '*-v[0-9]+.[0-9]+.[0-9]+'
@@ -84,8 +100,9 @@ jobs:
         env:
           PLUGIN: ${{ inputs.plugin }}
           VERSION: ${{ inputs.version }}
-          TAG: ${{ github.event_name == 'push' && github.ref_name || '' }}
+          TAG: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
           PRERELEASE: ${{ inputs.prerelease }}
+          AUTO: ${{ github.workflow != 'Release plugin' }}
         run: node scripts/release-plan.cjs
 
       - name: Already published
@@ -102,11 +119,9 @@ jobs:
             exit 1
           fi
 
-      - name: Set up Rust
+      - name: Set up Rust (version pinned in rust-toolchain.toml)
         if: steps.plan.outputs.listed != 'true'
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
+        run: rustup toolchain install
 
       - name: Cache Cargo
         if: steps.plan.outputs.listed != 'true'
@@ -163,7 +178,7 @@ jobs:
           set -euo pipefail
           if [ -n "$CHANGELOG" ]; then
             printf '%s\n' "$CHANGELOG" > "$RUNNER_TEMP/changelog.md"
-          elif [ "${{ github.event_name }}" = "push" ]; then
+          elif [ "${{ startsWith(github.ref, 'refs/tags/') }}" = "true" ]; then
             # An annotated tag's message is the changelog.
             git tag -l --format='%(contents)' "$TAG" > "$RUNNER_TEMP/changelog.md"
           else

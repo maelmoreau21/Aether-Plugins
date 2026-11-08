@@ -10,7 +10,8 @@ use aether_plugin_api::{
 use async_trait::async_trait;
 use serde::Deserialize;
 use std::collections::BTreeMap;
-use std::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
+// The SDK owns the URL encoder and the synchronous guest executor (identical behaviour).
+use aether_plugin_api::http::{block_on_guest, urlencode};
 
 #[cfg(not(target_arch = "wasm32"))]
 use reqwest::header::{AUTHORIZATION, HeaderMap, HeaderValue};
@@ -63,7 +64,7 @@ impl TmdbPlugin {
         external_ids: &BTreeMap<String, String>,
         media_type: MediaType,
         config: &ProviderConfig,
-    ) -> Result<String, PluginError> {
+    ) -> Result<(String, bool), PluginError> {
         let numeric = |s: &str| {
             !s.is_empty()
                 && s.bytes().all(|b| b.is_ascii_digit())
@@ -74,17 +75,23 @@ impl TmdbPlugin {
             .map(|s| s.trim())
             .filter(|s| numeric(s))
         {
-            return Ok(tmdb.to_owned());
+            return Ok((tmdb.to_owned(), false));
         }
         let id = id.trim();
         if numeric(id) {
-            return Ok(id.to_owned());
+            return Ok((id.to_owned(), false));
         }
-        let external = external_ids
-            .get("imdb")
-            .map(|s| (s.trim(), "imdb_id"))
+        // A blank entry is no identifier: it must not shadow a usable one behind it.
+        let present = |key: &str| {
+            external_ids
+                .get(key)
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+        };
+        let external = present("imdb")
+            .map(|s| (s, "imdb_id"))
             .or_else(|| id.starts_with("tt").then_some((id, "imdb_id")))
-            .or_else(|| external_ids.get("tvdb").map(|s| (s.trim(), "tvdb_id")));
+            .or_else(|| present("tvdb").map(|s| (s, "tvdb_id")));
         let Some((external, source)) = external else {
             return Err(PluginError::new(
                 "invalid_tmdb_id",
@@ -111,15 +118,25 @@ impl TmdbPlugin {
         } else {
             "movie_results"
         };
-        found
+        // An external id names one work. Several distinct matches are reported, never
+        // resolved by picking the first: the Core decides what to do with an ambiguity.
+        let mut matches = found
             .get(key)
             .and_then(|v| v.as_array())
-            .and_then(|v| v.first())
-            .and_then(|v| v.get("id"))
-            .and_then(|v| v.as_u64())
-            .filter(|id| *id > 0)
-            .map(|id| id.to_string())
-            .ok_or_else(|| PluginError::not_found(external))
+            .into_iter()
+            .flatten()
+            .filter_map(|v| v.get("id").and_then(|v| v.as_u64()))
+            .filter(|id| *id > 0);
+        let Some(first) = matches.next() else {
+            return Err(PluginError::not_found(external));
+        };
+        if matches.any(|id| id != first) {
+            return Err(PluginError::new(
+                "ambiguous_match",
+                "The external identifier matches several TMDb entries",
+            ));
+        }
+        Ok((first.to_string(), true))
     }
 
     fn resolve_api_key<'a>(
@@ -165,6 +182,9 @@ impl TmdbPlugin {
         let client = reqwest::Client::builder()
             .timeout(timeout)
             .default_headers(headers)
+            // The Core broker refuses redirects; following one natively would resend the
+            // bearer token to whatever host the answer names.
+            .redirect(reqwest::redirect::Policy::none())
             .build()
             .map_err(|e| PluginError::new("client_error", e.to_string()))?;
 
@@ -192,7 +212,7 @@ impl TmdbPlugin {
 
         let query_string = query_params
             .iter()
-            .map(|(k, v)| format!("{k}={}", urlencoding::encode(v)))
+            .map(|(k, v)| format!("{k}={}", urlencode(v)))
             .collect::<Vec<_>>()
             .join("&");
 
@@ -219,51 +239,44 @@ impl TmdbPlugin {
                 timeout_secs: config.timeout_secs.map(|s| s as u32),
             };
 
+            // One request, no retry: the Core turns 429/503 into a durable cooldown. The
+            // request URL carries the v3 key, so neither error path may echo it.
             let resp = media_extension_sdk::host_http_fetch(&host_req)
-                .map_err(|e| PluginError::new(e.code, e.message))?;
-
-            if resp.status == 429 {
-                return Err(PluginError::rate_limited(5));
+                .map_err(aether_plugin_api::http::host_error)?;
+            if let Some(error) = aether_plugin_api::http::classify_status(
+                resp.status,
+                aether_plugin_api::http::retry_after_from_headers(&resp.headers),
+                "TMDb",
+                endpoint,
+            ) {
+                return Err(error);
             }
-            if resp.status == 401 {
-                return Err(PluginError::new("unauthorized", "Invalid TMDb API key"));
-            }
-            if resp.status != 200 {
-                return Err(PluginError::new(
-                    "provider_error",
-                    format!("TMDb returned HTTP status {}", resp.status),
-                ));
-            }
-
-            serde_json::from_slice(&resp.body)
-                .map_err(|e| PluginError::new("parse_error", e.to_string()))
+            serde_json::from_slice(&resp.body).map_err(|e| aether_plugin_api::http::json_error(&e))
         }
 
         #[cfg(not(target_arch = "wasm32"))]
         {
             let (client, _, _) = self.build_client(config, api_key.as_ref())?;
-            let req = client.get(&full_url);
-            let res = req
+            let res = client
+                .get(&full_url)
                 .send()
                 .await
-                .map_err(|e| PluginError::new("network_error", e.to_string()))?;
-
-            if res.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
-                return Err(PluginError::rate_limited(5));
+                .map_err(aether_plugin_api::http::transport_error)?;
+            let retry_after = aether_plugin_api::http::retry_after_secs(
+                res.headers()
+                    .get("retry-after")
+                    .and_then(|value| value.to_str().ok()),
+            );
+            if let Some(error) = aether_plugin_api::http::classify_status(
+                res.status().as_u16(),
+                retry_after,
+                "TMDb",
+                endpoint,
+            ) {
+                return Err(error);
             }
-            if res.status() == reqwest::StatusCode::UNAUTHORIZED {
-                return Err(PluginError::new("unauthorized", "Invalid TMDb API key"));
-            }
-            if !res.status().is_success() {
-                return Err(PluginError::new(
-                    "provider_error",
-                    format!("TMDb returned status {}", res.status()),
-                ));
-            }
-
-            res.json()
-                .await
-                .map_err(|e| PluginError::new("parse_error", e.to_string()))
+            let body = aether_plugin_api::http::read_body(res).await?;
+            serde_json::from_slice(&body).map_err(|e| aether_plugin_api::http::json_error(&e))
         }
     }
 }
@@ -367,6 +380,7 @@ impl MetadataProviderPlugin for TmdbPlugin {
                         id: String::new(),
                         media_type: query.media_type,
                         external_ids: query.external_ids.clone(),
+                        ..Default::default()
                     },
                     config,
                 )
@@ -480,7 +494,7 @@ impl MetadataProviderPlugin for TmdbPlugin {
         config: &ProviderConfig,
     ) -> Result<Vec<MediaImage>, PluginError> {
         let is_tv = matches!(request.media_type, MediaType::TvShow | MediaType::Episode);
-        let id = self
+        let (id, _) = self
             .resolve_id(
                 &request.id,
                 &request.external_ids,
@@ -494,9 +508,16 @@ impl MetadataProviderPlugin for TmdbPlugin {
             format!("movie/{id}/images")
         };
 
-        // A single unfiltered provider response includes localized and textless artwork.
-        // Apply the same policy as fanart locally so fallback variants are retained.
-        let val: serde_json::Value = self.fetch_json(&endpoint, &[], config).await?;
+        // Without a language policy the whole unfiltered list is kept (historical
+        // behaviour). With one, the provider is asked for exactly those languages plus
+        // textless art, so the response and the host's 64 KiB envelope stay small. Images
+        // carry a language only (`fr`), never a region.
+        let filter = image_language_filter(config);
+        let params: Vec<(&str, &str)> = filter
+            .as_deref()
+            .map(|languages| vec![("include_image_language", languages)])
+            .unwrap_or_default();
+        let val: serde_json::Value = self.fetch_json(&endpoint, &params, config).await?;
         let mut images = Vec::new();
         for (key, image_type) in [
             ("posters", ImageType::Poster),
@@ -538,6 +559,24 @@ impl MetadataProviderPlugin for TmdbPlugin {
     }
 }
 
+/// `include_image_language` value for the configured language policy, or `None` to keep
+/// every language. The provider only knows two-letter languages and the `null` bucket.
+fn image_language_filter(config: &ProviderConfig) -> Option<String> {
+    let mut languages: Vec<String> = Vec::new();
+    for tag in config.image_languages() {
+        if tag.len() == 2 && !languages.contains(&tag) {
+            languages.push(tag);
+        }
+    }
+    if languages.is_empty() {
+        return None;
+    }
+    if config.include_neutral.unwrap_or(true) {
+        languages.push("null".into());
+    }
+    Some(languages.join(","))
+}
+
 #[derive(Deserialize)]
 struct TmdbSearchResponse {
     results: Vec<TmdbSearchResult>,
@@ -556,38 +595,6 @@ struct TmdbSearchResult {
     poster_path: Option<String>,
     vote_average: Option<f64>,
 }
-
-mod urlencoding {
-    pub fn encode(s: &str) -> String {
-        let mut result = String::with_capacity(s.len() * 2);
-        for b in s.bytes() {
-            match b {
-                b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
-                    result.push(b as char)
-                }
-                _ => {
-                    use std::fmt::Write;
-                    let _ = write!(result, "%{b:02X}");
-                }
-            }
-        }
-        result
-    }
-}
-
-// Lightweight synchronous runner for guest WebAssembly execution
-fn block_on_guest<F: std::future::Future>(future: F) -> F::Output {
-    let raw_waker = RawWaker::new(std::ptr::null(), &VTABLE);
-    let waker = unsafe { Waker::from_raw(raw_waker) };
-    let mut cx = Context::from_waker(&waker);
-    let mut pinned = std::pin::pin!(future);
-    match pinned.as_mut().poll(&mut cx) {
-        Poll::Ready(output) => output,
-        Poll::Pending => panic!("Guest Wasm async operation did not complete synchronously"),
-    }
-}
-static VTABLE: RawWakerVTable =
-    RawWakerVTable::new(|p| RawWaker::new(p, &VTABLE), |_| {}, |_| {}, |_| {});
 
 impl TmdbPlugin {
     /// Wire form of `details`: the structured metadata plus the `originalLanguage`
@@ -625,8 +632,12 @@ impl TmdbPlugin {
         config: &ProviderConfig,
     ) -> Result<(StructuredMetadata, DetailsExtras), PluginError> {
         let language = config.language.as_deref().unwrap_or("fr-FR");
+        let main_locale = aether_plugin_api::canonical_locale(language);
         let is_tv = matches!(request.media_type, MediaType::TvShow | MediaType::Episode);
-        let id = self
+        // Each Core invocation may issue at most `MAX_REQUESTS` calls, paced one second
+        // apart; every optional call below is spent from this budget, never assumed free.
+        let mut used = 0usize;
+        let (id, looked_up) = self
             .resolve_id(
                 &request.id,
                 &request.external_ids,
@@ -634,17 +645,23 @@ impl TmdbPlugin {
                 config,
             )
             .await?;
+        used += usize::from(looked_up);
         let endpoint = if is_tv {
             format!("tv/{id}")
         } else {
             format!("movie/{id}")
         };
 
+        // `credits` and `external_ids` are the only appended parts the code reads. Images
+        // stay in the dedicated images operation (own budget, language-filtered) and
+        // translations are one explicit call below: appending either to this response risks
+        // the 256 KiB cap on large casts.
         let params = [
             ("language", language),
             ("append_to_response", "credits,external_ids"),
         ];
 
+        used += 1;
         let val: serde_json::Value = self.fetch_json(&endpoint, &params, config).await?;
 
         let title = val
@@ -773,92 +790,24 @@ impl TmdbPlugin {
             }
         }
 
+        // `poster_path` / `backdrop_path` are the provider's pick for the requested language
+        // (then the original language, then the best rated): the language of the file itself
+        // is not reported, so it is left unknown instead of being labelled with the request.
         let mut posters = Vec::new();
         let mut backdrops = Vec::new();
-        let mut all_images = Vec::new();
-
-        if let Some(images_obj) = val.get("images") {
-            if let Some(p_arr) = images_obj.get("posters").and_then(|v| v.as_array()) {
-                for (idx, p) in p_arr.iter().enumerate() {
-                    if let Some(file_path) = p.get("file_path").and_then(|v| v.as_str()) {
-                        let img = MediaImage {
-                            url: format!("{IMAGE_ORIGINAL_URL}{file_path}"),
-                            image_type: ImageType::Poster,
-                            width: p.get("width").and_then(|v| v.as_u64()).map(|w| w as u32),
-                            height: p.get("height").and_then(|v| v.as_u64()).map(|h| h as u32),
-                            language: p
-                                .get("iso_639_1")
-                                .and_then(|v| v.as_str())
-                                .map(str::to_owned),
-                            rating: p.get("vote_average").and_then(|v| v.as_f64()),
-                            vote_count: p.get("vote_count").and_then(|v| v.as_u64()),
-                            is_primary: idx == 0,
-                        };
-                        posters.push(img.clone());
-                        all_images.push(img);
-                    }
-                }
-            }
-            if let Some(b_arr) = images_obj.get("backdrops").and_then(|v| v.as_array()) {
-                for (idx, b) in b_arr.iter().enumerate() {
-                    if let Some(file_path) = b.get("file_path").and_then(|v| v.as_str()) {
-                        let img = MediaImage {
-                            url: format!("{IMAGE_ORIGINAL_URL}{file_path}"),
-                            image_type: ImageType::Backdrop,
-                            width: b.get("width").and_then(|v| v.as_u64()).map(|w| w as u32),
-                            height: b.get("height").and_then(|v| v.as_u64()).map(|h| h as u32),
-                            language: b
-                                .get("iso_639_1")
-                                .and_then(|v| v.as_str())
-                                .map(str::to_owned),
-                            rating: b.get("vote_average").and_then(|v| v.as_f64()),
-                            vote_count: b.get("vote_count").and_then(|v| v.as_u64()),
-                            is_primary: idx == 0,
-                        };
-                        backdrops.push(img.clone());
-                        all_images.push(img);
-                    }
-                }
-            }
-            if let Some(l_arr) = images_obj.get("logos").and_then(|v| v.as_array()) {
-                for (idx, l) in l_arr.iter().enumerate() {
-                    if let Some(file_path) = l.get("file_path").and_then(|v| v.as_str()) {
-                        let img = MediaImage {
-                            url: format!("{IMAGE_ORIGINAL_URL}{file_path}"),
-                            image_type: ImageType::Logo,
-                            width: l.get("width").and_then(|v| v.as_u64()).map(|w| w as u32),
-                            height: l.get("height").and_then(|v| v.as_u64()).map(|h| h as u32),
-                            language: l
-                                .get("iso_639_1")
-                                .and_then(|v| v.as_str())
-                                .map(str::to_owned),
-                            rating: l.get("vote_average").and_then(|v| v.as_f64()),
-                            vote_count: l.get("vote_count").and_then(|v| v.as_u64()),
-                            is_primary: idx == 0,
-                        };
-                        all_images.push(img);
-                    }
-                }
-            }
-        }
-
-        if posters.is_empty()
-            && let Some(poster_path) = val.get("poster_path").and_then(|v| v.as_str())
-        {
+        if let Some(poster_path) = val.get("poster_path").and_then(|v| v.as_str()) {
             posters.push(MediaImage {
                 url: format!("{IMAGE_ORIGINAL_URL}{poster_path}"),
                 image_type: ImageType::Poster,
                 width: None,
                 height: None,
-                language: Some(language.into()),
+                language: None,
                 rating: None,
                 vote_count: None,
                 is_primary: true,
             });
         }
-        if backdrops.is_empty()
-            && let Some(backdrop_path) = val.get("backdrop_path").and_then(|v| v.as_str())
-        {
+        if let Some(backdrop_path) = val.get("backdrop_path").and_then(|v| v.as_str()) {
             backdrops.push(MediaImage {
                 url: format!("{IMAGE_ORIGINAL_URL}{backdrop_path}"),
                 image_type: ImageType::Backdrop,
@@ -871,116 +820,112 @@ impl TmdbPlugin {
             });
         }
 
+        // Other languages: one request returns every language the provider has, regional
+        // variants included (`fr-FR` and `fr-CA` are separate entries).
+        let wanted = wanted_locales(&request.languages, main_locale.as_deref());
         let mut translations = BTreeMap::new();
-        if let Some(trans_obj) = val
-            .get("translations")
-            .and_then(|t| t.get("translations"))
-            .and_then(|v| v.as_array())
-        {
-            for item in trans_obj {
-                let lang = item.get("iso_639_1").and_then(|v| v.as_str());
-                let data = item.get("data");
-                if let (Some(l), Some(d)) = (lang, data) {
-                    let t_title = d
-                        .get("title")
-                        .or_else(|| d.get("name"))
-                        .and_then(|v| v.as_str())
-                        .filter(|s| !s.trim().is_empty())
-                        .map(str::to_owned);
-                    let t_overview = d
-                        .get("overview")
-                        .and_then(|v| v.as_str())
-                        .filter(|s| !s.trim().is_empty())
-                        .map(str::to_owned);
-                    let t_tagline = d
-                        .get("tagline")
-                        .and_then(|v| v.as_str())
-                        .filter(|s| !s.trim().is_empty())
-                        .map(str::to_owned);
-                    if t_title.is_some() || t_overview.is_some() || t_tagline.is_some() {
-                        translations.insert(
-                            l.to_string(),
-                            aether_plugin_api::TranslationItem {
-                                title: t_title,
-                                overview: t_overview,
-                                tagline: t_tagline,
-                            },
-                        );
-                    }
-                }
+        if !wanted.is_empty() {
+            used += 1;
+            let url = format!("{endpoint}/translations");
+            match self
+                .fetch_json::<serde_json::Value>(&url, &[], config)
+                .await
+            {
+                Ok(value) => translations = parse_translations(&value, &wanted),
+                Err(e) if is_fatal(&e) => return Err(e),
+                // A missing translation list must not discard the main-language details.
+                Err(_) => {}
             }
         }
 
         let mut seasons = Vec::new();
         if is_tv && let Some(s_arr) = val.get("seasons").and_then(|v| v.as_array()) {
-            for s in s_arr {
+            // Real seasons first, in order; specials (season 0) last, so a short budget
+            // never spends its calls on extras.
+            let mut order: Vec<&serde_json::Value> = s_arr.iter().collect();
+            order.sort_by_key(|s| {
+                let n = s.get("season_number").and_then(|v| v.as_u64()).unwrap_or(0);
+                (n == 0, n)
+            });
+            let mut fetched: Vec<u32> = Vec::new();
+            let mut by_number: BTreeMap<u32, aether_plugin_api::SeasonMetadata> = BTreeMap::new();
+            let mut exhausted = false;
+            for s in order {
                 let s_num = s
                     .get("season_number")
                     .and_then(|v| v.as_u64())
                     .map(|n| n as u32)
                     .unwrap_or(0);
-                let s_title = s.get("name").and_then(|v| v.as_str()).map(str::to_owned);
-                let s_overview = s
-                    .get("overview")
-                    .and_then(|v| v.as_str())
-                    .filter(|s| !s.trim().is_empty())
-                    .map(str::to_owned);
-                let s_poster = s
-                    .get("poster_path")
-                    .and_then(|v| v.as_str())
-                    .map(|p| format!("{IMAGE_ORIGINAL_URL}{p}"));
-
-                let mut episodes = Vec::new();
-                let season_endpoint = format!("tv/{}/season/{}", request.id, s_num);
-                let s_params = [("language", language)];
-                if let Ok(season_val) = self
-                    .fetch_json::<serde_json::Value>(&season_endpoint, &s_params, config)
-                    .await
-                    && let Some(ep_arr) = season_val.get("episodes").and_then(|v| v.as_array())
-                {
-                    for ep in ep_arr {
-                        let ep_num = ep
-                            .get("episode_number")
-                            .and_then(|v| v.as_u64())
-                            .map(|n| n as u32)
-                            .unwrap_or(0);
-                        let ep_title = ep.get("name").and_then(|v| v.as_str()).map(str::to_owned);
-                        let ep_overview = ep
-                            .get("overview")
-                            .and_then(|v| v.as_str())
-                            .filter(|s| !s.trim().is_empty())
-                            .map(str::to_owned);
-                        let ep_date = ep
-                            .get("air_date")
-                            .and_then(|v| v.as_str())
-                            .map(str::to_owned);
-                        let ep_runtime =
-                            ep.get("runtime").and_then(|v| v.as_u64()).map(|r| r as u32);
-                        let ep_still = ep
-                            .get("still_path")
-                            .and_then(|v| v.as_str())
-                            .map(|p| format!("{IMAGE_ORIGINAL_URL}{p}"));
-                        let ep_rating = ep.get("vote_average").and_then(|v| v.as_f64());
-                        episodes.push(aether_plugin_api::EpisodeMetadata {
-                            episode_number: ep_num,
-                            title: ep_title,
-                            overview: ep_overview,
-                            air_date: ep_date,
-                            runtime_minutes: ep_runtime,
-                            still_url: ep_still,
-                            rating: ep_rating,
-                        });
+                let mut season = aether_plugin_api::SeasonMetadata {
+                    season_number: s_num,
+                    title: s.get("name").and_then(|v| v.as_str()).map(str::to_owned),
+                    overview: s
+                        .get("overview")
+                        .and_then(|v| v.as_str())
+                        .filter(|s| !s.trim().is_empty())
+                        .map(str::to_owned),
+                    poster_url: s
+                        .get("poster_path")
+                        .and_then(|v| v.as_str())
+                        .map(|p| format!("{IMAGE_ORIGINAL_URL}{p}")),
+                    ..Default::default()
+                };
+                if !exhausted && used < MAX_REQUESTS {
+                    used += 1;
+                    let endpoint = format!("tv/{id}/season/{s_num}");
+                    match self
+                        .fetch_json::<serde_json::Value>(
+                            &endpoint,
+                            &[("language", language)],
+                            config,
+                        )
+                        .await
+                    {
+                        Ok(season_val) => {
+                            season.episodes = parse_episodes(&season_val);
+                            fetched.push(s_num);
+                        }
+                        Err(e) if is_fatal(&e) => return Err(e),
+                        Err(e) if e.code == "quota_exceeded" => exhausted = true,
+                        Err(_) => {}
                     }
                 }
-
-                seasons.push(aether_plugin_api::SeasonMetadata {
-                    season_number: s_num,
-                    title: s_title,
-                    overview: s_overview,
-                    poster_url: s_poster,
-                    episodes,
-                });
+                by_number.insert(s_num, season);
             }
+            // Spare budget buys the same seasons in the other requested languages, in
+            // season order. Coverage may be partial on long series; the reader's fallback
+            // chain fills what is missing, field by field.
+            'extra: for extra in wanted
+                .iter()
+                .filter(|l| Some(l.as_str()) != main_locale.as_deref())
+                .take(2)
+            {
+                for number in &fetched {
+                    if used >= MAX_REQUESTS || exhausted {
+                        break 'extra;
+                    }
+                    used += 1;
+                    let endpoint = format!("tv/{id}/season/{number}");
+                    match self
+                        .fetch_json::<serde_json::Value>(
+                            &endpoint,
+                            &[("language", extra.as_str())],
+                            config,
+                        )
+                        .await
+                    {
+                        Ok(season_val) => {
+                            if let Some(season) = by_number.get_mut(number) {
+                                merge_season_language(season, &season_val, extra);
+                            }
+                        }
+                        Err(e) if is_fatal(&e) => return Err(e),
+                        Err(e) if e.code == "quota_exceeded" => exhausted = true,
+                        Err(_) => {}
+                    }
+                }
+            }
+            seasons = by_number.into_values().collect();
         }
 
         let collection = val.get("belongs_to_collection").and_then(|collection| {
@@ -991,13 +936,24 @@ impl TmdbPlugin {
                 name: name.to_owned(),
             })
         });
-        let metadata = StructuredMetadata {
+        let original_language = val
+            .get("original_language")
+            .and_then(|v| v.as_str())
+            .filter(|v| {
+                !v.is_empty()
+                    && v.len() <= 35
+                    && v.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+            })
+            .map(str::to_owned);
+        let mut metadata = StructuredMetadata {
             collection,
             provider: "tmdb".into(),
             provider_id: id,
             external_ids,
             title,
             original_title,
+            original_language: original_language.clone(),
+            locale: main_locale,
             tagline,
             synopsis,
             year,
@@ -1015,19 +971,12 @@ impl TmdbPlugin {
                 .map(str::to_owned),
             posters,
             backdrops,
-            images: all_images,
+            images: Vec::new(),
             seasons,
             translations,
         };
-        let original_language = val
-            .get("original_language")
-            .and_then(|v| v.as_str())
-            .filter(|v| {
-                !v.is_empty()
-                    && v.len() <= 35
-                    && v.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
-            })
-            .map(str::to_owned);
+        let reserved = serde_json::to_vec(&crew_credits).map_or(0, |v| v.len()) + 2048;
+        fit_output(&mut metadata, reserved);
         Ok((
             metadata,
             DetailsExtras {
@@ -1036,6 +985,214 @@ impl TmdbPlugin {
                 crew_credits,
             },
         ))
+    }
+}
+
+/// Host quota of one Core invocation (`DEFAULT_MAX_HTTP_REQUESTS`).
+const MAX_REQUESTS: usize = 10;
+/// The extension response is capped at 64 KiB by the ABI; stay below with room for the envelope.
+const MAX_OUTPUT_BYTES: usize = 60 * 1024;
+const MAX_TRANSLATIONS: usize = 16;
+
+/// Errors the whole details call must report instead of returning half a record.
+fn is_fatal(error: &PluginError) -> bool {
+    matches!(
+        error.code.as_str(),
+        "unauthorized" | "forbidden" | "rate_limited" | "missing_api_key"
+    )
+}
+
+/// Extra languages the Core asked for, canonical and without duplicates, plus the main one
+/// so its regional entry is kept too. Empty when the Core asked for nothing else.
+fn wanted_locales(requested: &[String], main: Option<&str>) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for tag in requested.iter().take(8) {
+        if let Some(tag) = aether_plugin_api::canonical_locale(tag)
+            && !out.contains(&tag)
+        {
+            out.push(tag);
+        }
+    }
+    let extra = out.iter().any(|t| Some(t.as_str()) != main);
+    if !extra {
+        return Vec::new();
+    }
+    if let Some(main) = main
+        && !out.iter().any(|t| t == main)
+    {
+        out.insert(0, main.to_owned());
+    }
+    out
+}
+
+fn non_empty(value: Option<&serde_json::Value>) -> Option<String> {
+    value
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_owned)
+}
+
+/// Keep the entries for the requested languages. Keys keep the region when the provider
+/// gives one (`fr-CA`); a request for bare `fr` accepts every French entry.
+fn parse_translations(
+    value: &serde_json::Value,
+    wanted: &[String],
+) -> BTreeMap<String, aether_plugin_api::TranslationItem> {
+    let bases: Vec<&str> = wanted
+        .iter()
+        .map(|t| t.split('-').next().unwrap_or(t))
+        .collect();
+    let mut out = BTreeMap::new();
+    for item in value
+        .get("translations")
+        .and_then(|v| v.as_array())
+        .into_iter()
+        .flatten()
+    {
+        let Some(iso) = item
+            .get("iso_639_1")
+            .and_then(|v| v.as_str())
+            .filter(|v| v.len() == 2)
+        else {
+            continue;
+        };
+        let region = item
+            .get("iso_3166_1")
+            .and_then(|v| v.as_str())
+            .filter(|v| v.len() == 2);
+        let key = match region {
+            Some(region) => format!(
+                "{}-{}",
+                iso.to_ascii_lowercase(),
+                region.to_ascii_uppercase()
+            ),
+            None => iso.to_ascii_lowercase(),
+        };
+        if !bases.contains(&key.split('-').next().unwrap_or("")) || out.len() >= MAX_TRANSLATIONS {
+            continue;
+        }
+        let Some(data) = item.get("data") else {
+            continue;
+        };
+        let entry = aether_plugin_api::TranslationItem {
+            title: non_empty(data.get("title").or_else(|| data.get("name"))),
+            overview: non_empty(data.get("overview")),
+            tagline: non_empty(data.get("tagline")),
+        };
+        // TMDb returns empty strings for languages it has not translated.
+        if entry.title.is_some() || entry.overview.is_some() || entry.tagline.is_some() {
+            out.insert(key, entry);
+        }
+    }
+    out
+}
+
+fn parse_episodes(season: &serde_json::Value) -> Vec<aether_plugin_api::EpisodeMetadata> {
+    season
+        .get("episodes")
+        .and_then(|v| v.as_array())
+        .into_iter()
+        .flatten()
+        .map(|ep| aether_plugin_api::EpisodeMetadata {
+            episode_number: ep
+                .get("episode_number")
+                .and_then(|v| v.as_u64())
+                .map(|n| n as u32)
+                .unwrap_or(0),
+            title: ep.get("name").and_then(|v| v.as_str()).map(str::to_owned),
+            overview: non_empty(ep.get("overview")),
+            air_date: ep
+                .get("air_date")
+                .and_then(|v| v.as_str())
+                .map(str::to_owned),
+            runtime_minutes: ep.get("runtime").and_then(|v| v.as_u64()).map(|r| r as u32),
+            still_url: ep
+                .get("still_path")
+                .and_then(|v| v.as_str())
+                .map(|p| format!("{IMAGE_ORIGINAL_URL}{p}")),
+            rating: ep.get("vote_average").and_then(|v| v.as_f64()),
+            translations: BTreeMap::new(),
+        })
+        .collect()
+}
+
+/// Attach another language's season and episode texts under `tag`.
+fn merge_season_language(
+    season: &mut aether_plugin_api::SeasonMetadata,
+    response: &serde_json::Value,
+    tag: &str,
+) {
+    let item = aether_plugin_api::TranslationItem {
+        title: non_empty(response.get("name")),
+        overview: non_empty(response.get("overview")),
+        tagline: None,
+    };
+    if item.title.is_some() || item.overview.is_some() {
+        season.translations.insert(tag.to_owned(), item);
+    }
+    for ep in parse_episodes(response) {
+        let entry = aether_plugin_api::TranslationItem {
+            title: ep.title.filter(|t| !t.trim().is_empty()),
+            overview: ep.overview,
+            tagline: None,
+        };
+        if entry.title.is_none() && entry.overview.is_none() {
+            continue;
+        }
+        if let Some(target) = season
+            .episodes
+            .iter_mut()
+            .find(|e| e.episode_number == ep.episode_number)
+        {
+            target.translations.insert(tag.to_owned(), entry);
+        }
+    }
+}
+
+/// Shrink the record until its JSON fits the ABI output cap, dropping the least valuable
+/// data first: extra-language episode text, then long episode overviews, then the episodes
+/// of the last seasons. Identifiers, titles and credits are never touched.
+fn fit_output(metadata: &mut StructuredMetadata, reserved: usize) {
+    let size =
+        |m: &StructuredMetadata| serde_json::to_vec(m).map_or(usize::MAX, |v| v.len()) + reserved;
+    if size(metadata) <= MAX_OUTPUT_BYTES {
+        return;
+    }
+    for season in &mut metadata.seasons {
+        season.translations.clear();
+        for ep in &mut season.episodes {
+            ep.translations.clear();
+        }
+    }
+    if size(metadata) <= MAX_OUTPUT_BYTES {
+        return;
+    }
+    for season in &mut metadata.seasons {
+        for ep in &mut season.episodes {
+            if let Some(overview) = ep.overview.as_mut() {
+                *overview = overview.chars().take(200).collect();
+            }
+        }
+    }
+    while size(metadata) > MAX_OUTPUT_BYTES {
+        match metadata
+            .seasons
+            .iter_mut()
+            .rev()
+            .find(|s| !s.episodes.is_empty())
+        {
+            Some(season) => season.episodes.clear(),
+            None => break,
+        }
+    }
+    if size(metadata) > MAX_OUTPUT_BYTES {
+        for item in metadata.translations.values_mut() {
+            item.overview = item
+                .overview
+                .as_ref()
+                .map(|o| o.chars().take(500).collect());
+        }
     }
 }
 

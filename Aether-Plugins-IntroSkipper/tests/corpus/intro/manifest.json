@@ -1,0 +1,736 @@
+{
+ "sampleRate": 8.076923076923077,
+ "legacyRate": 8.61328125,
+ "headSeconds": 300,
+ "tailSeconds": 186,
+ "duration": 1440,
+ "scenarios": [
+  {
+   "name": "standard",
+   "description": "Opening theme A (60 s) from the first second, end credits C (60 s) at the very end",
+   "episodes": [
+    {
+     "id": "standard-01",
+     "number": 1,
+     "head": "standard-01.head.bin",
+     "tail": "standard-01.tail.bin",
+     "intro": {
+      "start": 0,
+      "end": 60
+     },
+     "credits": {
+      "start": 1380,
+      "end": 1440
+     }
+    },
+    {
+     "id": "standard-02",
+     "number": 2,
+     "head": "standard-02.head.bin",
+     "tail": "standard-02.tail.bin",
+     "intro": {
+      "start": 0,
+      "end": 60
+     },
+     "credits": {
+      "start": 1380,
+      "end": 1440
+     }
+    },
+    {
+     "id": "standard-03",
+     "number": 3,
+     "head": "standard-03.head.bin",
+     "tail": "standard-03.tail.bin",
+     "intro": {
+      "start": 0,
+      "end": 60
+     },
+     "credits": {
+      "start": 1380,
+      "end": 1440
+     }
+    },
+    {
+     "id": "standard-04",
+     "number": 4,
+     "head": "standard-04.head.bin",
+     "tail": "standard-04.tail.bin",
+     "intro": {
+      "start": 0,
+      "end": 60
+     },
+     "credits": {
+      "start": 1380,
+      "end": 1440
+     }
+    },
+    {
+     "id": "standard-05",
+     "number": 5,
+     "head": "standard-05.head.bin",
+     "tail": "standard-05.tail.bin",
+     "intro": {
+      "start": 0,
+      "end": 60
+     },
+     "credits": {
+      "start": 1380,
+      "end": 1440
+     }
+    }
+   ]
+  },
+  {
+   "name": "cold_open",
+   "description": "Cold open of varying length before the opening theme A",
+   "episodes": [
+    {
+     "id": "cold_open-01",
+     "number": 1,
+     "head": "cold_open-01.head.bin",
+     "tail": null,
+     "intro": {
+      "start": 35,
+      "end": 95
+     }
+    },
+    {
+     "id": "cold_open-02",
+     "number": 2,
+     "head": "cold_open-02.head.bin",
+     "tail": null,
+     "intro": {
+      "start": 90,
+      "end": 150
+     }
+    },
+    {
+     "id": "cold_open-03",
+     "number": 3,
+     "head": "cold_open-03.head.bin",
+     "tail": null,
+     "intro": {
+      "start": 62,
+      "end": 122
+     }
+    },
+    {
+     "id": "cold_open-04",
+     "number": 4,
+     "head": "cold_open-04.head.bin",
+     "tail": null,
+     "intro": {
+      "start": 140,
+      "end": 200
+     }
+    },
+    {
+     "id": "cold_open-05",
+     "number": 5,
+     "head": "cold_open-05.head.bin",
+     "tail": null,
+     "intro": {
+      "start": 20,
+      "end": 80
+     }
+    }
+   ]
+  },
+  {
+   "name": "recap",
+   "description": "A \"previously on\" recap of varying length (sharing a 6 s jingle) before theme A",
+   "episodes": [
+    {
+     "id": "recap-01",
+     "number": 1,
+     "head": "recap-01.head.bin",
+     "tail": null,
+     "intro": {
+      "start": 45,
+      "end": 105
+     }
+    },
+    {
+     "id": "recap-02",
+     "number": 2,
+     "head": "recap-02.head.bin",
+     "tail": null,
+     "intro": {
+      "start": 62,
+      "end": 122
+     }
+    },
+    {
+     "id": "recap-03",
+     "number": 3,
+     "head": "recap-03.head.bin",
+     "tail": null,
+     "intro": {
+      "start": 38,
+      "end": 98
+     }
+    },
+    {
+     "id": "recap-04",
+     "number": 4,
+     "head": "recap-04.head.bin",
+     "tail": null,
+     "intro": {
+      "start": 70,
+      "end": 130
+     }
+    },
+    {
+     "id": "recap-05",
+     "number": 5,
+     "head": "recap-05.head.bin",
+     "tail": null,
+     "intro": {
+      "start": 55,
+      "end": 115
+     }
+    }
+   ]
+  },
+  {
+   "name": "opening_change",
+   "description": "Eight episodes: opening A then, from episode 5, a different opening B (75 s)",
+   "episodes": [
+    {
+     "id": "opening_change-01",
+     "number": 1,
+     "head": "opening_change-01.head.bin",
+     "tail": "opening_change-01.tail.bin",
+     "intro": {
+      "start": 10,
+      "end": 70
+     },
+     "credits": {
+      "start": 1380,
+      "end": 1440
+     }
+    },
+    {
+     "id": "opening_change-02",
+     "number": 2,
+     "head": "opening_change-02.head.bin",
+     "tail": "opening_change-02.tail.bin",
+     "intro": {
+      "start": 55,
+      "end": 115
+     },
+     "credits": {
+      "start": 1380,
+      "end": 1440
+     }
+    },
+    {
+     "id": "opening_change-03",
+     "number": 3,
+     "head": "opening_change-03.head.bin",
+     "tail": "opening_change-03.tail.bin",
+     "intro": {
+      "start": 20,
+      "end": 80
+     },
+     "credits": {
+      "start": 1380,
+      "end": 1440
+     }
+    },
+    {
+     "id": "opening_change-04",
+     "number": 4,
+     "head": "opening_change-04.head.bin",
+     "tail": "opening_change-04.tail.bin",
+     "intro": {
+      "start": 40,
+      "end": 100
+     },
+     "credits": {
+      "start": 1380,
+      "end": 1440
+     }
+    },
+    {
+     "id": "opening_change-05",
+     "number": 5,
+     "head": "opening_change-05.head.bin",
+     "tail": "opening_change-05.tail.bin",
+     "intro": {
+      "start": 30,
+      "end": 105
+     },
+     "credits": {
+      "start": 1380,
+      "end": 1440
+     }
+    },
+    {
+     "id": "opening_change-06",
+     "number": 6,
+     "head": "opening_change-06.head.bin",
+     "tail": "opening_change-06.tail.bin",
+     "intro": {
+      "start": 12,
+      "end": 87
+     },
+     "credits": {
+      "start": 1380,
+      "end": 1440
+     }
+    },
+    {
+     "id": "opening_change-07",
+     "number": 7,
+     "head": "opening_change-07.head.bin",
+     "tail": "opening_change-07.tail.bin",
+     "intro": {
+      "start": 70,
+      "end": 145
+     },
+     "credits": {
+      "start": 1380,
+      "end": 1440
+     }
+    },
+    {
+     "id": "opening_change-08",
+     "number": 8,
+     "head": "opening_change-08.head.bin",
+     "tail": "opening_change-08.tail.bin",
+     "intro": {
+      "start": 25,
+      "end": 100
+     },
+     "credits": {
+      "start": 1380,
+      "end": 1440
+     }
+    }
+   ]
+  },
+  {
+   "name": "no_intro",
+   "description": "No opening at all (anthology, every episode starts on its own scene)",
+   "episodes": [
+    {
+     "id": "no_intro-01",
+     "number": 1,
+     "head": "no_intro-01.head.bin",
+     "tail": "no_intro-01.tail.bin",
+     "intro": null,
+     "credits": {
+      "start": 1380,
+      "end": 1440
+     }
+    },
+    {
+     "id": "no_intro-02",
+     "number": 2,
+     "head": "no_intro-02.head.bin",
+     "tail": "no_intro-02.tail.bin",
+     "intro": null,
+     "credits": {
+      "start": 1380,
+      "end": 1440
+     }
+    },
+    {
+     "id": "no_intro-03",
+     "number": 3,
+     "head": "no_intro-03.head.bin",
+     "tail": "no_intro-03.tail.bin",
+     "intro": null,
+     "credits": {
+      "start": 1380,
+      "end": 1440
+     }
+    },
+    {
+     "id": "no_intro-04",
+     "number": 4,
+     "head": "no_intro-04.head.bin",
+     "tail": "no_intro-04.tail.bin",
+     "intro": null,
+     "credits": {
+      "start": 1380,
+      "end": 1440
+     }
+    },
+    {
+     "id": "no_intro-05",
+     "number": 5,
+     "head": "no_intro-05.head.bin",
+     "tail": "no_intro-05.tail.bin",
+     "intro": null,
+     "credits": {
+      "start": 1380,
+      "end": 1440
+     }
+    }
+   ]
+  },
+  {
+   "name": "studio_bumper",
+   "description": "No opening, but a 20 s studio bumper shared by every episode (a known limit: it IS a repetition)",
+   "episodes": [
+    {
+     "id": "studio_bumper-01",
+     "number": 1,
+     "head": "studio_bumper-01.head.bin",
+     "tail": null,
+     "intro": null,
+     "repeated": {
+      "start": 25,
+      "end": 45
+     }
+    },
+    {
+     "id": "studio_bumper-02",
+     "number": 2,
+     "head": "studio_bumper-02.head.bin",
+     "tail": null,
+     "intro": null,
+     "repeated": {
+      "start": 60,
+      "end": 80
+     }
+    },
+    {
+     "id": "studio_bumper-03",
+     "number": 3,
+     "head": "studio_bumper-03.head.bin",
+     "tail": null,
+     "intro": null,
+     "repeated": {
+      "start": 10,
+      "end": 30
+     }
+    },
+    {
+     "id": "studio_bumper-04",
+     "number": 4,
+     "head": "studio_bumper-04.head.bin",
+     "tail": null,
+     "intro": null,
+     "repeated": {
+      "start": 80,
+      "end": 100
+     }
+    },
+    {
+     "id": "studio_bumper-05",
+     "number": 5,
+     "head": "studio_bumper-05.head.bin",
+     "tail": null,
+     "intro": null,
+     "repeated": {
+      "start": 40,
+      "end": 60
+     }
+    }
+   ]
+  },
+  {
+   "name": "special_episode",
+   "description": "Episode 3 is a special without opening; the other episodes have theme A",
+   "episodes": [
+    {
+     "id": "special_episode-01",
+     "number": 1,
+     "head": "special_episode-01.head.bin",
+     "tail": null,
+     "intro": {
+      "start": 10,
+      "end": 70
+     }
+    },
+    {
+     "id": "special_episode-02",
+     "number": 2,
+     "head": "special_episode-02.head.bin",
+     "tail": null,
+     "intro": {
+      "start": 25,
+      "end": 85
+     }
+    },
+    {
+     "id": "special_episode-03",
+     "number": 3,
+     "head": "special_episode-03.head.bin",
+     "tail": null,
+     "intro": null
+    },
+    {
+     "id": "special_episode-04",
+     "number": 4,
+     "head": "special_episode-04.head.bin",
+     "tail": null,
+     "intro": {
+      "start": 55,
+      "end": 115
+     }
+    },
+    {
+     "id": "special_episode-05",
+     "number": 5,
+     "head": "special_episode-05.head.bin",
+     "tail": null,
+     "intro": {
+      "start": 70,
+      "end": 130
+     }
+    }
+   ]
+  },
+  {
+   "name": "noisy",
+   "description": "Theme A under growing dialogue/effects noise (amplitude 0.1 to 1.0 against a theme peak of 0.5)",
+   "episodes": [
+    {
+     "id": "noisy-01",
+     "number": 1,
+     "head": "noisy-01.head.bin",
+     "tail": null,
+     "intro": {
+      "start": 20,
+      "end": 80
+     },
+     "noise": 0.1
+    },
+    {
+     "id": "noisy-02",
+     "number": 2,
+     "head": "noisy-02.head.bin",
+     "tail": null,
+     "intro": {
+      "start": 20,
+      "end": 80
+     },
+     "noise": 0.25
+    },
+    {
+     "id": "noisy-03",
+     "number": 3,
+     "head": "noisy-03.head.bin",
+     "tail": null,
+     "intro": {
+      "start": 20,
+      "end": 80
+     },
+     "noise": 0.5
+    },
+    {
+     "id": "noisy-04",
+     "number": 4,
+     "head": "noisy-04.head.bin",
+     "tail": null,
+     "intro": {
+      "start": 20,
+      "end": 80
+     },
+     "noise": 0.75
+    },
+    {
+     "id": "noisy-05",
+     "number": 5,
+     "head": "noisy-05.head.bin",
+     "tail": null,
+     "intro": {
+      "start": 20,
+      "end": 80
+     },
+     "noise": 1
+    }
+   ]
+  },
+  {
+   "name": "other_encode",
+   "description": "The same opening after a lossy AAC 40 kbit/s encode in 3 of the 5 episodes",
+   "episodes": [
+    {
+     "id": "other_encode-01",
+     "number": 1,
+     "head": "other_encode-01.head.bin",
+     "tail": null,
+     "intro": {
+      "start": 25,
+      "end": 85
+     }
+    },
+    {
+     "id": "other_encode-02",
+     "number": 2,
+     "head": "other_encode-02.head.bin",
+     "tail": null,
+     "intro": {
+      "start": 25,
+      "end": 85
+     }
+    },
+    {
+     "id": "other_encode-03",
+     "number": 3,
+     "head": "other_encode-03.head.bin",
+     "tail": null,
+     "intro": {
+      "start": 25,
+      "end": 85
+     }
+    },
+    {
+     "id": "other_encode-04",
+     "number": 4,
+     "head": "other_encode-04.head.bin",
+     "tail": null,
+     "intro": {
+      "start": 25,
+      "end": 85
+     }
+    },
+    {
+     "id": "other_encode-05",
+     "number": 5,
+     "head": "other_encode-05.head.bin",
+     "tail": null,
+     "intro": {
+      "start": 25,
+      "end": 85
+     }
+    }
+   ]
+  },
+  {
+   "name": "truncated_intro",
+   "description": "Episode 3 only plays the first 38 s of the opening (a shortened broadcast cut)",
+   "episodes": [
+    {
+     "id": "truncated_intro-01",
+     "number": 1,
+     "head": "truncated_intro-01.head.bin",
+     "tail": null,
+     "intro": {
+      "start": 20,
+      "end": 80
+     }
+    },
+    {
+     "id": "truncated_intro-02",
+     "number": 2,
+     "head": "truncated_intro-02.head.bin",
+     "tail": null,
+     "intro": {
+      "start": 20,
+      "end": 80
+     }
+    },
+    {
+     "id": "truncated_intro-03",
+     "number": 3,
+     "head": "truncated_intro-03.head.bin",
+     "tail": null,
+     "intro": {
+      "start": 20,
+      "end": 58
+     }
+    },
+    {
+     "id": "truncated_intro-04",
+     "number": 4,
+     "head": "truncated_intro-04.head.bin",
+     "tail": null,
+     "intro": {
+      "start": 20,
+      "end": 80
+     }
+    },
+    {
+     "id": "truncated_intro-05",
+     "number": 5,
+     "head": "truncated_intro-05.head.bin",
+     "tail": null,
+     "intro": {
+      "start": 20,
+      "end": 80
+     }
+    }
+   ]
+  },
+  {
+   "name": "credits_variants",
+   "description": "Credits followed by a post-credits scene (eps 3-4) and no credits at all (eps 5)",
+   "episodes": [
+    {
+     "id": "credits_variants-01",
+     "number": 1,
+     "head": "credits_variants-01.head.bin",
+     "tail": "credits_variants-01.tail.bin",
+     "intro": {
+      "start": 0,
+      "end": 60
+     },
+     "credits": {
+      "start": 1380,
+      "end": 1440
+     }
+    },
+    {
+     "id": "credits_variants-02",
+     "number": 2,
+     "head": "credits_variants-02.head.bin",
+     "tail": "credits_variants-02.tail.bin",
+     "intro": {
+      "start": 0,
+      "end": 60
+     },
+     "credits": {
+      "start": 1380,
+      "end": 1440
+     }
+    },
+    {
+     "id": "credits_variants-03",
+     "number": 3,
+     "head": "credits_variants-03.head.bin",
+     "tail": "credits_variants-03.tail.bin",
+     "intro": {
+      "start": 0,
+      "end": 60
+     },
+     "credits": {
+      "start": 1335,
+      "end": 1395
+     }
+    },
+    {
+     "id": "credits_variants-04",
+     "number": 4,
+     "head": "credits_variants-04.head.bin",
+     "tail": "credits_variants-04.tail.bin",
+     "intro": {
+      "start": 0,
+      "end": 60
+     },
+     "credits": {
+      "start": 1350,
+      "end": 1410
+     }
+    },
+    {
+     "id": "credits_variants-05",
+     "number": 5,
+     "head": "credits_variants-05.head.bin",
+     "tail": "credits_variants-05.tail.bin",
+     "intro": {
+      "start": 0,
+      "end": 60
+     },
+     "credits": null
+    }
+   ]
+  }
+ ]
+}

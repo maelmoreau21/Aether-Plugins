@@ -21,3 +21,19 @@ test('manual prerelease and stable tag produce distinct immutable URLs', () => {
   assert.notEqual(beta.source_url, stable.source_url);
   assert.throws(() => plan({ TAG: 'tmdb-v9999.9999.9999-beta' }), /Cargo.toml has version/);
 });
+
+test('automatic releases may publish above Cargo.toml but never below it', () => {
+  const [major, minor, patch] = version.split('.').map(Number);
+  const next = `${major}.${minor}.${patch + 1}`;
+  assert.equal(plan({ PLUGIN: 'tmdb', VERSION: next, AUTO: 'true', PRERELEASE: 'true' }).tag, `tmdb-v${next}-beta`);
+  assert.throws(() => plan({ PLUGIN: 'tmdb', VERSION: next }), /Cargo.toml has version/);
+  assert.throws(() => plan({ PLUGIN: 'tmdb', VERSION: '0.0.1', AUTO: 'true' }), /Cargo.toml has version/);
+});
+
+test('automatic plan helpers read release tags and ignore documentation', () => {
+  const { compare, tagOf, docOnly } = require('./auto-release-plan.cjs');
+  assert.ok(compare('0.1.10', '0.1.9') > 0);
+  assert.equal(tagOf({ sourceUrl: 'https://github.com/o/r/releases/download/fanart-v0.1.3-beta/fanart-0.1.3.package.json' }), 'fanart-v0.1.3-beta');
+  assert.ok(docOnly('Aether-Plugins-TMDb/README.md'));
+  assert.ok(!docOnly('Aether-Plugins-TMDb/src/lib.rs'));
+});

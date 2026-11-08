@@ -103,6 +103,34 @@ class PluginsReleasePolicyTests(unittest.TestCase):
             self.assertFalse((workflows / legacy).exists(), legacy)
         self.assertNotIn("publish-develop-plugins.yml", (workflows / "ci.yml").read_text(encoding="utf-8"))
 
+    # 19. Aucune publication automatique sans que les contrôles CI réussissent.
+    def test_19_auto_release_is_gated_on_ci_checks(self):
+        workflows = Path(__file__).resolve().parent.parent / ".github" / "workflows"
+        ci = (workflows / "ci.yml").read_text(encoding="utf-8")
+        auto = (workflows / "auto-release.yml").read_text(encoding="utf-8")
+
+        def job(name):
+            block, inside = [], False
+            for line in auto.splitlines():
+                if line == f"  {name}:":
+                    inside = True
+                elif inside and line.startswith("  ") and not line.startswith("   ") and line.strip().endswith(":"):
+                    break
+                if inside:
+                    block.append(line)
+            return "\n".join(block)
+
+        # ci.yml is reusable, so auto-release.yml runs the very same checks.
+        self.assertIn("\n  workflow_call:", ci)
+        checks = job("checks")
+        self.assertIn("uses: ./.github/workflows/ci.yml", checks)
+        # The caller grants what the called jobs request and nothing more.
+        self.assertIn("contents: read", checks)
+        self.assertNotIn("contents: write", checks)
+        # The publishing job cannot start before the checks have succeeded.
+        self.assertIn("needs: [plan, checks]", job("release"))
+        self.assertNotIn("always()", job("release"))
+
     # Sur develop : incrément bêta
     def test_develop_channel_increments_beta(self):
         diff = "Aether-Plugins-TMDb/src/lib.rs"
@@ -139,6 +167,28 @@ class PluginsReleasePolicyTests(unittest.TestCase):
                     for entry in entries:
                         self.assertEqual(entry["next_version"], expected)
                         self.assertEqual(entry["bump_type"], bump)
+
+    # 20. Compilateur Rust épinglé, identique en local, en CI et en release.
+    def test_20_rust_toolchain_is_pinned_everywhere(self):
+        import re
+        root = Path(__file__).resolve().parent.parent
+        pin = (root / "rust-toolchain.toml").read_text(encoding="utf-8")
+        channel = re.search(r'(?m)^channel = "(\d+\.\d+\.\d+)"$', pin)
+        self.assertIsNotNone(channel, "channel must be an exact x.y.z version, not stable")
+        for target in ("wasm32-unknown-unknown",):
+            self.assertIn(target, pin)
+        for component in ("rustfmt", "clippy"):
+            self.assertIn(component, pin)
+        # The workspace MSRV cannot be newer than the compiler used to build.
+        msrv = re.search(r'(?m)^rust-version = "(\d+)\.(\d+)"$', (root / "Cargo.toml").read_text(encoding="utf-8"))
+        self.assertIsNotNone(msrv)
+        major, minor, _ = (int(part) for part in channel.group(1).split("."))
+        self.assertLessEqual((int(msrv.group(1)), int(msrv.group(2))), (major, minor))
+        # No workflow floats on `stable`: they all install what the file pins.
+        for name in ("ci.yml", "release.yml"):
+            workflow = (root / ".github" / "workflows" / name).read_text(encoding="utf-8")
+            self.assertNotIn("rust-toolchain@", workflow, name)
+            self.assertIn("rustup toolchain install", workflow, name)
 
 if __name__ == "__main__":
     unittest.main()

@@ -16,6 +16,12 @@ use std::time::Duration;
 
 const DEFAULT_SUGGESTION_URL: &str = "https://v3.sg.media-imdb.com/suggestion";
 const DEFAULT_TITLE_URL: &str = "https://www.imdb.com/title";
+/// Public GraphQL endpoint of imdb.com. Title pages answer HTTP 202 with an empty
+/// body (anti-bot challenge) to every non-browser client, so details come from here.
+const DEFAULT_GRAPHQL_URL: &str = "https://caching.graphql.imdb.com/";
+const GRAPHQL_HOST: &str = "caching.graphql.imdb.com";
+const IMAGE_HOST: &str = "m.media-amazon.com";
+const TITLE_QUERY: &str = "query AetherTitle($id: ID!) { title(id: $id) { titleText { text } originalTitleText { text } releaseYear { year } releaseDate { year month day } ratingsSummary { aggregateRating voteCount } runtime { seconds } plot { plotText { plainText } } genres { genres { text } } certificate { rating } primaryImage { url width height } directors: credits(first: 5, filter: {categories: [\"director\"]}) { edges { node { name { nameText { text } } } } } writers: credits(first: 5, filter: {categories: [\"writer\"]}) { edges { node { name { nameText { text } } } } } cast: credits(first: 15, filter: {categories: [\"actor\", \"actress\"]}) { edges { node { name { nameText { text } primaryImage { url } } ... on Cast { characters { name } } } } } } }";
 
 #[derive(Clone, Default)]
 pub struct ImdbPlugin;
@@ -121,6 +127,91 @@ impl ImdbPlugin {
         }
     }
 
+    /// POST a JSON body and return the response text (GraphQL endpoint).
+    async fn post_json(
+        &self,
+        url: &str,
+        body: String,
+        config: &ProviderConfig,
+    ) -> Result<String, PluginError> {
+        #[cfg(target_arch = "wasm32")]
+        {
+            let mut headers = BTreeMap::new();
+            headers.insert("Content-Type".into(), "application/json".into());
+            headers.insert("Accept".into(), "application/json".into());
+            headers.insert(
+                "x-imdb-client-name".into(),
+                "imdb-web-next-localized".into(),
+            );
+            headers.insert(
+                "Accept-Language".into(),
+                "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7".into(),
+            );
+            let host_req = media_extension_sdk::HostHttpRequest {
+                url: url.to_string(),
+                method: "POST".into(),
+                headers,
+                body: Some(body.into_bytes()),
+                timeout_secs: config.timeout_secs.map(|s| s as u32),
+            };
+            let resp = media_extension_sdk::host_http_fetch(&host_req)
+                .map_err(|e| PluginError::new(e.code, e.message))?;
+            if resp.status == 429 {
+                return Err(PluginError::rate_limited(10));
+            }
+            if resp.status != 200 {
+                return Err(PluginError::new(
+                    "provider_error",
+                    format!("IMDb GraphQL returned HTTP status {}", resp.status),
+                ));
+            }
+            String::from_utf8(resp.body).map_err(|e| PluginError::new("read_error", e.to_string()))
+        }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let client = self.build_client(config)?;
+            let res = client
+                .post(url)
+                .header("Content-Type", "application/json")
+                .header("Accept", "application/json")
+                .header("x-imdb-client-name", "imdb-web-next-localized")
+                .body(body)
+                .send()
+                .await
+                .map_err(|e| PluginError::new("network_error", e.to_string()))?;
+            if res.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                return Err(PluginError::rate_limited(10));
+            }
+            if !res.status().is_success() {
+                return Err(PluginError::new(
+                    "provider_error",
+                    format!("IMDb GraphQL returned status {}", res.status()),
+                ));
+            }
+            res.text()
+                .await
+                .map_err(|e| PluginError::new("read_error", e.to_string()))
+        }
+    }
+
+    async fn details_graphql(
+        &self,
+        imdb_id: &str,
+        config: &ProviderConfig,
+    ) -> Result<StructuredMetadata, PluginError> {
+        let body = serde_json::json!({
+            "operationName": "AetherTitle",
+            "query": TITLE_QUERY,
+            "variables": { "id": imdb_id },
+        })
+        .to_string();
+        let text = self.post_json(DEFAULT_GRAPHQL_URL, body, config).await?;
+        let value: serde_json::Value = serde_json::from_str(&text)
+            .map_err(|e| PluginError::new("parse_error", e.to_string()))?;
+        metadata_from_graphql(imdb_id, &value)
+    }
+
     fn normalize_query(&self, raw: &str) -> String {
         raw.chars()
             .filter(|c| c.is_alphanumeric() || c.is_whitespace() || *c == '-' || *c == '_')
@@ -173,7 +264,9 @@ impl MetadataProviderPlugin for ImdbPlugin {
             version: env!("CARGO_PKG_VERSION").into(),
             category: "Metadata".into(),
             provider: "imdb".into(),
-            http_hosts: vec!["v3.sg.media-imdb.com".into(), "imdb.com".into(), "www.imdb.com".into()],
+            // Posters and cast photos are served by m.media-amazon.com: the Core downloads
+            // a chosen image only from a host the package declares.
+            http_hosts: vec!["v3.sg.media-imdb.com".into(), "imdb.com".into(), "www.imdb.com".into(), GRAPHQL_HOST.into(), IMAGE_HOST.into()],
             description: "Fournisseur de métadonnées IMDb (notes mondiales de référence, votes, casting et recherche instantanée)".into(),
             author: "Aether Team".into(),
             license: "MIT OR Apache-2.0".into(),
@@ -242,6 +335,7 @@ impl MetadataProviderPlugin for ImdbPlugin {
                         id: id.clone(),
                         media_type: query.media_type,
                         external_ids: query.external_ids.clone(),
+                        ..Default::default()
                     },
                     config,
                 )
@@ -351,11 +445,18 @@ impl MetadataProviderPlugin for ImdbPlugin {
             ));
         }
 
-        let base_url = config
+        // The configurable address defaults to the suggestion endpoint. Without a custom
+        // (proxy/mock) address, details come from the GraphQL API: the title pages of
+        // www.imdb.com only answer an anti-bot challenge to servers.
+        let custom = config
             .base_url
             .as_deref()
-            .unwrap_or(DEFAULT_TITLE_URL)
-            .trim_end_matches('/');
+            .map(|url| url.trim_end_matches('/'))
+            .filter(|url| !url.is_empty() && *url != DEFAULT_SUGGESTION_URL);
+        let Some(base_url) = custom else {
+            return self.details_graphql(&imdb_id, config).await;
+        };
+        let _ = DEFAULT_TITLE_URL;
 
         let url = format!("{base_url}/{imdb_id}/");
         let html = self.fetch_text(&url, config).await?;
@@ -468,6 +569,7 @@ impl MetadataProviderPlugin for ImdbPlugin {
             images,
             seasons: Vec::new(),
             translations: BTreeMap::new(),
+            ..Default::default()
         })
     }
 
@@ -476,17 +578,228 @@ impl MetadataProviderPlugin for ImdbPlugin {
         request: ImagesRequest,
         config: &ProviderConfig,
     ) -> Result<Vec<MediaImage>, PluginError> {
-        let details = self
-            .details(
-                DetailsRequest {
-                    id: request.id,
-                    media_type: request.media_type,
-                    external_ids: request.external_ids,
-                },
-                config,
-            )
-            .await?;
-        Ok(details.images)
+        // IMDb only exposes a poster. Title pages are behind an anti-bot challenge
+        // (HTTP 202), so the poster comes from the suggestion API keyed by the tt id.
+        let imdb_id = if request.id.starts_with("tt") {
+            request.id.clone()
+        } else {
+            request
+                .external_ids
+                .get("imdb")
+                .cloned()
+                .unwrap_or_default()
+        };
+        if imdb_id.len() <= 2
+            || !imdb_id.starts_with("tt")
+            || !imdb_id[2..].bytes().all(|b| b.is_ascii_digit())
+        {
+            return Ok(Vec::new());
+        }
+        let base_url = config
+            .base_url
+            .as_deref()
+            .unwrap_or(DEFAULT_SUGGESTION_URL)
+            .trim_end_matches('/');
+        let url = format!("{base_url}/x/{imdb_id}.json");
+        let text = match self.fetch_text(&url, config).await {
+            Ok(text) => text,
+            Err(error) if error.code == "not_found" => return Ok(Vec::new()),
+            Err(error) => return Err(error),
+        };
+        let data: ImdbSuggestionResponse = serde_json::from_str(&text)
+            .map_err(|e| PluginError::new("parse_error", e.to_string()))?;
+        Ok(data
+            .d
+            .into_iter()
+            .filter(|item| item.id == imdb_id)
+            .filter_map(|item| item.i)
+            .take(1)
+            .map(|image| MediaImage {
+                url: image.image_url,
+                image_type: ImageType::Poster,
+                width: image.width,
+                height: image.height,
+                language: None,
+                rating: None,
+                vote_count: None,
+                is_primary: true,
+            })
+            .collect())
+    }
+}
+
+/// Structured metadata from the GraphQL `title` answer. Missing parts are simply
+/// absent: only an unknown title is an error.
+fn metadata_from_graphql(
+    imdb_id: &str,
+    value: &serde_json::Value,
+) -> Result<StructuredMetadata, PluginError> {
+    let title = &value["data"]["title"];
+    if !title.is_object() {
+        return Err(PluginError::not_found(imdb_id));
+    }
+    let text = |v: &serde_json::Value| {
+        v.as_str()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_owned)
+    };
+    let names = |key: &str| -> Vec<String> {
+        title[key]["edges"]
+            .as_array()
+            .map(|edges| {
+                let mut out: Vec<String> = Vec::new();
+                for edge in edges {
+                    if let Some(name) = text(&edge["node"]["name"]["nameText"]["text"])
+                        && !out.contains(&name)
+                    {
+                        out.push(name);
+                    }
+                }
+                out
+            })
+            .unwrap_or_default()
+    };
+    let name = text(&title["titleText"]["text"])
+        .ok_or_else(|| PluginError::new("parse_error", "IMDb title without a name"))?;
+    let original = text(&title["originalTitleText"]["text"]).filter(|o| *o != name);
+    let date = &title["releaseDate"];
+    let release_date = match (
+        date["year"].as_u64(),
+        date["month"].as_u64(),
+        date["day"].as_u64(),
+    ) {
+        (Some(y), Some(m), Some(d)) => Some(format!("{y:04}-{m:02}-{d:02}")),
+        _ => None,
+    };
+    let year = title["releaseYear"]["year"]
+        .as_u64()
+        .or_else(|| date["year"].as_u64())
+        .and_then(|y| u16::try_from(y).ok());
+    let runtime_minutes = title["runtime"]["seconds"]
+        .as_u64()
+        .filter(|s| *s > 0)
+        .and_then(|s| u32::try_from(s.div_ceil(60)).ok());
+    let mut ratings = Vec::new();
+    if let Some(rating) = title["ratingsSummary"]["aggregateRating"].as_f64() {
+        ratings.push(ProviderRating {
+            provider: "imdb".into(),
+            value: rating,
+            max: 10.0,
+            votes: title["ratingsSummary"]["voteCount"].as_u64(),
+        });
+    }
+    let genres = title["genres"]["genres"]
+        .as_array()
+        .map(|g| g.iter().filter_map(|v| text(&v["text"])).collect())
+        .unwrap_or_default();
+    let actors = title["cast"]["edges"]
+        .as_array()
+        .map(|edges| {
+            edges
+                .iter()
+                .filter_map(|edge| {
+                    let node = &edge["node"];
+                    let name = text(&node["name"]["nameText"]["text"])?;
+                    Some((name, node))
+                })
+                .enumerate()
+                .map(|(idx, (name, node))| ActorCredit {
+                    name,
+                    role: node["characters"]
+                        .as_array()
+                        .and_then(|c| c.first())
+                        .and_then(|c| text(&c["name"])),
+                    thumb_url: text(&node["name"]["primaryImage"]["url"]),
+                    order: Some(idx as u32),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let mut posters = Vec::new();
+    if let Some(url) = text(&title["primaryImage"]["url"]) {
+        posters.push(MediaImage {
+            url,
+            image_type: ImageType::Poster,
+            width: title["primaryImage"]["width"]
+                .as_u64()
+                .and_then(|v| u32::try_from(v).ok()),
+            height: title["primaryImage"]["height"]
+                .as_u64()
+                .and_then(|v| u32::try_from(v).ok()),
+            language: None,
+            rating: None,
+            vote_count: None,
+            is_primary: true,
+        });
+    }
+    let mut external_ids = BTreeMap::new();
+    external_ids.insert("imdb".into(), imdb_id.to_owned());
+    Ok(StructuredMetadata {
+        collection: None,
+        provider: "imdb".into(),
+        provider_id: imdb_id.to_owned(),
+        external_ids,
+        title: Some(name),
+        original_title: original,
+        tagline: None,
+        synopsis: text(&title["plot"]["plotText"]["plainText"]),
+        year,
+        release_date,
+        runtime_minutes,
+        genres,
+        directors: names("directors"),
+        writers: names("writers"),
+        actors,
+        ratings,
+        mpaa: text(&title["certificate"]["rating"]),
+        status: None,
+        images: posters.clone(),
+        posters,
+        backdrops: Vec::new(),
+        seasons: Vec::new(),
+        translations: BTreeMap::new(),
+        ..Default::default()
+    })
+}
+
+#[cfg(test)]
+mod graphql_tests {
+    use super::*;
+    #[test]
+    fn graphql_title_becomes_structured_metadata() {
+        let value = serde_json::json!({"data":{"title":{
+            "titleText":{"text":"Interstellar"},"originalTitleText":{"text":"Interstellar"},
+            "releaseYear":{"year":2014},"releaseDate":{"year":2014,"month":11,"day":5},
+            "ratingsSummary":{"aggregateRating":8.7,"voteCount":2631024},"runtime":{"seconds":10140},
+            "plot":{"plotText":{"plainText":"A team of astronauts."}},
+            "genres":{"genres":[{"text":"Adventure"},{"text":"Sci-Fi"}]},
+            "certificate":{"rating":"PG-13"},
+            "primaryImage":{"url":"https://m.media-amazon.com/images/M/x.jpg","width":2430,"height":3600},
+            "directors":{"edges":[{"node":{"name":{"nameText":{"text":"Christopher Nolan"}}}}]},
+            "writers":{"edges":[{"node":{"name":{"nameText":{"text":"Jonathan Nolan"}}}},{"node":{"name":{"nameText":{"text":"Christopher Nolan"}}}},{"node":{"name":{"nameText":{"text":"Jonathan Nolan"}}}}]},
+            "cast":{"edges":[{"node":{"name":{"nameText":{"text":"Matthew McConaughey"},"primaryImage":{"url":"https://m.media-amazon.com/a.jpg"}},"characters":[{"name":"Cooper"}]}}]}
+        }}});
+        let m = metadata_from_graphql("tt0816692", &value).unwrap();
+        assert_eq!(m.title.as_deref(), Some("Interstellar"));
+        assert_eq!(m.original_title, None);
+        assert_eq!(m.year, Some(2014));
+        assert_eq!(m.release_date.as_deref(), Some("2014-11-05"));
+        assert_eq!(m.runtime_minutes, Some(169));
+        assert_eq!(m.ratings[0].value, 8.7);
+        assert_eq!(m.ratings[0].votes, Some(2631024));
+        assert_eq!(m.directors, vec!["Christopher Nolan"]);
+        assert_eq!(m.writers, vec!["Jonathan Nolan", "Christopher Nolan"]);
+        assert_eq!(m.actors[0].role.as_deref(), Some("Cooper"));
+        assert_eq!(m.mpaa.as_deref(), Some("PG-13"));
+        assert_eq!(m.posters.len(), 1);
+        assert_eq!(
+            m.external_ids.get("imdb").map(String::as_str),
+            Some("tt0816692")
+        );
+        let missing =
+            metadata_from_graphql("tt0000001", &serde_json::json!({"data":{"title":null}}));
+        assert_eq!(missing.unwrap_err().code, "not_found");
     }
 }
 
@@ -511,6 +824,8 @@ struct ImdbSuggestionItem {
 struct ImdbSuggestionImage {
     #[serde(rename = "imageUrl")]
     image_url: String,
+    width: Option<u32>,
+    height: Option<u32>,
 }
 
 // IMDb JSON-LD model

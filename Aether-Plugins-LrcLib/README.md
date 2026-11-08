@@ -1,4 +1,4 @@
-﻿# LRCLIB
+# LRCLIB
 
 Paroles depuis [lrclib.net](https://lrclib.net), sans clé API (`base_url` pour une instance auto-hébergée).
 

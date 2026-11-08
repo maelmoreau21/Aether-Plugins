@@ -83,6 +83,16 @@ branche lue par le serveur : il n'y a plus de réécriture `main`/`develop`.
 
 Relancer le workflow pour une version déjà au catalogue ne fait rien.
 
+### Contrôles avant publication automatique
+
+`auto-release.yml` exécute d'abord le workflow `ci.yml` (réutilisé via
+`workflow_call`) lorsqu'au moins un plugin doit être publié : formatage, clippy,
+tests natifs, build et validation Wasm, vérification du catalogue et des
+signatures, audit RustSec. Le job de publication dépend de ce résultat : un commit
+dont les contrôles échouent ne signe et ne publie rien. S'il n'y a rien à publier,
+les contrôles ne sont pas relancés par ce workflow. Le workflow manuel
+`release.yml` (Actions → Release plugin) n'est pas concerné par cette dépendance.
+
 ## 3. Préfixes de tags et d'assets
 
 | Identifiant | Répertoire | Préfixe |
@@ -136,3 +146,15 @@ qu'à eux. Ils écrivaient le catalogue `apiVersion: 1` (dernière version
 uniquement), committaient dans `develop` et ouvraient des PR avec `GITHUB_TOKEN`.
 Ils restent consultables dans l'historique Git. `scripts/detect_changed_plugins.py`
 et `plan-auto-release.py` sont conservés pour les tests de politique de version.
+
+## 7. Compilateur Rust épinglé
+
+`rust-toolchain.toml` fixe la version exacte de Rust (cible Wasm, `rustfmt` et
+`clippy` compris). Elle est utilisée en local, par `ci.yml` et par `release.yml`
+(étape `rustup toolchain install`, sans `@stable` flottant). La version `1.99.1`
+est celle des modules Wasm déjà publiés (commit `58cf8f9c3` inscrit dans les
+paquets), ce qui permet de reconstruire un plugin avec le compilateur d'origine.
+
+Pour changer de compilateur : modifier `channel` dans un commit dédié, vérifier
+que `rust-version` (`Cargo.toml`) reste inférieur ou égal, et laisser la CI valider.
+Les paquets déjà signés ne sont jamais reconstruits ni remplacés.

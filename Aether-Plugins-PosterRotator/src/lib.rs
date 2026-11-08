@@ -81,7 +81,7 @@ pub fn manifest() -> Value {
                 "Taille du pool",
                 "Nombre maximal d'affiches candidates par œuvre (1 à 24).",
                 "number",
-                "4",
+                "12",
             ),
             field(
                 "preferred_language",

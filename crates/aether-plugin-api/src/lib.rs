@@ -381,6 +381,27 @@ pub trait MetadataProviderPlugin: Send + Sync {
     ) -> Result<Vec<MediaImage>, PluginError>;
 }
 
+/// Canonical BCP-47-like tag for a provider request: two-letter language, optional
+/// upper-case region (`fr`, `fr-FR`, `fr_ca` -> `fr-CA`). `None` for anything else, so a
+/// malformed tag from the Core can never reach a provider URL.
+pub fn canonical_locale(tag: &str) -> Option<String> {
+    let tag = tag.trim().replace('_', "-");
+    let mut parts = tag.split('-');
+    let language = parts.next()?;
+    if language.len() != 2 || !language.bytes().all(|b| b.is_ascii_alphabetic()) {
+        return None;
+    }
+    let mut out = language.to_ascii_lowercase();
+    if let Some(region) = parts.next() {
+        if region.len() != 2 || !region.bytes().all(|b| b.is_ascii_alphabetic()) {
+            return None;
+        }
+        out.push('-');
+        out.push_str(&region.to_ascii_uppercase());
+    }
+    parts.next().is_none().then_some(out)
+}
+
 /// Build the unique search candidate obtained from an authoritative provider ID.
 pub fn identified_search_result(
     metadata: StructuredMetadata,
@@ -531,6 +552,27 @@ pub async fn handle_request<P: MetadataProviderPlugin>(plugin: &P, raw_json: &st
 #[cfg(test)]
 mod extension_config_tests {
     use super::*;
+
+    #[test]
+    fn canonical_locale_keeps_regions_and_rejects_everything_else() {
+        for (input, expected) in [
+            ("fr", "fr"),
+            ("FR-fr", "fr-FR"),
+            ("fr_ca", "fr-CA"),
+            (" en-GB ", "en-GB"),
+        ] {
+            assert_eq!(
+                canonical_locale(input).as_deref(),
+                Some(expected),
+                "{input}"
+            );
+        }
+        for bad in [
+            "", "f", "fra", "fr-", "fr-FRA", "fr-FR-x", "fr/../x", "fr FR",
+        ] {
+            assert_eq!(canonical_locale(bad), None, "{bad}");
+        }
+    }
 
     #[test]
     fn accepts_form_keys_and_keeps_configuration_per_request() {

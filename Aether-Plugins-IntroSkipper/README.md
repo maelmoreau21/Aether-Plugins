@@ -31,7 +31,8 @@ Intro Skipper classe des chapitres et compare des empreintes déjà fournies par
 - `manifest` : retourne le manifeste complet du plugin et son schéma de configuration.
 - `intro.detect` / `markers.detect` : analyse une liste d'épisodes et produit des candidats. L'hôte doit fournir des épisodes d'une seule série et saison, avec des empreintes de même cadence.
 - `intro.match_fingerprints` : compare deux séries d'empreintes acoustiques et retourne le segment commun.
-- `intro.parse_chapters` : extrait les marqueurs d'intro/crédits à partir des chapitres du conteneur.
+- `intro.parse_chapters` : extrait les marqueurs d'intro/crédits à partir des chapitres du conteneur. Avec `"mediaType": "movie"`, le générique d'un film peut atteindre `max_movie_credits_duration` et la forme des chapitres n'est pas lue. Un film reçoit aussi `blackFrames` (algorithme `blackframe-v1`) : les passages noirs des 20 dernières minutes mesurés par le Node sur les images clés, avec la part d'images portant du texte. Un passage noir lettré d'au moins 60 s, finissant dans le dernier quart du film, est le générique (méthode `black_frame`) : 0,84 seul s'il dure au moins 90 s, 0,92 s'il commence à moins de 15 s d'un chapitre (début calé sur ce chapitre). Il confirme un chapitre ambigu « Fin » / « Ending » et ne remplace jamais un chapitre clairement nommé. Un fondu au noir ou une scène sombre sans texte ne donnent rien.
+- Les épisodes d'`intro.detect` peuvent porter leurs `chapters` (`start`, `end`, `title`) : un chapitre nommé est gardé tel quel et confirmé par l'audio, une limite audio se cale sur un chapitre proche, et les chapitres sans nom d'un animé révèlent l'opening et l'ending par leur durée et leur position.
 
 ---
 
@@ -46,10 +47,22 @@ Intro Skipper classe des chapitres et compare des empreintes déjà fournies par
 | `similarity_threshold` | number | `0.75` | Seuil d'accord acoustique (0.70 - 0.90) |
 | `search_window_end` | number | `600` | Plage de recherche (10 premières minutes) |
 | `search_window_start` | number | `0` | Début de recherche acoustique pour exclure un résumé récurrent |
-| `auto_skip_intro` | boolean | `false` | Sauter l'intro automatiquement |
-| `auto_skip_credits` | boolean | `false` | Passer à l'épisode suivant automatiquement |
 | `enable_chapter_detection` | boolean | `true` | Détection préalable par chapitres |
 | `enable_fingerprint_detection` | boolean | `true` | Détection acoustique par empreintes |
+| `enable_chapter_structure` | boolean | `true` | Opening/ending déduits des chapitres sans nom (75–100 s, début et fin de l'épisode) |
+| `chapter_snap_window` | number | `3` | Calage d'une limite audio sur un chapitre à moins de N s (0 à 10, 0 = jamais) |
+| `max_movie_credits_duration` | number | `900` | Durée maximale du générique de fin d'un film (jusqu'à 1200 s) |
+| `enable_black_frame_detection` | boolean | `true` | Générique de fin des films lu à l'image (texte sur fond noir), mesuré par le Node |
+| `detect_intro` / `detect_credits` / `detect_recap` / `detect_preview` | boolean | `true` | Types de segments rapportés |
+| `min_consensus_votes` | select | `1` | Comparaisons d'épisodes concordantes exigées (1 à 3) |
+| `intro_start_offset` / `intro_end_offset` | number | `0` | Décalage des bornes de l'intro (−30 à 30 s) |
+| `credits_start_offset` | number | `0` | Décalage du début du générique de fin (−30 à 30 s) |
+| `intro_keywords` / `credits_keywords` / `recap_keywords` / `preview_keywords` | text | vide | Noms de chapitre supplémentaires, séparés par des virgules |
+
+Le saut automatique est une préférence de chaque spectateur (Paramètres › Lecture), pas un
+réglage de détection : les anciens champs `auto_skip_*`, jamais lus par l'hôte, sont retirés.
+Un champ numérique vide reprend sa valeur par défaut. Le seuil de confiance utilisé en lecture
+se règle par bibliothèque côté Aether (`markerMinConfidence`, 80 % par défaut).
 
 Les durées doivent être finies et positives, avec minimum ≤ maximum. Les intros
 sont plafonnées à 600 secondes, les crédits à 300 ; la fenêtre acoustique doit
@@ -59,10 +72,35 @@ Les valeurs numériques JSON et les chaînes du formulaire d'administration sont
 acceptées. La fenêtre de recherche ne modifie pas les chapitres nommés ; le
 maximum des crédits s'applique aux chapitres et à la comparaison acoustique.
 
-Ces limites n'allongent pas l'extraction du Node : le code hôte actuel conserve
-au plus 2500 empreintes en tête (~290 s) et 1500 en queue (~174 s pour un épisode
-long). Le plugin cherche uniquement dans les empreintes disponibles. Une fenêtre
+Ces limites n'allongent pas l'extraction du Node : le code hôte conserve au plus
+2500 empreintes en tête (300 s en produisent 2423) et 1500 en queue (186 s jusqu'à la
+fin du fichier). Le plugin cherche uniquement dans les empreintes disponibles. Une fenêtre
 entièrement silencieuse ou plate est écartée même si l'audio hors fenêtre varie.
 Le bouton de détection par chapitres désactive aussi `intro.parse_chapters`.
 Les nouveaux champs apparaîtront dans l'administration après construction et
 installation d'un paquet contenant ce schéma ; aucun paquet signé n'est modifié.
+
+---
+
+## 🎯 Débit des empreintes, lots et limites mesurées
+
+- Les empreintes Chromaprint ont un débit de **11025 / 1365 = 8,0769 par seconde**. Jusqu'au
+  7 novembre 2026 le Node annonçait 8,6133 : tous les horaires étaient étirés de 6 %. Le
+  plugin lit désormais cette valeur historique comme le débit réel (`normalize_rate`).
+- L'hôte doit envoyer **3 épisodes au plus** par `intro.detect` : la requête Wasm est plafonnée à
+  65 536 octets (3 épisodes complets en pèsent 62 915) et le bac à sable à 200 M de carburant
+  (3 épisodes en consomment 105 M, un quatrième dépasse les deux limites).
+- Une répétition n'est pas une ouverture : un jingle de studio commun à tous les épisodes est
+  signalé comme ouverture, avec une confiance de 0,99. La confiance mesure l'accord entre épisodes,
+  pas la probabilité d'avoir raison. Aucune détection parfaite n'est promise.
+- Un récapitulatif n'est reconnu que par ses chapitres ; la corrélation acoustique ne produit que
+  des ouvertures et des génériques.
+
+Mesures, corpus et limites : `docs/INTRO_SKIPPER_2026_11_07.md`. Reproduction (Docker, image avec
+ffmpeg et Chromaprint) :
+
+```bash
+node Aether-Plugins-IntroSkipper/tests/corpus/build-corpus.mjs      # régénère tests/corpus/intro
+cargo test --release -p aether-plugin-intro-skipper -- --nocapture  # tableaux de précision, temps, mémoire
+node scripts/test-intro-skipper-wasm.cjs                            # le vrai module Wasm
+```

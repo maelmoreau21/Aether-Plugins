@@ -1,0 +1,14 @@
+{
+  "total_pages": 400,
+  "total_count": 7,
+  "data": [
+    {"id": "1", "type": "subtitle", "attributes": {"language": "fr", "release": "Movie.2020.1080p.WEB", "moviehash_match": false, "download_count": 900, "foreign_parts_only": false, "hearing_impaired": false, "files": [{"file_id": 101, "file_name": "movie.fr.srt"}]}},
+    {"id": "2", "type": "subtitle", "attributes": {"language": "fr", "release": "Movie.2020.BluRay.x264", "moviehash_match": true, "download_count": 12, "foreign_parts_only": false, "hearing_impaired": false, "files": [{"file_id": 102, "file_name": "movie.bluray.fr.srt"}]}},
+    {"id": "3", "type": "subtitle", "attributes": {"language": "en", "release": "Movie.2020.English", "moviehash_match": true, "files": [{"file_id": 103}]}},
+    {"id": "4", "type": "subtitle", "attributes": {"language": "fr", "release": "Movie.2020.Repost", "files": [{"file_id": 101}, {"file_id": 104}]}},
+    {"id": "5", "type": "subtitle", "attributes": {"language": "fr", "release": "\u0000\u0007\n", "files": [{"file_id": 105, "file_name": "fallback.name.srt"}]}},
+    {"id": "6", "type": "subtitle", "attributes": {"language": "fr", "release": "No files here"}},
+    {"id": "7", "type": "subtitle", "attributes": {"release": "No language", "files": [{"file_id": 106}]}},
+    {"id": "8", "type": "subtitle", "attributes": {"language": "fr", "release": "Bad ids", "files": [{"file_id": 0}, {"file_id": -3}, {"file_id": "text"}, {}]}}
+  ]
+}

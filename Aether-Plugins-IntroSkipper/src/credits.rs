@@ -11,6 +11,25 @@ impl<'a> CreditsDetector<'a> {
         Self { config }
     }
 
+    /// Seconds of tail audio compared (the last 5 minutes at most).
+    fn tail_seconds(&self) -> f64 {
+        self.config.max_credits_duration.max(180.0)
+    }
+
+    /// First fingerprint item of the compared tail of an episode.
+    fn tail_index(&self, fps: &[u32], rate: f64) -> usize {
+        fps.len()
+            .saturating_sub((self.tail_seconds() * rate).round() as usize)
+    }
+
+    /// Where the compared tail audio of an episode starts in the file, if it has one: credits
+    /// found right there may have begun earlier.
+    pub fn analysed_tail_start(&self, ep: &EpisodeData) -> Option<f64> {
+        let fps = ep.tail_fingerprints.as_deref().filter(|f| !f.is_empty())?;
+        let rate = crate::matcher::normalize_rate(ep.fingerprint_rate);
+        Some(ep.tail_start? + self.tail_index(fps, rate) as f64 / rate)
+    }
+
     /// Detect credits between two episodes by comparing the tail end audio fingerprints
     pub fn detect_tail_credits(
         &self,
@@ -22,23 +41,15 @@ impl<'a> CreditsDetector<'a> {
         let tail_start_a = ep_a.tail_start?;
         let tail_start_b = ep_b.tail_start?;
 
-        let rate_a = ep_a
-            .fingerprint_rate
-            .unwrap_or(crate::matcher::DEFAULT_FINGERPRINT_RATE);
-        let rate_b = ep_b
-            .fingerprint_rate
-            .unwrap_or(crate::matcher::DEFAULT_FINGERPRINT_RATE);
-        if !rate_a.is_finite() || !rate_b.is_finite() || (rate_a - rate_b).abs() > 0.01 {
+        let rate_a = crate::matcher::normalize_rate(ep_a.fingerprint_rate);
+        let rate_b = crate::matcher::normalize_rate(ep_b.fingerprint_rate);
+        if (rate_a - rate_b).abs() > 0.01 {
             return None;
         }
 
-        // Analyze last 5 minutes (300 seconds) of each episode
-        let tail_seconds = self.config.max_credits_duration.max(180.0);
-        let tail_frames_a = (tail_seconds * rate_a).round() as usize;
-        let tail_frames_b = (tail_seconds * rate_b).round() as usize;
-
-        let start_idx_a = fps_a.len().saturating_sub(tail_frames_a);
-        let start_idx_b = fps_b.len().saturating_sub(tail_frames_b);
+        let tail_seconds = self.tail_seconds();
+        let start_idx_a = self.tail_index(fps_a, rate_a);
+        let start_idx_b = self.tail_index(fps_b, rate_b);
 
         let slice_a = &fps_a[start_idx_a..];
         let slice_b = &fps_b[start_idx_b..];

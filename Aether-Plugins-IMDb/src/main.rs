@@ -133,6 +133,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         id,
                         media_type: m_type,
                         external_ids: Default::default(),
+                        ..Default::default()
                     },
                     &config,
                 )

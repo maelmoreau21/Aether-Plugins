@@ -146,7 +146,7 @@ fn test_plugin_manifest_structure() {
         manifest
             .config_schema
             .iter()
-            .any(|f| f.key == "auto_skip_intro")
+            .any(|f| f.key == "detect_intro")
     );
 }
 
@@ -679,4 +679,203 @@ fn test_post_credits_scene_detection() {
         ep_b.duration - marker_b.end >= 35.0,
         "Post-credits scene preserved!"
     );
+}
+
+#[test]
+fn fingerprint_rate_is_the_chromaprint_rate_and_the_legacy_mislabel_is_corrected() {
+    use aether_plugin_intro_skipper::{
+        DEFAULT_FINGERPRINT_RATE, LEGACY_FINGERPRINT_RATE, normalize_rate,
+    };
+    // 11025 Hz audio, one item every 1365 samples.
+    assert!((DEFAULT_FINGERPRINT_RATE - 8.076923).abs() < 1e-5);
+    assert_eq!(normalize_rate(None), DEFAULT_FINGERPRINT_RATE);
+    assert_eq!(normalize_rate(Some(f64::NAN)), DEFAULT_FINGERPRINT_RATE);
+    assert_eq!(
+        normalize_rate(Some(f64::INFINITY)),
+        DEFAULT_FINGERPRINT_RATE
+    );
+    // What Aether hosts announced before 7 November 2026.
+    assert_eq!(
+        normalize_rate(Some(LEGACY_FINGERPRINT_RATE)),
+        DEFAULT_FINGERPRINT_RATE
+    );
+    // Any other announced rate is the host's own business.
+    assert_eq!(normalize_rate(Some(10.0)), 10.0);
+
+    // A theme of 60 s at the real rate is reported as 60 s whichever label the host used.
+    let noise = |seed: u32, n: usize| {
+        let mut x = seed;
+        (0..n)
+            .map(|_| {
+                x = x.wrapping_mul(1664525).wrapping_add(1013904223);
+                x ^ (x >> 13)
+            })
+            .collect::<Vec<u32>>()
+    };
+    let theme = noise(0xA5A5_1234, 485);
+
+    let (mut a, mut b) = (noise(7, 100), noise(99, 300));
+    a.extend(&theme);
+    b.extend(&theme);
+    let config = aether_plugin_intro_skipper::IntroSkipperConfig::default();
+    for rate in [
+        Some(DEFAULT_FINGERPRINT_RATE),
+        Some(LEGACY_FINGERPRINT_RATE),
+        None,
+    ] {
+        let m = aether_plugin_intro_skipper::FingerprintMatcher::new(&config, rate)
+            .find_best_match(&a, &b)
+            .expect("match");
+        assert!(
+            (m.offset_a - 100.0 / DEFAULT_FINGERPRINT_RATE).abs() < 1.0,
+            "{m:?}"
+        );
+        assert!(
+            (m.offset_b - 300.0 / DEFAULT_FINGERPRINT_RATE).abs() < 1.0,
+            "{m:?}"
+        );
+        assert!(
+            (m.duration - 485.0 / DEFAULT_FINGERPRINT_RATE).abs() < 1.5,
+            "{m:?}"
+        );
+    }
+}
+
+fn parse_chapters(config: serde_json::Value) -> serde_json::Value {
+    handle_intro_skipper_request(
+        &IntroSkipperPlugin::new(),
+        media_extension_sdk::ExtensionRequest {
+            api_version: 1,
+            operation: "intro.parse_chapters".into(),
+            input: serde_json::json!({
+                "episodeId": "ep",
+                "duration": 1500.0,
+                "chapters": [
+                    {"title": "Previously", "start": 0.0, "end": 40.0},
+                    {"title": "Opening - Medley", "start": 40.0, "end": 130.0},
+                    {"title": "Part A", "start": 130.0, "end": 1380.0},
+                    {"title": "Rideau", "start": 1380.0, "end": 1470.0},
+                    {"title": "Next Time", "start": 1470.0, "end": 1500.0}
+                ],
+                "config": config
+            }),
+        },
+    )
+    .result
+}
+
+fn kinds(result: &serde_json::Value) -> Vec<String> {
+    result
+        .as_array()
+        .expect("markers")
+        .iter()
+        .map(|m| m["markerType"].as_str().unwrap().to_owned())
+        .collect()
+}
+
+#[test]
+fn custom_chapter_keywords_extend_builtin_names() {
+    // "Rideau" is not a built-in credits name; "Opening - Medley" starts with one.
+    assert_eq!(
+        kinds(&parse_chapters(serde_json::json!({}))),
+        ["recap", "intro", "preview"]
+    );
+    let result = parse_chapters(serde_json::json!({"credits_keywords": "rideau, Générique"}));
+    assert_eq!(kinds(&result), ["recap", "intro", "credits", "preview"]);
+}
+
+#[test]
+fn disabled_kinds_are_not_reported() {
+    let result = parse_chapters(serde_json::json!({
+        "detect_recap": "false",
+        "detect_preview": false,
+        "credits_keywords": "rideau"
+    }));
+    assert_eq!(kinds(&result), ["intro", "credits"]);
+}
+
+#[test]
+fn boundary_offsets_shift_and_clamp_segments() {
+    let result = parse_chapters(serde_json::json!({
+        "intro_start_offset": "2",
+        "intro_end_offset": "-3.5",
+        "credits_start_offset": 10,
+        "credits_keywords": "rideau"
+    }));
+    let markers = result.as_array().unwrap();
+    let intro = markers.iter().find(|m| m["markerType"] == "intro").unwrap();
+    assert_eq!(
+        (intro["start"].as_f64(), intro["end"].as_f64()),
+        (Some(42.0), Some(126.5))
+    );
+    let credits = markers
+        .iter()
+        .find(|m| m["markerType"] == "credits")
+        .unwrap();
+    assert_eq!(
+        (credits["start"].as_f64(), credits["end"].as_f64()),
+        (Some(1390.0), Some(1470.0))
+    );
+    // Shifted boundaries are clamped to the episode.
+    let config = IntroSkipperConfig {
+        intro_start_offset: -30.0,
+        ..Default::default()
+    };
+    let shifted = config.finalize(
+        vec![aether_plugin_intro_skipper::IntroMarker {
+            id: "x".into(),
+            start: 5.0,
+            end: 40.0,
+            marker_type: MarkerType::Intro,
+            confidence: 0.9,
+            method: DetectionMethod::Chapter,
+        }],
+        1200.0,
+    );
+    assert_eq!((shifted[0].start, shifted[0].end), (0.0, 40.0));
+}
+
+#[test]
+fn new_settings_are_validated() {
+    for config in [
+        serde_json::json!({"intro_end_offset": "31"}),
+        serde_json::json!({"credits_start_offset": "abc"}),
+        serde_json::json!({"min_consensus_votes": "0"}),
+        serde_json::json!({"min_consensus_votes": "1.5"}),
+        serde_json::json!({"min_consensus_votes": "5"}),
+    ] {
+        assert_eq!(
+            parse_chapters(config.clone()),
+            serde_json::json!({"error": "invalid_detection_config"}),
+            "{config}"
+        );
+    }
+    // An empty form field keeps the default.
+    assert!(
+        parse_chapters(serde_json::json!({"intro_end_offset": "", "min_consensus_votes": "2"}))
+            .is_array()
+    );
+}
+
+#[test]
+fn every_schema_key_is_read_by_the_configuration() {
+    let schema = IntroSkipperPlugin::new().manifest().config_schema;
+    let defaults = IntroSkipperConfig::default();
+    for field in &schema {
+        let mut cfg = aether_plugin_api::ProviderConfig::default();
+        let probe = match field.field_type.as_str() {
+            "boolean" => "false",
+            "text" => "probe keyword",
+            "select" => "2",
+            _ => "7",
+        };
+        cfg.extra.insert(field.key.clone(), probe.into());
+        assert_ne!(
+            IntroSkipperConfig::from_provider_config(&cfg),
+            defaults,
+            "schema key {} is ignored by the plugin",
+            field.key
+        );
+    }
+    assert!(schema.iter().all(|f| !f.key.starts_with("auto_skip")));
 }

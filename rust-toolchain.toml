@@ -1,0 +1,9 @@
+# Toolchain used for every build, local and CI, so a plugin can be rebuilt with the
+# compiler that produced the published one. 1.99.1 is the compiler embedded in the
+# released Wasm modules (rustc 58cf8f9c3, 2026-10-13). To upgrade, change `channel`
+# in a dedicated commit and keep workspace `rust-version` (Cargo.toml) at or below it.
+[toolchain]
+channel = "1.99.1"
+profile = "minimal"
+components = ["rustfmt", "clippy"]
+targets = ["wasm32-unknown-unknown"]

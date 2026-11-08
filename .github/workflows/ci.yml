@@ -6,6 +6,8 @@ on:
   pull_request:
     branches: [ "main", "develop" ]
   workflow_dispatch:
+  # Reused by auto-release.yml: a plugin is only published once these checks pass.
+  workflow_call:
 
 permissions:
   contents: read
@@ -60,11 +62,9 @@ jobs:
         with:
           path: Aether-Plugins
 
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-          components: rustfmt, clippy
+      - name: Set up Rust (version pinned in rust-toolchain.toml)
+        working-directory: Aether-Plugins
+        run: rustup toolchain install
 
       - name: Cache Cargo Dependencies
         uses: Swatinem/rust-cache@v2

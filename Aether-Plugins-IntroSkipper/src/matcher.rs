@@ -1,8 +1,25 @@
 use crate::types::{FingerprintMatch, IntroSkipperConfig};
-use std::collections::HashMap;
 
-/// Standard chromaprint rate in frames per second (approx 116.1ms per frame)
-pub const DEFAULT_FINGERPRINT_RATE: f64 = 8.61328125;
+/// Chromaprint fingerprint items per second: 11025 Hz audio, one item every 1365 samples
+/// (about 123.8 ms). Measured on real `ffmpeg -f chromaprint` output: a repeated 60 s theme spans
+/// 60 s x 8.0769 items, and 8.6133 items per second shifts every timestamp by 6 %.
+pub const DEFAULT_FINGERPRINT_RATE: f64 = 11025.0 / 1365.0;
+
+/// Rate announced by Aether hosts until 7 November 2026 (11025 / 1280). No Chromaprint stream
+/// has it; it is a mislabel of the same data, so it is read as [`DEFAULT_FINGERPRINT_RATE`].
+pub const LEGACY_FINGERPRINT_RATE: f64 = 8.61328125;
+
+/// The rate to use for a host-supplied value: missing or non-finite means the Chromaprint rate, and
+/// the legacy mislabel is corrected.
+pub fn normalize_rate(rate: Option<f64>) -> f64 {
+    match rate {
+        Some(r) if r.is_finite() && (r - LEGACY_FINGERPRINT_RATE).abs() < 0.001 => {
+            DEFAULT_FINGERPRINT_RATE
+        }
+        Some(r) if r.is_finite() => r,
+        _ => DEFAULT_FINGERPRINT_RATE,
+    }
+}
 
 /// Bit error threshold for coarse match candidate (8 bits out of 32 = 75% similarity)
 const COARSE_MAX_HAMMING: u32 = 8;
@@ -17,7 +34,7 @@ impl<'a> FingerprintMatcher<'a> {
     pub fn new(config: &'a IntroSkipperConfig, rate: Option<f64>) -> Self {
         Self {
             config,
-            rate: rate.unwrap_or(DEFAULT_FINGERPRINT_RATE).max(1.0),
+            rate: normalize_rate(rate).max(1.0),
         }
     }
 
@@ -82,42 +99,59 @@ impl<'a> FingerprintMatcher<'a> {
 
         // Four independent byte bands index the second episode (4 * 256 = 1024 flat buckets).
         // Candidate pairs are still checked with the full Hamming distance; no audio is skipped.
-        let mut bands: Vec<Vec<usize>> = vec![Vec::new(); 1024];
-        for (j, &word) in slice_b.iter().enumerate() {
+        // The buckets are two flat arrays (offsets, then frame numbers in ascending order) rather
+        // than 1024 growing vectors: thousands of reallocations cost more than the matching itself
+        // inside the Wasm sandbox's fuel budget.
+        let mut starts = [0u32; 1025];
+        for &word in slice_b {
             for band in 0..4_usize {
-                let byte = ((word >> (band * 8)) & 0xFF) as usize;
-                let key = (band << 8) | byte;
-                bands[key].push(j);
+                starts[((band << 8) | ((word >> (band * 8)) & 0xFF) as usize) + 1] += 1;
             }
         }
-        let mut diagonal_hits: HashMap<i64, u32> = HashMap::with_capacity(256);
+        for key in 0..1024 {
+            starts[key + 1] += starts[key];
+        }
+        let mut next = starts;
+        let mut frames = vec![0u32; 4 * slice_b.len()];
+        for (j, &word) in slice_b.iter().enumerate() {
+            for band in 0..4_usize {
+                let key = (band << 8) | ((word >> (band * 8)) & 0xFF) as usize;
+                frames[next[key] as usize] = j as u32;
+                next[key] += 1;
+            }
+        }
+        // One counter per diagonal (i - j), indexed densely: a hash map here dominated the cost
+        // (hundreds of thousands of updates per pair on sustained audio, SipHash each time) and
+        // made three episodes exceed the Core's 200 M fuel ceiling.
+        let (n, m) = (slice_a.len(), slice_b.len());
+        let mut diagonal_hits = vec![0u32; n + m - 1];
         let mut seen = vec![usize::MAX; slice_b.len()];
         for (i, &fa) in slice_a.iter().enumerate() {
             for band in 0..4_usize {
                 let byte = ((fa >> (band * 8)) & 0xFF) as usize;
                 let key = (band << 8) | byte;
-                for &j in &bands[key] {
+                for &j in &frames[starts[key] as usize..starts[key + 1] as usize] {
+                    let j = j as usize;
                     if seen[j] != i && (fa ^ slice_b[j]).count_ones() <= COARSE_MAX_HAMMING {
                         seen[j] = i;
-                        *diagonal_hits.entry(i as i64 - j as i64).or_insert(0) += 1;
+                        diagonal_hits[i + m - 1 - j] += 1;
                     }
                 }
             }
         }
 
-        if diagonal_hits.is_empty() {
-            return None;
-        }
-
         // Phase 2: Filter the top candidate diagonals
         let min_hits_threshold = min_match_frames as u32 / 3;
         let mut candidates: Vec<(i64, u32)> = diagonal_hits
-            .into_iter()
-            .filter(|&(_, hits)| hits >= min_hits_threshold)
+            .iter()
+            .enumerate()
+            .filter(|&(_, &hits)| hits > 0 && hits >= min_hits_threshold)
+            .map(|(index, &hits)| (index as i64 - (m as i64 - 1), hits))
             .collect();
 
-        // Sort descending by hits
-        candidates.sort_by_key(|a| std::cmp::Reverse(a.1));
+        // Most hits first; equal counts keep the lowest diagonal so the result never depends on
+        // iteration order.
+        candidates.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
 
         let mut best_match: Option<FingerprintMatch> = None;
 
