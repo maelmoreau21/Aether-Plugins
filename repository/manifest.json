@@ -498,6 +498,19 @@
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
         {
+          "version": "0.1.6",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/intro-skipper-v0.1.6-beta/intro-skipper-0.1.6.package.json",
+          "checksum": "644b28bdcf423bbe33dd6229e5514fff44a48068885170fe52ed128c50293573",
+          "timestamp": "2026-11-08T09:33:27Z",
+          "changelog": "- feat(intro-skipper): choose segment kinds, consensus, boundary offsets and chapter names",
+          "permissions": [
+            "playback.markers"
+          ]
+        },
+        {
           "version": "0.1.5",
           "targetAbi": "1.0",
           "minServerVersion": "0.1.0",
