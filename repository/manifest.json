@@ -490,13 +490,26 @@
     {
       "id": "intro-skipper",
       "name": "Intro Skipper",
-      "description": "Détection automatique ultra-rapide des introductions et génériques de fin par empreintes audio et chapitres",
+      "description": "Détection des introductions, génériques de fin, résumés et aperçus des séries, animés et films : chapitres du fichier, forme des chapitres d'animé et empreintes audio communes à une saison",
       "owner": "Aether Team",
       "category": "Playback",
       "imageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/Aether-Plugins-IntroSkipper/assets/banner.svg",
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
+        {
+          "version": "0.2.0",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/intro-skipper-v0.2.0-beta/intro-skipper-0.2.0.package.json",
+          "checksum": "7e97c2cc02a036551fa115a02221c50efef2d35a5d67347a66f642e1810e714e",
+          "timestamp": "2026-11-08T15:05:22Z",
+          "changelog": "- feat(intro-skipper): 0.2.0 - films, chapter rework, chapter+audio fusion",
+          "permissions": [
+            "playback.markers"
+          ]
+        },
         {
           "version": "0.1.6",
           "targetAbi": "1.0",
