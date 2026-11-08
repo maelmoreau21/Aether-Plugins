@@ -96,10 +96,24 @@ pub struct IntroSkipperConfig {
     pub similarity_threshold: f64,
     pub search_window_start: f64,
     pub search_window_end: f64,
-    pub auto_skip_intro: bool,
-    pub auto_skip_credits: bool,
     pub enable_chapter_detection: bool,
     pub enable_fingerprint_detection: bool,
+    /// Which segment kinds are reported at all.
+    pub detect_intro: bool,
+    pub detect_credits: bool,
+    pub detect_recap: bool,
+    pub detect_preview: bool,
+    /// Agreeing episode comparisons an acoustic segment needs before it is reported.
+    pub min_consensus_votes: u32,
+    /// Seconds added to the detected boundaries (negative values move them earlier).
+    pub intro_start_offset: f64,
+    pub intro_end_offset: f64,
+    pub credits_start_offset: f64,
+    /// Extra chapter names, matched like the built-in ones (case and accents ignored).
+    pub intro_keywords: Vec<String>,
+    pub credits_keywords: Vec<String>,
+    pub recap_keywords: Vec<String>,
+    pub preview_keywords: Vec<String>,
 }
 
 impl Default for IntroSkipperConfig {
@@ -112,18 +126,38 @@ impl Default for IntroSkipperConfig {
             similarity_threshold: 0.75,
             search_window_start: 0.0,
             search_window_end: 600.0, // First 10 minutes
-            auto_skip_intro: false,
-            auto_skip_credits: false,
             enable_chapter_detection: true,
             enable_fingerprint_detection: true,
+            detect_intro: true,
+            detect_credits: true,
+            detect_recap: true,
+            detect_preview: true,
+            min_consensus_votes: 1,
+            intro_start_offset: 0.0,
+            intro_end_offset: 0.0,
+            credits_start_offset: 0.0,
+            intro_keywords: Vec::new(),
+            credits_keywords: Vec::new(),
+            recap_keywords: Vec::new(),
+            preview_keywords: Vec::new(),
         }
     }
 }
+
+/// Largest boundary shift accepted, in seconds, in either direction.
+pub const MAX_BOUNDARY_OFFSET: f64 = 30.0;
+const MAX_KEYWORDS: usize = 32;
+const MAX_KEYWORD_LEN: usize = 64;
 
 impl IntroSkipperConfig {
     /// Settings are bounded independently of the supplied fingerprint length.
     /// Invalid settings fail before fingerprint comparisons.
     pub fn validate(&self) -> Result<(), &'static str> {
+        let offsets = [
+            self.intro_start_offset,
+            self.intro_end_offset,
+            self.credits_start_offset,
+        ];
         if ![
             self.min_intro_duration,
             self.max_intro_duration,
@@ -134,6 +168,7 @@ impl IntroSkipperConfig {
             self.similarity_threshold,
         ]
         .iter()
+        .chain(offsets.iter())
         .all(|value| value.is_finite())
             || !(1.0..=600.0).contains(&self.min_intro_duration)
             || !(self.min_intro_duration..=600.0).contains(&self.max_intro_duration)
@@ -143,10 +178,52 @@ impl IntroSkipperConfig {
             || !(self.search_window_start..=600.0).contains(&self.search_window_end)
             || self.search_window_end - self.search_window_start < self.min_intro_duration
             || !(0.5..=1.0).contains(&self.similarity_threshold)
+            || !(1..=4).contains(&self.min_consensus_votes)
+            || offsets
+                .iter()
+                .any(|offset| offset.abs() > MAX_BOUNDARY_OFFSET)
         {
             return Err("invalid_detection_config");
         }
         Ok(())
+    }
+
+    /// Whether a marker of this kind may be reported.
+    pub fn reports(&self, kind: MarkerType) -> bool {
+        match kind {
+            MarkerType::Intro => self.detect_intro,
+            MarkerType::Credits => self.detect_credits,
+            MarkerType::Recap => self.detect_recap,
+            MarkerType::Preview => self.detect_preview,
+        }
+    }
+
+    /// Final pass shared by every operation: drops disabled kinds and applies the
+    /// configured boundary offsets, clamped to the episode. A segment shorter than one
+    /// second after adjustment is dropped rather than reported.
+    pub fn finalize(&self, markers: Vec<IntroMarker>, duration: f64) -> Vec<IntroMarker> {
+        let limit = if duration.is_finite() && duration > 0.0 {
+            duration
+        } else {
+            f64::MAX
+        };
+        markers
+            .into_iter()
+            .filter(|marker| self.reports(marker.marker_type))
+            .filter_map(|mut marker| {
+                match marker.marker_type {
+                    MarkerType::Intro => {
+                        marker.start += self.intro_start_offset;
+                        marker.end += self.intro_end_offset;
+                    }
+                    MarkerType::Credits => marker.start += self.credits_start_offset,
+                    MarkerType::Recap | MarkerType::Preview => {}
+                }
+                marker.start = marker.start.clamp(0.0, limit);
+                marker.end = marker.end.clamp(0.0, limit);
+                (marker.end - marker.start >= 1.0).then_some(marker)
+            })
+            .collect()
     }
 
     pub fn from_provider_config(cfg: &aether_plugin_api::ProviderConfig) -> Self {
@@ -159,41 +236,73 @@ impl IntroSkipperConfig {
             ("similarity_threshold", &mut base.similarity_threshold),
             ("search_window_start", &mut base.search_window_start),
             ("search_window_end", &mut base.search_window_end),
+            ("intro_start_offset", &mut base.intro_start_offset),
+            ("intro_end_offset", &mut base.intro_end_offset),
+            ("credits_start_offset", &mut base.credits_start_offset),
         ] {
-            if let Some(raw) = cfg.extra.get(key) {
-                *value = raw.parse().unwrap_or(f64::NAN);
+            // An empty form field keeps the default; anything else must parse.
+            if let Some(raw) = cfg.extra.get(key).filter(|raw| !raw.trim().is_empty()) {
+                *value = raw.trim().parse().unwrap_or(f64::NAN);
             }
         }
-        if let Some(val) = cfg
-            .extra
-            .get("auto_skip_intro")
-            .and_then(|s| s.parse().ok())
-        {
-            base.auto_skip_intro = val;
+        for (key, value) in [
+            (
+                "enable_chapter_detection",
+                &mut base.enable_chapter_detection,
+            ),
+            (
+                "enable_fingerprint_detection",
+                &mut base.enable_fingerprint_detection,
+            ),
+            ("detect_intro", &mut base.detect_intro),
+            ("detect_credits", &mut base.detect_credits),
+            ("detect_recap", &mut base.detect_recap),
+            ("detect_preview", &mut base.detect_preview),
+        ] {
+            if let Some(parsed) = cfg.extra.get(key).and_then(|s| s.trim().parse().ok()) {
+                *value = parsed;
+            }
         }
-        if let Some(val) = cfg
+        if let Some(raw) = cfg
             .extra
-            .get("auto_skip_credits")
-            .and_then(|s| s.parse().ok())
+            .get("min_consensus_votes")
+            .filter(|raw| !raw.trim().is_empty())
         {
-            base.auto_skip_credits = val;
+            // "2" and "2.0" are both accepted; anything else fails validation.
+            base.min_consensus_votes = raw
+                .trim()
+                .parse::<f64>()
+                .ok()
+                .filter(|n| n.fract() == 0.0 && (1.0..=4.0).contains(n))
+                .map_or(0, |n| n as u32);
         }
-        if let Some(val) = cfg
-            .extra
-            .get("enable_chapter_detection")
-            .and_then(|s| s.parse().ok())
-        {
-            base.enable_chapter_detection = val;
-        }
-        if let Some(val) = cfg
-            .extra
-            .get("enable_fingerprint_detection")
-            .and_then(|s| s.parse().ok())
-        {
-            base.enable_fingerprint_detection = val;
+        for (key, value) in [
+            ("intro_keywords", &mut base.intro_keywords),
+            ("credits_keywords", &mut base.credits_keywords),
+            ("recap_keywords", &mut base.recap_keywords),
+            ("preview_keywords", &mut base.preview_keywords),
+        ] {
+            if let Some(raw) = cfg.extra.get(key) {
+                *value = parse_keywords(raw);
+            }
         }
         base
     }
+}
+
+/// Comma, semicolon or newline separated chapter names, normalised like chapter titles.
+pub fn parse_keywords(raw: &str) -> Vec<String> {
+    let mut keywords: Vec<String> = Vec::new();
+    for item in raw.split([',', ';', '\n']) {
+        let clean = crate::chapters::clean_text(item);
+        if !clean.is_empty() && clean.len() <= MAX_KEYWORD_LEN && !keywords.contains(&clean) {
+            keywords.push(clean);
+        }
+        if keywords.len() == MAX_KEYWORDS {
+            break;
+        }
+    }
+    keywords
 }
 
 /// Analysis and detection result for one episode

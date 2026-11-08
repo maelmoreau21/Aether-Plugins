@@ -80,14 +80,35 @@ impl<'a> SeasonAnalyzer<'a> {
                 ep.series_id.as_ref().is_some_and(|id| !id.is_empty()) && ep.season_number.is_some()
             })
         {
-            self.detect_fingerprint_intros(episodes, &mut results_map);
-            self.detect_fingerprint_credits(episodes, &mut results_map);
+            if self.config.detect_intro {
+                self.detect_fingerprint_intros(episodes, &mut results_map);
+            }
+            if self.config.detect_credits {
+                self.detect_fingerprint_credits(episodes, &mut results_map);
+            }
         }
 
-        // Build ordered output matching input list
+        // Build ordered output matching input list; disabled kinds and boundary
+        // offsets are applied once, after both passes agreed on the raw segments.
         episodes
             .iter()
-            .filter_map(|ep| results_map.remove(&ep.id))
+            .filter_map(|ep| {
+                let mut res = results_map.remove(&ep.id)?;
+                res.markers = self
+                    .config
+                    .finalize(std::mem::take(&mut res.markers), ep.duration);
+                res.intro = res
+                    .markers
+                    .iter()
+                    .find(|m| m.marker_type == MarkerType::Intro)
+                    .cloned();
+                res.credits = res
+                    .markers
+                    .iter()
+                    .find(|m| m.marker_type == MarkerType::Credits)
+                    .cloned();
+                Some(res)
+            })
             .collect()
     }
 
@@ -169,7 +190,9 @@ impl<'a> SeasonAnalyzer<'a> {
             };
 
             // Uncertainty guard: if only 1 match among 3+ fingerprinted episodes and confidence is weak, reject
-            if votes == 1 && fp_count >= 3 && confidence < 0.80 {
+            if (votes as u32) < self.config.min_consensus_votes
+                || (votes == 1 && fp_count >= 3 && confidence < 0.80)
+            {
                 continue;
             }
 
@@ -280,7 +303,9 @@ impl<'a> SeasonAnalyzer<'a> {
                 continue;
             };
 
-            if votes == 1 && fp_count >= 3 && confidence < 0.80 {
+            if (votes as u32) < self.config.min_consensus_votes
+                || (votes == 1 && fp_count >= 3 && confidence < 0.80)
+            {
                 continue;
             }
 

@@ -46,10 +46,18 @@ Intro Skipper classe des chapitres et compare des empreintes déjà fournies par
 | `similarity_threshold` | number | `0.75` | Seuil d'accord acoustique (0.70 - 0.90) |
 | `search_window_end` | number | `600` | Plage de recherche (10 premières minutes) |
 | `search_window_start` | number | `0` | Début de recherche acoustique pour exclure un résumé récurrent |
-| `auto_skip_intro` | boolean | `false` | Sauter l'intro automatiquement |
-| `auto_skip_credits` | boolean | `false` | Passer à l'épisode suivant automatiquement |
 | `enable_chapter_detection` | boolean | `true` | Détection préalable par chapitres |
 | `enable_fingerprint_detection` | boolean | `true` | Détection acoustique par empreintes |
+| `detect_intro` / `detect_credits` / `detect_recap` / `detect_preview` | boolean | `true` | Types de segments rapportés |
+| `min_consensus_votes` | select | `1` | Comparaisons d'épisodes concordantes exigées (1 à 3) |
+| `intro_start_offset` / `intro_end_offset` | number | `0` | Décalage des bornes de l'intro (−30 à 30 s) |
+| `credits_start_offset` | number | `0` | Décalage du début du générique de fin (−30 à 30 s) |
+| `intro_keywords` / `credits_keywords` / `recap_keywords` / `preview_keywords` | text | vide | Noms de chapitre supplémentaires, séparés par des virgules |
+
+Le saut automatique est une préférence de chaque spectateur (Paramètres › Lecture), pas un
+réglage de détection : les anciens champs `auto_skip_*`, jamais lus par l'hôte, sont retirés.
+Un champ numérique vide reprend sa valeur par défaut. Le seuil de confiance utilisé en lecture
+se règle par bibliothèque côté Aether (`markerMinConfidence`, 80 % par défaut).
 
 Les durées doivent être finies et positives, avec minimum ≤ maximum. Les intros
 sont plafonnées à 600 secondes, les crédits à 300 ; la fenêtre acoustique doit

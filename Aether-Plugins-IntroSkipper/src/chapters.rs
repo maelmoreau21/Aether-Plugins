@@ -94,6 +94,30 @@ impl<'a> ChapterClassifier<'a> {
             || clean.contains("preview")
     }
 
+    /// Built-in names plus the administrator's own (`*_keywords` settings). A custom
+    /// keyword matches the whole title or its first words ("opening" matches "Opening 2").
+    pub fn matches(&self, kind: MarkerType, title: &str) -> bool {
+        let (builtin, custom) = match kind {
+            MarkerType::Intro => (Self::is_intro_title(title), &self.config.intro_keywords),
+            MarkerType::Credits => (Self::is_credits_title(title), &self.config.credits_keywords),
+            MarkerType::Recap => (Self::is_recap_title(title), &self.config.recap_keywords),
+            MarkerType::Preview => (Self::is_preview_title(title), &self.config.preview_keywords),
+        };
+        if builtin {
+            return true;
+        }
+        if custom.is_empty() {
+            return false;
+        }
+        let clean = clean_text(title);
+        custom.iter().any(|keyword| {
+            clean == *keyword
+                || clean
+                    .strip_prefix(keyword.as_str())
+                    .is_some_and(|rest| rest.starts_with(' '))
+        })
+    }
+
     /// Parse markers from an episode's chapter list
     pub fn parse_markers(
         &self,
@@ -119,7 +143,7 @@ impl<'a> ChapterClassifier<'a> {
             let end = next_start.min(episode_duration);
             let duration = (end - start).max(0.0);
 
-            if Self::is_intro_title(&chapter.title) {
+            if self.matches(MarkerType::Intro, &chapter.title) {
                 if duration >= self.config.min_intro_duration
                     && duration <= self.config.max_intro_duration
                 {
@@ -132,7 +156,7 @@ impl<'a> ChapterClassifier<'a> {
                         method: DetectionMethod::Chapter,
                     });
                 }
-            } else if Self::is_credits_title(&chapter.title) {
+            } else if self.matches(MarkerType::Credits, &chapter.title) {
                 if duration >= self.config.min_credits_duration
                     && duration <= self.config.max_credits_duration
                 {
@@ -145,7 +169,9 @@ impl<'a> ChapterClassifier<'a> {
                         method: DetectionMethod::Chapter,
                     });
                 }
-            } else if Self::is_recap_title(&chapter.title) && (5.0..=180.0).contains(&duration) {
+            } else if self.matches(MarkerType::Recap, &chapter.title)
+                && (5.0..=180.0).contains(&duration)
+            {
                 markers.push(IntroMarker {
                     id: format!("{episode_id}-recap-chap-{i}"),
                     start,
@@ -154,7 +180,9 @@ impl<'a> ChapterClassifier<'a> {
                     confidence: 0.95,
                     method: DetectionMethod::Chapter,
                 });
-            } else if Self::is_preview_title(&chapter.title) && (3.0..=120.0).contains(&duration) {
+            } else if self.matches(MarkerType::Preview, &chapter.title)
+                && (3.0..=120.0).contains(&duration)
+            {
                 markers.push(IntroMarker {
                     id: format!("{episode_id}-preview-chap-{i}"),
                     start,
@@ -171,7 +199,7 @@ impl<'a> ChapterClassifier<'a> {
 }
 
 /// Normalize text: lowercase, ASCII transliteration of French accents, strip punctuation
-fn clean_text(s: &str) -> String {
+pub(crate) fn clean_text(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for c in s.chars() {
         let lower = c.to_lowercase();
