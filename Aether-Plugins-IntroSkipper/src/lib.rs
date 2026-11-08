@@ -2,6 +2,7 @@
 //! Optimized Rust implementation inspired by https://github.com/intro-skipper/intro-skipper
 
 pub mod adjust;
+pub mod blackframe;
 pub mod chapters;
 pub mod consensus;
 pub mod credits;
@@ -167,7 +168,17 @@ pub fn handle_intro_skipper_request(
         }
 
         "intro.parse_chapters" => {
-            if !config.enable_chapter_detection {
+            let media = if req.input.get("mediaType").and_then(|v| v.as_str()) == Some("movie") {
+                MediaKind::Movie
+            } else {
+                MediaKind::Episode
+            };
+            // A film's picture can still give its credits when its chapters are not read.
+            let frames = (media == MediaKind::Movie)
+                .then(|| blackframe::BlackFrameScan::from_input(&req.input))
+                .flatten()
+                .filter(|_| config.enable_black_frame_detection);
+            if !config.enable_chapter_detection && frames.is_none() {
                 return media_extension_sdk::ExtensionResponse {
                     api_version: 1,
                     result: serde_json::json!([]),
@@ -189,16 +200,24 @@ pub fn handle_intro_skipper_request(
                 .and_then(|v| serde_json::from_value(v.clone()).ok())
                 .unwrap_or_default();
 
-            let media = if req.input.get("mediaType").and_then(|v| v.as_str()) == Some("movie") {
-                MediaKind::Movie
-            } else {
-                MediaKind::Episode
-            };
             let classifier = ChapterClassifier::new(&config);
-            let markers = config.finalize(
-                classifier.parse_markers_for(episode_id, &chapters, duration, media),
-                duration,
-            );
+            let mut markers = if config.enable_chapter_detection {
+                classifier.parse_markers_for(episode_id, &chapters, duration, media)
+            } else {
+                Vec::new()
+            };
+            if media == MediaKind::Movie {
+                // The chapter marks still place the picture's boundaries.
+                blackframe::film_credits(
+                    &config,
+                    episode_id,
+                    &mut markers,
+                    frames.as_ref(),
+                    &crate::chapters::chapter_spans(&chapters, duration),
+                    duration,
+                );
+            }
+            let markers = config.finalize(markers, duration);
             serde_json::to_value(markers).unwrap_or_default()
         }
 
@@ -332,6 +351,12 @@ pub fn config_schema() -> Vec<ConfigField> {
             "enable_chapter_structure",
             "Deviner l'opening et l'ending des chapitres sans nom",
             "Pour les animés dont les chapitres ne portent pas de nom (« Chapitre 02 ») : les chapitres de la durée d'une chanson (75 à 100 s), au début et à la fin, sont proposés comme opening et ending (72 %, sous le seuil de lecture). Ils ne sont appliqués que si l'audio de la saison les confirme ; si l'audio ne les retrouve pas, leur confiance baisse.",
+            true,
+        ),
+        toggle(
+            "enable_black_frame_detection",
+            "Lire le générique de fin des films à l'image",
+            "Le Node analyse les 20 dernières minutes d'un film (images clés seulement) : un long passage noir portant du texte est le générique. Il se cale sur le chapitre le plus proche et confirme un chapitre « Fin » ou « Ending ». Un fondu au noir ou une scène de nuit ne comptent pas.",
             true,
         ),
         field(

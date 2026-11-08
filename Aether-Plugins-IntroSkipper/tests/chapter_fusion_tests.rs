@@ -286,3 +286,55 @@ fn named_chapter_is_kept_as_authored_and_confirmed_by_the_audio() {
         "{b:?}"
     );
 }
+
+/// A film whose chapters carry no name gets its credits from the picture the Node measured
+/// (lettering on black), through the real request, above the default playback floor (0.80);
+/// a short fade to black gives nothing.
+#[test]
+fn a_film_without_named_chapters_gets_its_credits_from_the_picture() {
+    let request = |runs: serde_json::Value| {
+        handle_intro_skipper_request(
+            &IntroSkipperPlugin::new(),
+            media_extension_sdk::ExtensionRequest {
+                api_version: 1,
+                operation: "intro.parse_chapters".into(),
+                input: serde_json::json!({
+                    "episodeId": "film",
+                    "duration": 6000.0,
+                    "mediaType": "movie",
+                    "chapters": [
+                        {"start": 0.0, "title": "Chapter 01"},
+                        {"start": 2900.0, "title": "Chapter 02"},
+                        {"start": 5480.0, "title": "Chapter 03"}
+                    ],
+                    "blackFrames": {
+                        "algorithm": "blackframe-v1",
+                        "windowStart": 4800.0,
+                        "windowEnd": 6000.0,
+                        "runs": runs
+                    }
+                }),
+            },
+        )
+        .result
+    };
+    let roll = request(serde_json::json!([
+        {"start": 4100.0, "end": 4104.0, "pages": 2, "lettered": 0},
+        {"start": 5484.2, "end": 6000.0, "pages": 120, "lettered": 112}
+    ]));
+    let markers = roll.as_array().unwrap();
+    assert_eq!(markers.len(), 1, "{roll}");
+    assert_eq!(markers[0]["markerType"], "credits");
+    assert_eq!(markers[0]["method"], "black_frame");
+    assert_eq!(
+        markers[0]["start"], 5480.0,
+        "snapped to the nearest chapter"
+    );
+    assert_eq!(markers[0]["end"], 6000.0);
+    assert!(markers[0]["confidence"].as_f64().unwrap() >= 0.80);
+
+    let fade = request(serde_json::json!([
+        {"start": 5995.0, "end": 6000.0, "pages": 3, "lettered": 0}
+    ]));
+    assert_eq!(fade, serde_json::json!([]));
+}

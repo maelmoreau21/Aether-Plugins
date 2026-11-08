@@ -31,7 +31,7 @@ Intro Skipper classe des chapitres et compare des empreintes déjà fournies par
 - `manifest` : retourne le manifeste complet du plugin et son schéma de configuration.
 - `intro.detect` / `markers.detect` : analyse une liste d'épisodes et produit des candidats. L'hôte doit fournir des épisodes d'une seule série et saison, avec des empreintes de même cadence.
 - `intro.match_fingerprints` : compare deux séries d'empreintes acoustiques et retourne le segment commun.
-- `intro.parse_chapters` : extrait les marqueurs d'intro/crédits à partir des chapitres du conteneur. Avec `"mediaType": "movie"`, le générique d'un film peut atteindre `max_movie_credits_duration` et la forme des chapitres n'est pas lue.
+- `intro.parse_chapters` : extrait les marqueurs d'intro/crédits à partir des chapitres du conteneur. Avec `"mediaType": "movie"`, le générique d'un film peut atteindre `max_movie_credits_duration` et la forme des chapitres n'est pas lue. Un film reçoit aussi `blackFrames` (algorithme `blackframe-v1`) : les passages noirs des 20 dernières minutes mesurés par le Node sur les images clés, avec la part d'images portant du texte. Un passage noir lettré d'au moins 60 s, finissant dans le dernier quart du film, est le générique (méthode `black_frame`) : 0,84 seul s'il dure au moins 90 s, 0,92 s'il commence à moins de 15 s d'un chapitre (début calé sur ce chapitre). Il confirme un chapitre ambigu « Fin » / « Ending » et ne remplace jamais un chapitre clairement nommé. Un fondu au noir ou une scène sombre sans texte ne donnent rien.
 - Les épisodes d'`intro.detect` peuvent porter leurs `chapters` (`start`, `end`, `title`) : un chapitre nommé est gardé tel quel et confirmé par l'audio, une limite audio se cale sur un chapitre proche, et les chapitres sans nom d'un animé révèlent l'opening et l'ending par leur durée et leur position.
 
 ---
@@ -52,6 +52,7 @@ Intro Skipper classe des chapitres et compare des empreintes déjà fournies par
 | `enable_chapter_structure` | boolean | `true` | Opening/ending déduits des chapitres sans nom (75–100 s, début et fin de l'épisode) |
 | `chapter_snap_window` | number | `3` | Calage d'une limite audio sur un chapitre à moins de N s (0 à 10, 0 = jamais) |
 | `max_movie_credits_duration` | number | `900` | Durée maximale du générique de fin d'un film (jusqu'à 1200 s) |
+| `enable_black_frame_detection` | boolean | `true` | Générique de fin des films lu à l'image (texte sur fond noir), mesuré par le Node |
 | `detect_intro` / `detect_credits` / `detect_recap` / `detect_preview` | boolean | `true` | Types de segments rapportés |
 | `min_consensus_votes` | select | `1` | Comparaisons d'épisodes concordantes exigées (1 à 3) |
 | `intro_start_offset` / `intro_end_offset` | number | `0` | Décalage des bornes de l'intro (−30 à 30 s) |

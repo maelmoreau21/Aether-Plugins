@@ -29,6 +29,8 @@ pub enum DetectionMethod {
     Chapter,
     Silence,
     Manual,
+    /// Lettering on a black background at the end of a film (see `blackframe`).
+    BlackFrame,
 }
 
 /// A detected media timeline marker (e.g. Intro or Credits)
@@ -103,6 +105,9 @@ pub struct IntroSkipperConfig {
     /// Guess the opening and ending of an anime episode from the length and position of its
     /// unnamed chapters.
     pub enable_chapter_structure: bool,
+    /// Read a film's end credits from its picture (lettering on black), when the Node measured
+    /// the end of the file.
+    pub enable_black_frame_detection: bool,
     /// Acoustic boundaries move to a chapter mark this close (seconds, 0 = never).
     pub chapter_snap_window: f64,
     /// Which segment kinds are reported at all.
@@ -139,6 +144,7 @@ impl Default for IntroSkipperConfig {
             enable_chapter_detection: true,
             enable_fingerprint_detection: true,
             enable_chapter_structure: true,
+            enable_black_frame_detection: true,
             chapter_snap_window: 3.0,
             detect_intro: true,
             detect_credits: true,
@@ -290,6 +296,10 @@ impl IntroSkipperConfig {
             (
                 "enable_chapter_structure",
                 &mut base.enable_chapter_structure,
+            ),
+            (
+                "enable_black_frame_detection",
+                &mut base.enable_black_frame_detection,
             ),
             ("detect_intro", &mut base.detect_intro),
             ("detect_credits", &mut base.detect_credits),
