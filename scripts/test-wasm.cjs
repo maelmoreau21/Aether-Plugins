@@ -104,6 +104,14 @@ for (const pluginName of plugins) {
       assert.equal(planned.service, 'radarr');
       assert.equal(planned.title, film.title);
       assert.equal(planned.monitorFuture, false);
+      assert.equal(planned.scope, 'all');
+      const series = invoke('requests.plan', {kind: 'series', title: 'Série', externalId: '7', externalProvider: 'tvdb',
+        seasons: [2, 1], episodes: [{season: 1, episode: 4}, {season: 3, episode: 2}]});
+      assert.deepEqual(series.seasons, [1, 2]);
+      assert.deepEqual(series.episodes, [{season: 3, episode: 2}]);
+      assert.equal(series.scope, 'seasons_and_episodes');
+      assert.equal(invoke('requests.validate', {kind: 'artist', title: 'Artiste', externalProvider: 'musicbrainz',
+        externalId: '01234567-89ab-cdef-0123-456789abcdef'}).error, 'empty_selection');
       assert.deepEqual(invoke('requests.plan', {kind: 'track', title: 'Morceau', externalProvider: 'musicbrainz',
         externalId: '01234567-89ab-cdef-0123-456789abcdef'}), {error: 'track_not_supported'});
     } else {
@@ -111,7 +119,11 @@ for (const pluginName of plugins) {
         positionSeconds: 12, endSeconds: 20};
       assert.deepEqual(invoke('reports.validate', report), {valid: true});
       assert.deepEqual(invoke('reports.classify', report),
-        {category: 'subtitles', code: 'media.subtitles', automationEligible: false});
+        {category: 'subtitles', code: 'media.subtitles', priority: 'normal',
+          checks: ['subtitle_selection', 'subtitle_timing'], automationEligible: false});
+      const missing = invoke('reports.classify', {category: 'missing', description: 'Ne démarre pas', workId: 'work-1'});
+      assert.equal(missing.priority, 'high');
+      assert.equal(missing.automationEligible, false);
       assert.equal(invoke('reports.validate', {...report, endSeconds: 1}).error, 'invalid_time_range');
     }
   }
