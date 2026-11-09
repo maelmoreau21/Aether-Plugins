@@ -110,7 +110,40 @@ fn validate(input: &Input) -> Result<&'static str, &'static str> {
     if input.monitor_future && !matches!(input.kind.as_str(), "series" | "artist") {
         return Err("invalid_monitoring");
     }
+    // An artist request without albums or future releases would add nothing.
+    if input.kind == "artist" && input.album_ids.is_empty() && !input.monitor_future {
+        return Err("empty_selection");
+    }
     Ok(service)
+}
+
+/// Canonical scope: sorted, and episodes already covered by a whole season dropped.
+/// The acquisition effect is unchanged; the Core and the interface show one form.
+fn scope(input: &Input) -> (Vec<u32>, Vec<Episode>, &'static str) {
+    let seasons: BTreeSet<u32> = input.seasons.iter().copied().collect();
+    let episodes: Vec<Episode> = input
+        .episodes
+        .iter()
+        .filter(|item| !seasons.contains(&item.season))
+        .cloned()
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    let label = match input.kind.as_str() {
+        "series" => match (seasons.is_empty(), episodes.is_empty()) {
+            (true, true) => "all",
+            (false, true) => "seasons",
+            (true, false) => "episodes",
+            (false, false) => "seasons_and_episodes",
+        },
+        "artist" => match (input.album_ids.is_empty(), input.monitor_future) {
+            (false, true) => "albums_and_future",
+            (false, false) => "albums",
+            _ => "future",
+        },
+        _ => "all",
+    };
+    (seasons.into_iter().collect(), episodes, label)
 }
 
 pub fn handle_extension(request: ExtensionRequest) -> ExtensionResponse {
@@ -138,11 +171,14 @@ pub fn handle_extension(request: ExtensionRequest) -> ExtensionResponse {
                         _ => json!({"error":"track_not_supported"}),
                     }
                 }
-                Ok(service) => json!({"service":service,"kind":input.kind,
+                Ok(service) => {
+                    let (seasons, episodes, label) = scope(&input);
+                    json!({"service":service,"kind":input.kind,
                     "title":input.title.trim(),"externalId":input.external_id,
-                    "externalProvider":input.external_provider,"seasons":input.seasons,
-                    "episodes":input.episodes,"albumIds":input.album_ids,
-                    "monitorFuture":input.monitor_future}),
+                    "externalProvider":input.external_provider,"seasons":seasons,
+                    "episodes":episodes,"albumIds":input.album_ids,
+                    "monitorFuture":input.monitor_future,"scope":label})
+                }
             },
         }
     };
@@ -192,6 +228,33 @@ mod tests {
         assert_eq!(result["seasons"], json!([0, 2]));
         assert_eq!(result["episodes"], json!([{"season":1,"episode":3}]));
         assert_eq!(result["monitorFuture"], false);
+        assert_eq!(result["scope"], "seasons_and_episodes");
+        assert_eq!(run("requests.plan", request("film"))["scope"], "all");
+    }
+    #[test]
+    fn plan_scope_is_canonical_and_drops_episodes_covered_by_a_season() {
+        let mut series = request("series");
+        series["seasons"] = json!([3, 1]);
+        series["episodes"] =
+            json!([{"season":2,"episode":5},{"season":1,"episode":2},{"season":2,"episode":1}]);
+        let result = run("requests.plan", series);
+        assert_eq!(result["seasons"], json!([1, 3]));
+        assert_eq!(
+            result["episodes"],
+            json!([{"season":2,"episode":1},{"season":2,"episode":5}])
+        );
+        let mut whole = request("series");
+        whole["monitorFuture"] = json!(true);
+        assert_eq!(run("requests.plan", whole)["scope"], "all");
+    }
+    #[test]
+    fn artist_request_must_select_albums_or_future_releases() {
+        let mbid = "01234567-89ab-cdef-0123-456789abcdef";
+        let empty = json!({"kind":"artist","title":"Artist","externalProvider":"musicbrainz","externalId":mbid});
+        assert_eq!(run("requests.validate", empty)["error"], "empty_selection");
+        let future = json!({"kind":"artist","title":"Artist","externalProvider":"musicbrainz",
+            "externalId":mbid,"monitorFuture":true});
+        assert_eq!(run("requests.plan", future)["scope"], "future");
     }
     #[test]
     fn individual_track_is_valid_intent_but_never_plans_an_album() {
@@ -230,6 +293,7 @@ mod tests {
         assert_eq!(result["service"], "lidarr");
         assert_eq!(result["albumIds"], json!([mbid]));
         assert_eq!(result["monitorFuture"], false);
+        assert_eq!(result["scope"], "albums");
         assert!(result.get("apiKey").is_none());
         assert!(result.get("serverId").is_none());
     }

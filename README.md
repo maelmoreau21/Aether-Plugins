@@ -65,9 +65,15 @@ Les connexions et les effets durables restent contrôlés par le Core.
   l'enregistrement demandé et en vérifie la sélection dans Lidarr. Sans cette
   preuve hôte, le plan retourne `track_not_supported` ; aucun album complet n'est
   substitué. Les preuves ne sont jamais acceptées depuis le navigateur.
+  Depuis 0.2.0, le plan renvoie une portée canonique (`scope` : `all`, `seasons`,
+  `episodes`, `albums`, `future`…), triée, sans les épisodes déjà couverts par une
+  saison choisie ; une demande d’artiste sans album ni suivi futur est refusée
+  (`empty_selection`).
 - **Signalements** (`media-reports`) valide les références média, pistes, instants
-  et descriptions, puis produit une classification structurée. Le résultat porte
-  toujours `automationEligible:false` ; aucune réparation n’est lancée.
+  et descriptions, puis produit une classification structurée. Depuis 0.2.0, elle
+  propose une priorité (`high`, `normal`, `low`) et des vérifications suggérées
+  (`checks`) déduites de la catégorie et du contexte, jamais du texte libre. Le
+  résultat porte toujours `automationEligible:false` ; aucune réparation n’est lancée.
 
 Les paquets restent absents du catalogue tant qu’une première publication signée
 n’a pas abouti. Un ancien Core refuse leurs capacités inconnues à l’installation.
