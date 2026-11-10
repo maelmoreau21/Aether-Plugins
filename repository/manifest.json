@@ -762,13 +762,25 @@
     {
       "id": "media-reports",
       "name": "Signalements",
-      "description": "Signalements précis liés aux médias, pistes et instants de lecture. Suivi natif ; aucune réparation automatique.",
+      "description": "Signalements précis liés aux médias, pistes et instants de lecture, avec priorité et vérifications suggérées à l’administration. Suivi natif ; aucune réparation automatique.",
       "owner": "Aether Team",
       "category": "Applications",
       "imageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/Aether-Plugins-Reports/assets/banner.svg",
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
+        {
+          "version": "0.2.0",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/media-reports-v0.2.0-beta/media-reports-0.2.0.package.json",
+          "checksum": "3630989db4ba7df7e3ce582a971d39c333f62032ddc2ac5a550d9af6308124fd",
+          "timestamp": "2026-11-09T16:48:26Z",
+          "changelog": "- feat(requests,reports): 0.2.0 - tri des signalements et portée canonique des demandes",
+          "permissions": [
+            "reports"
+          ]
+        },
         {
           "version": "0.1.2",
           "targetAbi": "1.0",
@@ -816,6 +828,18 @@
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
+        {
+          "version": "0.2.0",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/media-requests-v0.2.0-beta/media-requests-0.2.0.package.json",
+          "checksum": "db9886224e000f5d80f19e92bc71768ee77c5d9b23853db29b58350e42ab6d1b",
+          "timestamp": "2026-11-09T16:49:40Z",
+          "changelog": "- feat(requests,reports): 0.2.0 - tri des signalements et portée canonique des demandes",
+          "permissions": [
+            "requests"
+          ]
+        },
         {
           "version": "0.1.3",
           "targetAbi": "1.0",
