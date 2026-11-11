@@ -5,9 +5,9 @@ use serde_json::{Value, json};
 use std::collections::BTreeSet;
 
 pub fn manifest() -> Value {
-    json!({"apiVersion":1,"id":"media-requests","name":"Demandes",
+    json!({"apiVersion":1,"id":"media-requests","name":"Requests",
         "version":env!("CARGO_PKG_VERSION"),"category":"Applications",
-        "description":"Demandes de films, séries et musique avec validation et suivi natifs. Nécessite le contrat hôte requests ; connexions gérées par le Core.",
+        "description":"Movie, series and music requests with native approval and tracking. Requires the requests host contract; Radarr, Sonarr and Lidarr connections are managed by the Core.",
         "author":"Aether Team","license":"AGPL-3.0-only",
         "repository":"https://github.com/maelmoreau21/Aether-Plugins",
         "permissions":["requests"],"httpHosts":[],"targetAbi":"1.0",

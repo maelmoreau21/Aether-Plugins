@@ -59,7 +59,7 @@ et les contrats hôtes `requests` et `reports`. Elles n’ouvrent aucun accès r
 ne reçoivent aucune clé Radarr/Sonarr/Lidarr et ne modifient aucun fichier média.
 Les connexions et les effets durables restent contrôlés par le Core.
 
-- **Demandes** (`media-requests`) valide les identités externes et sélections puis
+- **Requests** (`media-requests`, anciennement « Demandes ») valide les identités externes et sélections puis
   produit un plan typé pour Radarr, Sonarr ou Lidarr. Un morceau isolé ne peut être
   acquis que si le Core prouve qu'un single à une seule piste contient exactement
   l'enregistrement demandé et en vérifie la sélection dans Lidarr. Sans cette
