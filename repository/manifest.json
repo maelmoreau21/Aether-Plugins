@@ -498,6 +498,19 @@
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
         {
+          "version": "0.4.0",
+          "targetAbi": "1.1",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/intro-skipper-v0.4.0-beta/intro-skipper-0.4.0.package.json",
+          "checksum": "c10dd1fcec0ba9f7b87b2477f8100fb23fb08ded1e4ab2552302b9cb6362b1b5",
+          "timestamp": "2026-11-12T13:46:00Z",
+          "changelog": "- feat(intro-skipper): 0.4.0, fenêtres d'intro-skipper (ABI 1.1) et générique recollé",
+          "permissions": [
+            "playback.markers"
+          ]
+        },
+        {
           "version": "0.3.0",
           "targetAbi": "1.0",
           "minServerVersion": "0.1.0",
