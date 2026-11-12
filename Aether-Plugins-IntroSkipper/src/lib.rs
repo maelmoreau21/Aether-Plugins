@@ -41,7 +41,8 @@ impl IntroSkipperPlugin {
             description: "Détection des introductions, génériques de fin, résumés et aperçus des séries, animés et films : chapitres du fichier, forme des chapitres d'animé et empreintes audio communes à une saison".into(),
             author: "Aether Team".into(),
             license: "AGPL-3.0-only".into(),
-            target_abi: "1.0".into(),
+            // 1.1: requests up to 256 KiB, so the Core sends 10 min of head and 7 min 30 of tail.
+            target_abi: "1.1".into(),
             min_server_version: Some("0.1.0".into()),
             max_server_version: Some("1.0.0".into()),
             checksum: None,
@@ -406,9 +407,9 @@ pub fn config_schema() -> Vec<ConfigField> {
         field(
             "max_credits_duration",
             "Durée maximale du générique de fin (s)",
-            "De la durée minimale à 300 secondes. S'applique aux chapitres et à l'analyse audio.",
+            "De la durée minimale à 450 secondes. S'applique aux chapitres et à l'analyse audio (les 7 min 30 de fin envoyées par le Node).",
             "number",
-            "300",
+            "450",
         ),
         field(
             "max_movie_credits_duration",

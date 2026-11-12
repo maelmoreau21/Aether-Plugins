@@ -1,6 +1,7 @@
 // Verification of compiled WebAssembly modules:
 // - Valid WebAssembly bytecode
-// - Hard size budget <= 256 KB (262,144 bytes, defined by media-extension-sdk MAX_MODULE)
+// - Hard size budget <= 1 MiB (media-extension-sdk MAX_MODULE, extension ABI 1.1); a module over
+//   256 KiB must declare targetAbi 1.1 (checked by catalogue.cjs on the signed package)
 // - ABI exports: memory, media_alloc, media_run
 // - Explicit host HTTP and versioned private storage imports only
 
@@ -9,7 +10,7 @@ const path = require('node:path');
 const assert = require('node:assert/strict');
 
 const wasmDir = path.resolve(process.argv[2] || path.join(__dirname, '../target/wasm32-unknown-unknown/release'));
-const MAX_MODULE_BYTES = 256 * 1024; // 262,144 bytes
+const MAX_MODULE_BYTES = 1024 * 1024; // 1,048,576 bytes
 
 const expectedPlugins = [
   'aether_plugin_discogs',

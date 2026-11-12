@@ -45,7 +45,7 @@ fn detection_settings_bound_search_and_chapter_credits() {
     assert!(request("intro.match_fingerprints", excluded).is_null());
 
     for config in [
-        serde_json::json!({"max_credits_duration":301}),
+        serde_json::json!({"max_credits_duration":451}),
         serde_json::json!({"min_intro_duration":90,"max_intro_duration":30}),
         serde_json::json!({"search_window_start":100,"search_window_end":80}),
         serde_json::json!({"similarity_threshold":"NaN"}),
