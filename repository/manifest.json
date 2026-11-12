@@ -842,6 +842,18 @@
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
         {
+          "version": "0.2.3",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/media-requests-v0.2.3-beta/media-requests-0.2.3.package.json",
+          "checksum": "4750e31368e7ce2f4b0f70741269fc31c911a17c0d438e8af277d6afb0063c6a",
+          "timestamp": "2026-11-12T18:35:42Z",
+          "changelog": "- chore(requests): 0.2.3 - bump version",
+          "permissions": [
+            "requests"
+          ]
+        },
+        {
           "version": "0.2.2",
           "targetAbi": "1.0",
           "minServerVersion": "0.1.0",
