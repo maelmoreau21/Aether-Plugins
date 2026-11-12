@@ -498,6 +498,19 @@
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
         {
+          "version": "0.4.0",
+          "targetAbi": "1.1",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/intro-skipper-v0.4.0-beta/intro-skipper-0.4.0.package.json",
+          "checksum": "c10dd1fcec0ba9f7b87b2477f8100fb23fb08ded1e4ab2552302b9cb6362b1b5",
+          "timestamp": "2026-11-12T13:46:00Z",
+          "changelog": "- feat(intro-skipper): 0.4.0, fenêtres d'intro-skipper (ABI 1.1) et générique recollé",
+          "permissions": [
+            "playback.markers"
+          ]
+        },
+        {
           "version": "0.3.0",
           "targetAbi": "1.0",
           "minServerVersion": "0.1.0",
@@ -820,14 +833,26 @@
     },
     {
       "id": "media-requests",
-      "name": "Demandes",
-      "description": "Demandes de films, séries et musique avec validation et suivi natifs. Nécessite le contrat hôte requests ; connexions gérées par le Core.",
+      "name": "Requests",
+      "description": "Movie, series and music requests with native approval and tracking. Requires the requests host contract; Radarr, Sonarr and Lidarr connections are managed by the Core.",
       "owner": "Aether Team",
       "category": "Applications",
       "imageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/Aether-Plugins-Requests/assets/banner.svg",
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
+        {
+          "version": "0.2.2",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/media-requests-v0.2.2-beta/media-requests-0.2.2.package.json",
+          "checksum": "7f13062e84c92ffc45c802c55400db40c30e3aa510a69c384a0f44e8bab175fa",
+          "timestamp": "2026-11-12T13:47:07Z",
+          "changelog": "- chore(requests): 0.2.2 - rename to Requests and update manifest metadata",
+          "permissions": [
+            "requests"
+          ]
+        },
         {
           "version": "0.2.1",
           "targetAbi": "1.0",
