@@ -854,6 +854,18 @@
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
         {
+          "version": "0.2.1",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/media-reports-v0.2.1-beta/media-reports-0.2.1.package.json",
+          "checksum": "f8cb2fc789bbd0063b27f86296239048bd06ff938030c1ab6864f21c9a722554",
+          "timestamp": "2026-11-13T15:16:47Z",
+          "changelog": "- style: rustfmt api_tests.rs\n- refactor(api,plugins): share API helpers, update reports/requests, and clean manifest/CI",
+          "permissions": [
+            "reports"
+          ]
+        },
+        {
           "version": "0.2.0",
           "targetAbi": "1.0",
           "minServerVersion": "0.1.0",
