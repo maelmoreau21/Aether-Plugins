@@ -155,7 +155,7 @@ dependencies = [
 
 [[package]]
 name = "aether-plugin-requests"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "media-extension-sdk",
  "serde",

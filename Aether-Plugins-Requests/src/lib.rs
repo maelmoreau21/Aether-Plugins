@@ -36,6 +36,8 @@ struct Input {
     album_ids: Vec<String>,
     #[serde(default)]
     monitor_future: bool,
+    #[serde(default)]
+    quality_profile_id: Option<i64>,
     /// Host-only evidence: Core never accepts these fields from request creation.
     #[serde(default)]
     resolved_single_id: Option<String>,
@@ -110,6 +112,9 @@ fn validate(input: &Input) -> Result<&'static str, &'static str> {
     if input.monitor_future && !matches!(input.kind.as_str(), "series" | "artist") {
         return Err("invalid_monitoring");
     }
+    if input.quality_profile_id.is_some_and(|id| id <= 0) {
+        return Err("invalid_quality_profile");
+    }
     // An artist request without albums or future releases would add nothing.
     if input.kind == "artist" && input.album_ids.is_empty() && !input.monitor_future {
         return Err("empty_selection");
@@ -173,11 +178,15 @@ pub fn handle_extension(request: ExtensionRequest) -> ExtensionResponse {
                 }
                 Ok(service) => {
                     let (seasons, episodes, label) = scope(&input);
-                    json!({"service":service,"kind":input.kind,
+                    let mut plan = json!({"service":service,"kind":input.kind,
                     "title":input.title.trim(),"externalId":input.external_id,
                     "externalProvider":input.external_provider,"seasons":seasons,
                     "episodes":episodes,"albumIds":input.album_ids,
-                    "monitorFuture":input.monitor_future,"scope":label})
+                    "monitorFuture":input.monitor_future,"scope":label});
+                    if let Some(profile_id) = input.quality_profile_id {
+                        plan["qualityProfileId"] = json!(profile_id);
+                    }
+                    plan
                 }
             },
         }
