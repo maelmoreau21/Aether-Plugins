@@ -1031,6 +1031,25 @@
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
         {
+          "version": "0.1.7",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/musicbrainz-v0.1.7-beta/musicbrainz-0.1.7.package.json",
+          "checksum": "37f07d72c64006d2c5218ef1563c497d79c5f15458454c421ed424708f58a920",
+          "timestamp": "2026-11-13T15:13:39Z",
+          "changelog": "- style: rustfmt api_tests.rs\n- refactor(api,plugins): share API helpers, update reports/requests, and clean manifest/CI",
+          "permissions": [
+            "metadata.read",
+            "metadata.write",
+            "images"
+          ],
+          "httpHosts": [
+            "musicbrainz.org",
+            "coverartarchive.org"
+          ]
+        },
+        {
           "version": "0.1.6",
           "targetAbi": "1.0",
           "minServerVersion": "0.1.0",
