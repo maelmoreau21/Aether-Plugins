@@ -925,6 +925,18 @@
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
         {
+          "version": "0.2.5",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/media-requests-v0.2.5-beta/media-requests-0.2.5.package.json",
+          "checksum": "d06831aec81c1aba2d8b7286da5a2ce7c30a8adecbb3649e6e4fafe8b5993d30",
+          "timestamp": "2026-11-13T15:18:00Z",
+          "changelog": "- style: rustfmt api_tests.rs\n- refactor(api,plugins): share API helpers, update reports/requests, and clean manifest/CI",
+          "permissions": [
+            "requests"
+          ]
+        },
+        {
           "version": "0.2.4",
           "targetAbi": "1.0",
           "minServerVersion": "0.1.0",
