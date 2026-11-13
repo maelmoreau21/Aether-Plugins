@@ -164,8 +164,14 @@ async fn test_manifest_dispatch() {
     assert_eq!(roundtrip.id, manifest.id);
     assert_eq!(roundtrip.name, manifest.name);
     assert_eq!(roundtrip.version, manifest.version);
-    assert_eq!(roundtrip.category.as_deref(), Some(manifest.category.as_str()));
-    assert_eq!(roundtrip.target_abi.as_deref(), Some(manifest.target_abi.as_str()));
+    assert_eq!(
+        roundtrip.category.as_deref(),
+        Some(manifest.category.as_str())
+    );
+    assert_eq!(
+        roundtrip.target_abi.as_deref(),
+        Some(manifest.target_abi.as_str())
+    );
     assert_eq!(roundtrip.permissions, manifest.permissions);
     assert_eq!(roundtrip.http_hosts, manifest.http_hosts);
 }
