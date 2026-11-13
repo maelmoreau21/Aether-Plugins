@@ -305,6 +305,28 @@
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
         {
+          "version": "0.1.10",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/imdb-v0.1.10-beta/imdb-0.1.10.package.json",
+          "checksum": "8d398a002da88ef1492d48674c31363e115d235a4a7ea2cda264d62558efb6d4",
+          "timestamp": "2026-11-13T15:10:11Z",
+          "changelog": "- style: rustfmt api_tests.rs\n- refactor(api,plugins): share API helpers, update reports/requests, and clean manifest/CI",
+          "permissions": [
+            "metadata.read",
+            "metadata.write",
+            "images"
+          ],
+          "httpHosts": [
+            "v3.sg.media-imdb.com",
+            "imdb.com",
+            "www.imdb.com",
+            "caching.graphql.imdb.com",
+            "m.media-amazon.com"
+          ]
+        },
+        {
           "version": "0.1.9",
           "targetAbi": "1.0",
           "minServerVersion": "0.1.0",
