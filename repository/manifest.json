@@ -538,6 +538,19 @@
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
         {
+          "version": "0.4.1",
+          "targetAbi": "1.1",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/intro-skipper-v0.4.1-beta/intro-skipper-0.4.1.package.json",
+          "checksum": "a632a7f92b41efec409349c52e1502e2f316a7902fc8b536141ddeafcccdcc2a",
+          "timestamp": "2026-11-13T15:11:21Z",
+          "changelog": "- style: rustfmt api_tests.rs\n- refactor(api,plugins): share API helpers, update reports/requests, and clean manifest/CI",
+          "permissions": [
+            "playback.markers"
+          ]
+        },
+        {
           "version": "0.4.0",
           "targetAbi": "1.1",
           "minServerVersion": "0.1.0",
