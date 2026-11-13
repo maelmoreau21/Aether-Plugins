@@ -125,7 +125,7 @@ for (const pluginName of plugins) {
       const missing = invoke('reports.classify', {category: 'missing', description: 'Ne démarre pas', workId: 'work-1'});
       assert.equal(missing.priority, 'high');
       assert.equal(missing.automationEligible, false);
-      assert.equal(invoke('reports.validate', {...report, endSeconds: 1}).error, 'invalid_time_range');
+      assert.equal(invoke('reports.classify', {...report, category: 'repair'}).error, 'invalid_category');
     }
   }
 

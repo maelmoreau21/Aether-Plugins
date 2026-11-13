@@ -88,16 +88,16 @@ fn validate(input: &Input) -> Result<&'static str, &'static str> {
         }
         _ => return Err("invalid_kind"),
     };
-    if input.seasons.len() > 1000
+    if input.seasons.len() > 200
         || input.seasons.iter().any(|number| *number > 10000)
         || input.seasons.iter().collect::<BTreeSet<_>>().len() != input.seasons.len()
-        || input.episodes.len() > 1000
+        || input.episodes.len() > 2000
         || input
             .episodes
             .iter()
             .any(|item| item.season > 10000 || item.episode == 0 || item.episode > 100000)
         || input.episodes.iter().collect::<BTreeSet<_>>().len() != input.episodes.len()
-        || input.album_ids.len() > 1000
+        || input.album_ids.len() > 200
         || input.album_ids.iter().any(|id| !uuid(id))
         || input.album_ids.iter().collect::<BTreeSet<_>>().len() != input.album_ids.len()
     {

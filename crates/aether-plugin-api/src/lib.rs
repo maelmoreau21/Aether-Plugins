@@ -45,6 +45,44 @@ pub struct PluginManifest {
     pub config_schema: Vec<ConfigField>,
 }
 
+impl PluginManifest {
+    /// Projects this provider manifest onto the canonical signed `media_extension_sdk::Manifest`.
+    pub fn to_sdk_manifest(&self, repository: impl Into<String>) -> Manifest {
+        Manifest {
+            api_version: self.api_version,
+            id: self.id.clone(),
+            name: self.name.clone(),
+            version: self.version.clone(),
+            description: self.description.clone(),
+            author: self.author.clone(),
+            license: self.license.clone(),
+            repository: repository.into(),
+            permissions: self.permissions.clone(),
+            http_hosts: self.http_hosts.clone(),
+            category: Some(self.category.clone()),
+            target_abi: Some(self.target_abi.clone()),
+            min_server_version: self.min_server_version.clone(),
+            max_server_version: self.max_server_version.clone(),
+            checksum: self.checksum.clone(),
+            banner: self.banner.clone(),
+            changelog: None,
+            release_date: None,
+            config_schema: if self.config_schema.is_empty() {
+                None
+            } else {
+                Some(self.config_schema.clone())
+            },
+            storage_migration: None,
+        }
+    }
+}
+
+impl From<&PluginManifest> for Manifest {
+    fn from(manifest: &PluginManifest) -> Self {
+        manifest.to_sdk_manifest("https://github.com/maelmoreau21/Aether-Plugins")
+    }
+}
+
 fn default_category() -> String {
     "Metadata".into()
 }

@@ -26,80 +26,22 @@ struct Context {
 #[serde(rename_all = "camelCase")]
 struct Input {
     category: String,
-    description: String,
-    work_id: Option<String>,
-    track_id: Option<String>,
-    asset_id: Option<String>,
+    #[serde(default)]
     position_seconds: Option<f64>,
-    end_seconds: Option<f64>,
     #[serde(default)]
     context: Context,
 }
 
-fn identifier(value: &str) -> bool {
-    !value.is_empty()
-        && value.len() <= 256
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || b"-_.:".contains(&byte))
-}
-
-fn validate(input: &Input) -> Result<&'static str, &'static str> {
-    let code = match input.category.as_str() {
-        "video" => "media.video",
-        "audio" => "media.audio",
-        "subtitles" => "media.subtitles",
-        "metadata" => "media.metadata",
-        "missing" => "media.missing",
-        "other" => "media.other",
-        _ => return Err("invalid_category"),
-    };
-    if input.description.trim().is_empty()
-        || input.description.len() > 8192
-        || input
-            .description
-            .chars()
-            .any(|character| character.is_control() && !matches!(character, '\n' | '\r' | '\t'))
-    {
-        return Err("invalid_description");
+fn category_code(category: &str) -> Result<&'static str, &'static str> {
+    match category {
+        "video" => Ok("media.video"),
+        "audio" => Ok("media.audio"),
+        "subtitles" => Ok("media.subtitles"),
+        "metadata" => Ok("media.metadata"),
+        "missing" => Ok("media.missing"),
+        "other" => Ok("media.other"),
+        _ => Err("invalid_category"),
     }
-    for id in [
-        &input.work_id,
-        &input.track_id,
-        &input.asset_id,
-        &input.context.audio_track_id,
-        &input.context.subtitle_track_id,
-    ] {
-        if id.as_deref().is_some_and(|value| !identifier(value)) {
-            return Err("invalid_reference");
-        }
-    }
-    if input.work_id.is_none() && input.track_id.is_none() {
-        return Err("media_reference_required");
-    }
-    for time in [input.position_seconds, input.end_seconds]
-        .into_iter()
-        .flatten()
-    {
-        if !time.is_finite() || !(0.0..=31_536_000.0).contains(&time) {
-            return Err("invalid_time_range");
-        }
-    }
-    if input
-        .end_seconds
-        .is_some_and(|end| input.position_seconds.is_none_or(|position| end < position))
-    {
-        return Err("invalid_time_range");
-    }
-    for field in [&input.context.engine, &input.context.error_code]
-        .into_iter()
-        .flatten()
-    {
-        if !identifier(field) {
-            return Err("invalid_context");
-        }
-    }
-    Ok(code)
 }
 
 pub fn handle_extension(request: ExtensionRequest) -> ExtensionResponse {
@@ -113,8 +55,10 @@ pub fn handle_extension(request: ExtensionRequest) -> ExtensionResponse {
     } else {
         match serde_json::from_value::<Input>(request.input) {
             Err(_) => json!({"valid":false,"error":"invalid_input"}),
-            Ok(input) => match validate(&input) {
+            Ok(input) => match category_code(&input.category) {
                 Err(error) => json!({"valid":false,"error":error}),
+                // Core owns structural report validation; keep reports.validate as a minimal
+                // compatibility response for older Cores.
                 Ok(_) if request.operation == "reports.validate" => json!({"valid":true}),
                 Ok(code) => {
                     let (priority, checks) = triage(&input);
@@ -230,32 +174,20 @@ mod tests {
         assert_eq!(result["automationEligible"], false);
     }
     #[test]
-    fn rejects_inverted_ranges_missing_media_and_unstructured_context() {
+    fn accepts_core_valid_context_and_rejects_unstructured_context() {
         let mut input = report();
-        input["endSeconds"] = json!(10);
-        assert_eq!(
-            run("reports.validate", input)["error"],
-            "invalid_time_range"
-        );
-        assert_eq!(
-            run(
-                "reports.validate",
-                json!({"category":"other","description":"Broken"})
-            )["error"],
-            "media_reference_required"
-        );
+        input["context"]["engine"] = json!("native player");
+        assert_eq!(run("reports.classify", input)["priority"], "high");
+
         let mut input = report();
         input["context"]["logs"] = json!("private path and token");
-        assert_eq!(run("reports.validate", input)["error"], "invalid_input");
+        assert_eq!(run("reports.classify", input)["error"], "invalid_input");
     }
     #[test]
-    fn rejects_arbitrary_paths_and_invalid_payload_types() {
-        let mut input = report();
-        input["assetId"] = json!("/private/path");
-        assert_eq!(run("reports.validate", input)["error"], "invalid_reference");
+    fn rejects_invalid_payload_types_and_unknown_category() {
         let mut input = report();
         input["positionSeconds"] = json!("12");
-        assert_eq!(run("reports.validate", input)["valid"], false);
+        assert_eq!(run("reports.classify", input)["valid"], false);
         let mut input = report();
         input["category"] = json!("repair");
         assert_eq!(run("reports.classify", input)["error"], "invalid_category");
