@@ -157,6 +157,23 @@ async fn test_manifest_dispatch() {
     assert_eq!(manifest.id, "mock");
     assert_eq!(manifest.provider, "mock");
     assert_eq!(manifest.default_priority, 50);
+
+    let sdk_manifest: media_extension_sdk::Manifest = (&manifest).into();
+    let sdk_json = serde_json::to_value(&sdk_manifest).unwrap();
+    let roundtrip: media_extension_sdk::Manifest = serde_json::from_value(sdk_json).unwrap();
+    assert_eq!(roundtrip.id, manifest.id);
+    assert_eq!(roundtrip.name, manifest.name);
+    assert_eq!(roundtrip.version, manifest.version);
+    assert_eq!(
+        roundtrip.category.as_deref(),
+        Some(manifest.category.as_str())
+    );
+    assert_eq!(
+        roundtrip.target_abi.as_deref(),
+        Some(manifest.target_abi.as_str())
+    );
+    assert_eq!(roundtrip.permissions, manifest.permissions);
+    assert_eq!(roundtrip.http_hosts, manifest.http_hosts);
 }
 
 #[tokio::test]

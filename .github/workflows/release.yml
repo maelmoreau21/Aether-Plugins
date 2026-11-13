@@ -30,7 +30,6 @@ on:
           - intro-skipper
           - media-requests
           - media-reports
-          - poster-rotator
       version:
         description: Expected version (empty = version in Cargo.toml)
         required: false

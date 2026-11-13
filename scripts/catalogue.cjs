@@ -12,7 +12,10 @@ const crypto = require('node:crypto');
 const API_VERSION = 2;
 const MAX_MANIFEST = 1024 * 1024; // Core limit for a catalogue document.
 const MAX_PACKAGE = 2 * 1024 * 1024; // Core limit for an extracted package JSON.
-const MAX_MODULE = 262144; // media_extension_sdk::MAX_MODULE
+const MAX_MODULE = 1048576; // media_extension_sdk::MAX_MODULE (extension ABI 1.1)
+const MAX_MODULE_V1_0 = 262144; // media_extension_sdk::MAX_MODULE_V1_0
+// A module over the 1.0 limit needs targetAbi 1.1 or later, so older Cores never offer it.
+const abiAtLeast11 = (abi) => { const [major = 0, minor = 0] = String(abi || '1.0').split('.').map(Number); return major > 1 || (major === 1 && minor >= 1); };
 const MAX_VERSIONS = 1000;
 const OWNER_REPO = 'maelmoreau21/Aether-Plugins';
 const PERMISSIONS = ['metadata.read', 'metadata.write', 'avatars', 'images', 'providers',
@@ -133,6 +136,7 @@ function validatePackage(pkg, publicKey, { strictText = false } = {}) {
   if ((m.httpHosts || []).length > 16) problems.push('too many httpHosts');
   const wasm = Buffer.from(pkg.wasm, 'base64');
   if (wasm.length > MAX_MODULE || !wasm.subarray(0, 4).equals(Buffer.from('0061736d', 'hex'))) problems.push('invalid or oversized Wasm module');
+  if (wasm.length > MAX_MODULE_V1_0 && !abiAtLeast11(m.targetAbi)) problems.push('Wasm module over 256 KiB needs targetAbi 1.1');
   if (sha256(wasm) !== pkg.sha256) problems.push('Wasm SHA-256 mismatch');
   if (m.checksum && m.checksum !== pkg.sha256) problems.push('manifest checksum differs from Wasm SHA-256');
   if (!crypto.verify(null, signingBytes(m, pkg.publisherId, pkg.sha256), publicKeyObject(publicKey), Buffer.from(pkg.signature, 'base64'))) {

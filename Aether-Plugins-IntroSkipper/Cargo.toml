@@ -1,6 +1,6 @@
 [package]
 name = "aether-plugin-intro-skipper"
-version = "0.3.0"
+version = "0.4.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -10,7 +10,7 @@ description = "High-performance intro and credits detection plugin for Aether (i
 id = "intro-skipper"
 name = "Intro Skipper"
 category = "Playback"
-target-abi = "1.0"
+target-abi = "1.1"
 min-server-version = "0.1.0"
 max-server-version = "1.0.0"
 banner = "assets/banner.svg"

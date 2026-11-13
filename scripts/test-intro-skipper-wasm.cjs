@@ -11,14 +11,15 @@ const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
 
-const MAX_JSON = 65536;
+const MAX_JSON = 65536; // media_extension_sdk::MAX_JSON: requests to an ABI 1.0 package
+const MAX_INPUT_JSON = 262144; // media_extension_sdk::MAX_INPUT_JSON: requests to ABI 1.1
 const wasmPath = process.argv[2] ||
   path.join(__dirname, '../target/wasm32-unknown-unknown/release/aether_plugin_intro_skipper.wasm');
 const corpus = path.join(__dirname, '../Aether-Plugins-IntroSkipper/tests/corpus/intro');
 const manifest = JSON.parse(fs.readFileSync(path.join(corpus, 'manifest.json'), 'utf8'));
 
 const bytes = fs.readFileSync(wasmPath);
-assert(bytes.length <= 262144, `module too large: ${bytes.length}`);
+assert(bytes.length <= 1048576, `module too large: ${bytes.length}`);
 const instance = new WebAssembly.Instance(new WebAssembly.Module(bytes), {
   aether: { aether_host_http() { throw new Error('no network'); } },
   media: {
@@ -92,9 +93,9 @@ console.log(`cold_open x3: request ${run.requestBytes} B, ${run.ms.toFixed(1)} m
 run = invoke('intro.detect', { episodes: episodes(none, 3, manifest.sampleRate) });
 run.result.forEach((r) => assert.equal(r.intro, undefined));
 
-// 5. Four episodes with full tails exceed the request limit the Core enforces.
+// 5. Four episodes with full tails exceed what an ABI 1.0 package takes, not what 1.1 takes.
 const four = JSON.stringify({ apiVersion: 1, operation: 'intro.detect', input: { episodes: episodes(standard, 4, manifest.sampleRate) } });
-assert(four.length > MAX_JSON, `four episodes are ${four.length} B`);
-console.log(`standard x4 would be ${four.length} B > ${MAX_JSON}: the Core refuses it (input_too_large)`);
+assert(four.length > MAX_JSON && four.length <= MAX_INPUT_JSON, `four episodes are ${four.length} B`);
+console.log(`standard x4: ${four.length} B, over ${MAX_JSON} (ABI 1.0) and within ${MAX_INPUT_JSON} (ABI 1.1)`);
 
 console.log('IntroSkipper Wasm corpus check complete');

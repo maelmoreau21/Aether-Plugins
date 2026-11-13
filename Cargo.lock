@@ -65,7 +65,7 @@ dependencies = [
 
 [[package]]
 name = "aether-plugin-intro-skipper"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "aether-plugin-api",
  "async-trait",
@@ -146,7 +146,7 @@ dependencies = [
 
 [[package]]
 name = "aether-plugin-reports"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "media-extension-sdk",
  "serde",
@@ -155,7 +155,7 @@ dependencies = [
 
 [[package]]
 name = "aether-plugin-requests"
-version = "0.1.1"
+version = "0.2.4"
 dependencies = [
  "media-extension-sdk",
  "serde",
@@ -857,7 +857,7 @@ checksum = "4050469837a6ff301cd14c1f8f24f88549e6d548f24f64e2148eb0f72cebc51f"
 [[package]]
 name = "media-extension-sdk"
 version = "0.1.0"
-source = "git+https://github.com/maelmoreau21/Aether.git?rev=49ecd2ed928c2d02fd7fa062908c7203a0266f37#49ecd2ed928c2d02fd7fa062908c7203a0266f37"
+source = "git+https://github.com/maelmoreau21/Aether.git?rev=f82470c0ddbf767f5bd345d2aac94c634167324f#f82470c0ddbf767f5bd345d2aac94c634167324f"
 dependencies = [
  "serde",
  "serde_json",

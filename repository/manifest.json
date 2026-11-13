@@ -12,6 +12,24 @@
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
         {
+          "version": "0.1.7",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/discogs-v0.1.7-beta/discogs-0.1.7.package.json",
+          "checksum": "ccbd0c159726bd76171474d44ea0baab57718da3130e9b0bebe2f94883119e0d",
+          "timestamp": "2026-11-13T15:08:55Z",
+          "changelog": "- style: rustfmt api_tests.rs\n- refactor(api,plugins): share API helpers, update reports/requests, and clean manifest/CI",
+          "permissions": [
+            "metadata.read",
+            "metadata.write",
+            "images"
+          ],
+          "httpHosts": [
+            "api.discogs.com"
+          ]
+        },
+        {
           "version": "0.1.6",
           "targetAbi": "1.0",
           "minServerVersion": "0.1.0",
@@ -145,6 +163,25 @@
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
+        {
+          "version": "0.1.7",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/fanart-v0.1.7-beta/fanart-0.1.7.package.json",
+          "checksum": "d059aa6e7ef60eebf19c73b80ba7f964fdbabe27714add9ac0b42b02fe616de4",
+          "timestamp": "2026-11-13T15:21:53Z",
+          "changelog": "- style: rustfmt api_tests.rs\n- refactor(api,plugins): share API helpers, update reports/requests, and clean manifest/CI",
+          "permissions": [
+            "metadata.read",
+            "metadata.write",
+            "images"
+          ],
+          "httpHosts": [
+            "webservice.fanart.tv",
+            "assets.fanart.tv"
+          ]
+        },
         {
           "version": "0.1.6",
           "targetAbi": "1.0",
@@ -286,6 +323,28 @@
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
+        {
+          "version": "0.1.10",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/imdb-v0.1.10-beta/imdb-0.1.10.package.json",
+          "checksum": "8d398a002da88ef1492d48674c31363e115d235a4a7ea2cda264d62558efb6d4",
+          "timestamp": "2026-11-13T15:10:11Z",
+          "changelog": "- style: rustfmt api_tests.rs\n- refactor(api,plugins): share API helpers, update reports/requests, and clean manifest/CI",
+          "permissions": [
+            "metadata.read",
+            "metadata.write",
+            "images"
+          ],
+          "httpHosts": [
+            "v3.sg.media-imdb.com",
+            "imdb.com",
+            "www.imdb.com",
+            "caching.graphql.imdb.com",
+            "m.media-amazon.com"
+          ]
+        },
         {
           "version": "0.1.9",
           "targetAbi": "1.0",
@@ -498,6 +557,32 @@
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
         {
+          "version": "0.4.1",
+          "targetAbi": "1.1",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/intro-skipper-v0.4.1-beta/intro-skipper-0.4.1.package.json",
+          "checksum": "a632a7f92b41efec409349c52e1502e2f316a7902fc8b536141ddeafcccdcc2a",
+          "timestamp": "2026-11-13T15:11:21Z",
+          "changelog": "- style: rustfmt api_tests.rs\n- refactor(api,plugins): share API helpers, update reports/requests, and clean manifest/CI",
+          "permissions": [
+            "playback.markers"
+          ]
+        },
+        {
+          "version": "0.4.0",
+          "targetAbi": "1.1",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/intro-skipper-v0.4.0-beta/intro-skipper-0.4.0.package.json",
+          "checksum": "c10dd1fcec0ba9f7b87b2477f8100fb23fb08ded1e4ab2552302b9cb6362b1b5",
+          "timestamp": "2026-11-12T13:46:00Z",
+          "changelog": "- feat(intro-skipper): 0.4.0, fenêtres d'intro-skipper (ABI 1.1) et générique recollé",
+          "permissions": [
+            "playback.markers"
+          ]
+        },
+        {
           "version": "0.3.0",
           "targetAbi": "1.0",
           "minServerVersion": "0.1.0",
@@ -636,6 +721,24 @@
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
         {
+          "version": "0.1.7",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/lrclib-v0.1.7-beta/lrclib-0.1.7.package.json",
+          "checksum": "5d5bd509e999ef02538c62ef61de6a2f840dd1ece620c0ffa94ccb11632700d0",
+          "timestamp": "2026-11-13T15:12:26Z",
+          "changelog": "- style: rustfmt api_tests.rs\n- refactor(api,plugins): share API helpers, update reports/requests, and clean manifest/CI",
+          "permissions": [
+            "metadata.read",
+            "metadata.write",
+            "images"
+          ],
+          "httpHosts": [
+            "lrclib.net"
+          ]
+        },
+        {
           "version": "0.1.6",
           "targetAbi": "1.0",
           "minServerVersion": "0.1.0",
@@ -762,13 +865,37 @@
     {
       "id": "media-reports",
       "name": "Signalements",
-      "description": "Signalements précis liés aux médias, pistes et instants de lecture. Suivi natif ; aucune réparation automatique.",
+      "description": "Signalements précis liés aux médias, pistes et instants de lecture, avec priorité et vérifications suggérées à l’administration. Suivi natif ; aucune réparation automatique.",
       "owner": "Aether Team",
       "category": "Applications",
       "imageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/Aether-Plugins-Reports/assets/banner.svg",
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
+        {
+          "version": "0.2.1",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/media-reports-v0.2.1-beta/media-reports-0.2.1.package.json",
+          "checksum": "f8cb2fc789bbd0063b27f86296239048bd06ff938030c1ab6864f21c9a722554",
+          "timestamp": "2026-11-13T15:16:47Z",
+          "changelog": "- style: rustfmt api_tests.rs\n- refactor(api,plugins): share API helpers, update reports/requests, and clean manifest/CI",
+          "permissions": [
+            "reports"
+          ]
+        },
+        {
+          "version": "0.2.0",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/media-reports-v0.2.0-beta/media-reports-0.2.0.package.json",
+          "checksum": "3630989db4ba7df7e3ce582a971d39c333f62032ddc2ac5a550d9af6308124fd",
+          "timestamp": "2026-11-09T16:48:26Z",
+          "changelog": "- feat(requests,reports): 0.2.0 - tri des signalements et portée canonique des demandes",
+          "permissions": [
+            "reports"
+          ]
+        },
         {
           "version": "0.1.2",
           "targetAbi": "1.0",
@@ -808,14 +935,86 @@
     },
     {
       "id": "media-requests",
-      "name": "Demandes",
-      "description": "Demandes de films, séries et musique avec validation et suivi natifs. Nécessite le contrat hôte requests ; connexions gérées par le Core.",
+      "name": "Requests",
+      "description": "Movie, series and music requests with native approval and tracking. Requires the requests host contract; Radarr, Sonarr and Lidarr connections are managed by the Core.",
       "owner": "Aether Team",
       "category": "Applications",
       "imageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/Aether-Plugins-Requests/assets/banner.svg",
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
+        {
+          "version": "0.2.5",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/media-requests-v0.2.5-beta/media-requests-0.2.5.package.json",
+          "checksum": "d06831aec81c1aba2d8b7286da5a2ce7c30a8adecbb3649e6e4fafe8b5993d30",
+          "timestamp": "2026-11-13T15:18:00Z",
+          "changelog": "- style: rustfmt api_tests.rs\n- refactor(api,plugins): share API helpers, update reports/requests, and clean manifest/CI",
+          "permissions": [
+            "requests"
+          ]
+        },
+        {
+          "version": "0.2.4",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/media-requests-v0.2.4-beta/media-requests-0.2.4.package.json",
+          "checksum": "0c6b947b76b2a96d8d1a467901b1c10d66259828a57bbc17c9eb87d668870eab",
+          "timestamp": "2026-11-13T10:46:45Z",
+          "changelog": "- feat(requests): 0.2.4 - validate and plan qualityProfileId",
+          "permissions": [
+            "requests"
+          ]
+        },
+        {
+          "version": "0.2.3",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/media-requests-v0.2.3-beta/media-requests-0.2.3.package.json",
+          "checksum": "4750e31368e7ce2f4b0f70741269fc31c911a17c0d438e8af277d6afb0063c6a",
+          "timestamp": "2026-11-12T18:35:42Z",
+          "changelog": "- chore(requests): 0.2.3 - bump version",
+          "permissions": [
+            "requests"
+          ]
+        },
+        {
+          "version": "0.2.2",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/media-requests-v0.2.2-beta/media-requests-0.2.2.package.json",
+          "checksum": "7f13062e84c92ffc45c802c55400db40c30e3aa510a69c384a0f44e8bab175fa",
+          "timestamp": "2026-11-12T13:47:07Z",
+          "changelog": "- chore(requests): 0.2.2 - rename to Requests and update manifest metadata",
+          "permissions": [
+            "requests"
+          ]
+        },
+        {
+          "version": "0.2.1",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/media-requests-v0.2.1-beta/media-requests-0.2.1.package.json",
+          "checksum": "e6cde46e9637efabe408b92519c3d99d77e34179dc5d314e403132f57a8d4611",
+          "timestamp": "2026-11-10T23:00:31Z",
+          "changelog": "- chore(requests): 0.2.1 - compatibilité avec la découverte catalogue et les quotas",
+          "permissions": [
+            "requests"
+          ]
+        },
+        {
+          "version": "0.2.0",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/media-requests-v0.2.0-beta/media-requests-0.2.0.package.json",
+          "checksum": "db9886224e000f5d80f19e92bc71768ee77c5d9b23853db29b58350e42ab6d1b",
+          "timestamp": "2026-11-09T16:49:40Z",
+          "changelog": "- feat(requests,reports): 0.2.0 - tri des signalements et portée canonique des demandes",
+          "permissions": [
+            "requests"
+          ]
+        },
         {
           "version": "0.1.3",
           "targetAbi": "1.0",
@@ -874,6 +1073,25 @@
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
+        {
+          "version": "0.1.7",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/musicbrainz-v0.1.7-beta/musicbrainz-0.1.7.package.json",
+          "checksum": "37f07d72c64006d2c5218ef1563c497d79c5f15458454c421ed424708f58a920",
+          "timestamp": "2026-11-13T15:13:39Z",
+          "changelog": "- style: rustfmt api_tests.rs\n- refactor(api,plugins): share API helpers, update reports/requests, and clean manifest/CI",
+          "permissions": [
+            "metadata.read",
+            "metadata.write",
+            "images"
+          ],
+          "httpHosts": [
+            "musicbrainz.org",
+            "coverartarchive.org"
+          ]
+        },
         {
           "version": "0.1.6",
           "targetAbi": "1.0",
@@ -1015,6 +1233,25 @@
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
+        {
+          "version": "0.1.8",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/omdb-v0.1.8-beta/omdb-0.1.8.package.json",
+          "checksum": "ab8448f33513bcae74e3f6fac17138197c6740c9195f6ef857d745b6fefbd2af",
+          "timestamp": "2026-11-13T15:14:32Z",
+          "changelog": "- style: rustfmt api_tests.rs\n- refactor(api,plugins): share API helpers, update reports/requests, and clean manifest/CI",
+          "permissions": [
+            "metadata.read",
+            "metadata.write",
+            "images"
+          ],
+          "httpHosts": [
+            "www.omdbapi.com",
+            "m.media-amazon.com"
+          ]
+        },
         {
           "version": "0.1.7",
           "targetAbi": "1.0",
@@ -1168,6 +1405,24 @@
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
         {
+          "version": "0.1.4",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/opensubtitles-v0.1.4-beta/opensubtitles-0.1.4.package.json",
+          "checksum": "dcae9a72f7914b0985cc9ac4cb3a4726ace2575d51cad89cb0ab0850b3196c59",
+          "timestamp": "2026-11-13T15:15:52Z",
+          "changelog": "- style: rustfmt api_tests.rs\n- refactor(api,plugins): share API helpers, update reports/requests, and clean manifest/CI",
+          "permissions": [
+            "subtitles"
+          ],
+          "httpHosts": [
+            "api.opensubtitles.com",
+            "vip-api.opensubtitles.com",
+            "dl.opensubtitles.com",
+            "www.opensubtitles.com"
+          ]
+        },
+        {
           "version": "0.1.3",
           "targetAbi": "1.0",
           "minServerVersion": "0.1.0",
@@ -1240,95 +1495,6 @@
       ]
     },
     {
-      "id": "poster-rotator",
-      "name": "Poster Rotator",
-      "description": "Rotation configurable des affiches des films et séries, par bibliothèque.",
-      "owner": "Aether Team",
-      "category": "Artwork",
-      "imageUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/develop/Aether-Plugins-PosterRotator/assets/banner.svg",
-      "publisherId": "maelmoreau21",
-      "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
-      "versions": [
-        {
-          "version": "0.1.5",
-          "targetAbi": "1.0",
-          "minServerVersion": "0.1.0",
-          "maxServerVersion": "1.0.0",
-          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/poster-rotator-v0.1.5-beta/poster-rotator-0.1.5.package.json",
-          "checksum": "1034575dd2085ec2e4c41f72b34e48ef487e6d993c814e44b377ac1b90bb8b7f",
-          "timestamp": "2026-11-07T16:09:17Z",
-          "changelog": "- fix(http): typed provider errors, Retry-After and a single request per call in the SDK, TMDb and TVDB",
-          "permissions": [
-            "images"
-          ]
-        },
-        {
-          "version": "0.1.4",
-          "targetAbi": "1.0",
-          "minServerVersion": "0.1.0",
-          "maxServerVersion": "1.0.0",
-          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/poster-rotator-v0.1.4-beta/poster-rotator-0.1.4.package.json",
-          "checksum": "f14f66903457f60806a4364d4d02d578fea61432f20740e1e5cfef5c259ccd07",
-          "timestamp": "2026-11-06T21:59:18Z",
-          "changelog": "- feat(metadata): localized TMDb and TVDB details within the Core's request budget",
-          "permissions": [
-            "images"
-          ]
-        },
-        {
-          "version": "0.1.3",
-          "targetAbi": "1.0",
-          "minServerVersion": "0.1.0",
-          "maxServerVersion": "1.0.0",
-          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/poster-rotator-v0.1.3-beta/poster-rotator-0.1.3.package.json",
-          "checksum": "6c93a2b551b7c3967edcb34f9449a1eb3afbc1ab445fab6bc96e0c3e58096b5c",
-          "timestamp": "2026-11-06T12:59:01Z",
-          "changelog": "- feat(release): publish changed plugins automatically on develop and main",
-          "permissions": [
-            "images"
-          ]
-        },
-        {
-          "version": "0.1.2",
-          "targetAbi": "1.0",
-          "minServerVersion": "0.1.0",
-          "maxServerVersion": "1.0.0",
-          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/poster-rotator-v0.1.2-beta/poster-rotator-0.1.2.package.json",
-          "checksum": "96bb3c8b0baaf6a8903ee74d8ffb2a49df71c3d9147b5c9b9249d8847a26b063",
-          "timestamp": "2026-11-04T18:47:45Z",
-          "permissions": [
-            "images"
-          ]
-        },
-        {
-          "version": "0.1.1",
-          "targetAbi": "1.0",
-          "minServerVersion": "0.1.0",
-          "maxServerVersion": "1.0.0",
-          "sourceUrl": "https://raw.githubusercontent.com/maelmoreau21/Aether-Plugins/48d9e167b90fd50771846c7e2b28a8d2036c7753/repository/packages/poster-rotator-0.1.1.package.json",
-          "checksum": "979432bb267eaee9dbdc6ba03c11c7d72271f62b4d3ae35eb3a6aa97c6dc21e0",
-          "timestamp": "2026-11-04T09:49:51Z",
-          "permissions": [
-            "images"
-          ]
-        },
-        {
-          "version": "0.1.0",
-          "targetAbi": "1.0",
-          "minServerVersion": "0.1.0",
-          "maxServerVersion": "1.0.0",
-          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/poster-rotator-v0.1.0/poster-rotator-0.1.0.package.json",
-          "checksum": "dcffef48bab9ddc04315cb27622fa1467cb1445d4667f7f0854abd6843ab38aa",
-          "timestamp": "2026-10-27T16:18:23Z",
-          "permissions": [
-            "images"
-          ],
-          "publisherId": "poster-rotator",
-          "publicKey": "W+NsOKxMDAYazUQ8yntr17zPbt0l7Lo13Sh1M/Vqf+k="
-        }
-      ]
-    },
-    {
       "id": "tmdb",
       "name": "TMDb (The Movie Database)",
       "description": "Fournisseur officiel TMDb pour films et séries (métadonnées complètes, casting, affiches et notes)",
@@ -1338,6 +1504,25 @@
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
+        {
+          "version": "0.1.7",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/tmdb-v0.1.7-beta/tmdb-0.1.7.package.json",
+          "checksum": "ffc1d2348bda65c4e84d340ee7b55a11ce11c5660c102292916daecd92508c5d",
+          "timestamp": "2026-11-13T15:19:22Z",
+          "changelog": "- style: rustfmt api_tests.rs\n- refactor(api,plugins): share API helpers, update reports/requests, and clean manifest/CI",
+          "permissions": [
+            "metadata.read",
+            "metadata.write",
+            "images"
+          ],
+          "httpHosts": [
+            "api.themoviedb.org",
+            "image.tmdb.org"
+          ]
+        },
         {
           "version": "0.1.6",
           "targetAbi": "1.0",
@@ -1478,6 +1663,24 @@
       "publisherId": "maelmoreau21",
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
+        {
+          "version": "0.1.4",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/tvdb-v0.1.4-beta/tvdb-0.1.4.package.json",
+          "checksum": "014b26e71b3fcf9549d11caa70385b170bf7102e92aeca4f54a1e5ae2c82357d",
+          "timestamp": "2026-11-13T15:20:41Z",
+          "changelog": "- style: rustfmt api_tests.rs\n- refactor(api,plugins): share API helpers, update reports/requests, and clean manifest/CI",
+          "permissions": [
+            "metadata.read",
+            "metadata.write",
+            "images"
+          ],
+          "httpHosts": [
+            "api4.thetvdb.com",
+            "artworks.thetvdb.com"
+          ]
+        },
         {
           "version": "0.1.3",
           "targetAbi": "1.0",

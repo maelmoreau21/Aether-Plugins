@@ -136,7 +136,7 @@ impl Default for IntroSkipperConfig {
             min_intro_duration: 15.0,
             max_intro_duration: 120.0,
             min_credits_duration: 10.0,
-            max_credits_duration: 300.0,
+            max_credits_duration: 450.0,
             max_movie_credits_duration: 900.0,
             similarity_threshold: 0.75,
             search_window_start: 0.0,
@@ -197,7 +197,7 @@ impl IntroSkipperConfig {
             || !(1.0..=600.0).contains(&self.min_intro_duration)
             || !(self.min_intro_duration..=600.0).contains(&self.max_intro_duration)
             || !(1.0..=300.0).contains(&self.min_credits_duration)
-            || !(self.min_credits_duration..=300.0).contains(&self.max_credits_duration)
+            || !(self.min_credits_duration..=450.0).contains(&self.max_credits_duration)
             || !(self.min_credits_duration..=1200.0).contains(&self.max_movie_credits_duration)
             || !(0.0..=10.0).contains(&self.chapter_snap_window)
             || !(0.0..600.0).contains(&self.search_window_start)
