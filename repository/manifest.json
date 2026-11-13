@@ -1191,6 +1191,25 @@
       "publicKey": "0vhJ/lyWfViSATLvtFKhocq+bYoyUJuz58EsQvq5LXc=",
       "versions": [
         {
+          "version": "0.1.8",
+          "targetAbi": "1.0",
+          "minServerVersion": "0.1.0",
+          "maxServerVersion": "1.0.0",
+          "sourceUrl": "https://github.com/maelmoreau21/Aether-Plugins/releases/download/omdb-v0.1.8-beta/omdb-0.1.8.package.json",
+          "checksum": "ab8448f33513bcae74e3f6fac17138197c6740c9195f6ef857d745b6fefbd2af",
+          "timestamp": "2026-11-13T15:14:32Z",
+          "changelog": "- style: rustfmt api_tests.rs\n- refactor(api,plugins): share API helpers, update reports/requests, and clean manifest/CI",
+          "permissions": [
+            "metadata.read",
+            "metadata.write",
+            "images"
+          ],
+          "httpHosts": [
+            "www.omdbapi.com",
+            "m.media-amazon.com"
+          ]
+        },
+        {
           "version": "0.1.7",
           "targetAbi": "1.0",
           "minServerVersion": "0.1.0",
