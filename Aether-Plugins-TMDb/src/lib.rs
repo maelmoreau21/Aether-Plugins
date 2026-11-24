@@ -32,25 +32,130 @@ struct DetailsExtras {
     crew_credits: Vec<serde_json::Value>,
 }
 
-fn person_id(credit: &serde_json::Value) -> Option<String> {
-    credit
-        .get("id")
-        .and_then(|id| id.as_u64())
-        .filter(|id| *id > 0)
-        .map(|id| format!("tmdb:{id}"))
+fn valid_profile_url(path: Option<&str>) -> Option<String> {
+    path.filter(|path| {
+        path.starts_with('/')
+            && !path.starts_with("//")
+            && path.len() <= 512
+            && !path.chars().any(char::is_control)
+    })
+    .map(|path| format!("{IMAGE_PROFILE_URL}{path}"))
 }
 
-fn profile_url(credit: &serde_json::Value) -> Option<String> {
-    credit
-        .get("profile_path")
-        .and_then(|path| path.as_str())
-        .filter(|path| {
-            path.starts_with('/')
-                && !path.starts_with("//")
-                && path.len() <= 512
-                && !path.chars().any(char::is_control)
-        })
-        .map(|path| format!("{IMAGE_PROFILE_URL}{path}"))
+fn format_person_id(id: Option<u64>) -> Option<String> {
+    id.filter(|id| *id > 0).map(|id| format!("tmdb:{id}"))
+}
+
+#[derive(Deserialize)]
+struct TmdbDetailsResponse {
+    #[serde(default)]
+    title: Option<String>,
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    original_title: Option<String>,
+    #[serde(default)]
+    original_name: Option<String>,
+    #[serde(default)]
+    original_language: Option<String>,
+    #[serde(default)]
+    tagline: Option<String>,
+    #[serde(default)]
+    overview: Option<String>,
+    #[serde(default)]
+    release_date: Option<String>,
+    #[serde(default)]
+    first_air_date: Option<String>,
+    #[serde(default)]
+    runtime: Option<u64>,
+    #[serde(default)]
+    episode_run_time: Vec<u64>,
+    #[serde(default)]
+    genres: Vec<TmdbNamed>,
+    #[serde(default)]
+    credits: Option<TmdbCredits>,
+    #[serde(default)]
+    vote_average: Option<f64>,
+    #[serde(default)]
+    vote_count: Option<u64>,
+    #[serde(default)]
+    external_ids: Option<TmdbExternalIds>,
+    #[serde(default)]
+    poster_path: Option<String>,
+    #[serde(default)]
+    backdrop_path: Option<String>,
+    #[serde(default)]
+    seasons: Vec<TmdbSeasonSummary>,
+    #[serde(default)]
+    belongs_to_collection: Option<TmdbCollection>,
+    #[serde(default)]
+    status: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct TmdbNamed {
+    #[serde(default)]
+    name: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct TmdbCredits {
+    #[serde(default)]
+    crew: Vec<TmdbCrewMember>,
+    #[serde(default)]
+    cast: Vec<TmdbCastMember>,
+}
+
+#[derive(Deserialize)]
+struct TmdbCrewMember {
+    #[serde(default)]
+    id: Option<u64>,
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    job: Option<String>,
+    #[serde(default)]
+    profile_path: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct TmdbCastMember {
+    #[serde(default)]
+    id: Option<u64>,
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    character: Option<String>,
+    #[serde(default)]
+    profile_path: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct TmdbExternalIds {
+    #[serde(default)]
+    imdb_id: Option<String>,
+    #[serde(default)]
+    tvdb_id: Option<u64>,
+}
+
+#[derive(Deserialize)]
+struct TmdbSeasonSummary {
+    #[serde(default)]
+    season_number: u32,
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    overview: Option<String>,
+    #[serde(default)]
+    poster_path: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct TmdbCollection {
+    #[serde(default)]
+    id: Option<u64>,
+    #[serde(default)]
+    name: Option<String>,
 }
 
 impl TmdbPlugin {
@@ -662,61 +767,23 @@ impl TmdbPlugin {
         ];
 
         used += 1;
-        let val: serde_json::Value = self.fetch_json(&endpoint, &params, config).await?;
+        let val: TmdbDetailsResponse = self.fetch_json(&endpoint, &params, config).await?;
 
-        let title = val
-            .get("title")
-            .or_else(|| val.get("name"))
-            .and_then(|v| v.as_str())
-            .map(str::to_owned);
-
-        let original_title = val
-            .get("original_title")
-            .or_else(|| val.get("original_name"))
-            .and_then(|v| v.as_str())
-            .map(str::to_owned);
-
-        let tagline = val
-            .get("tagline")
-            .and_then(|v| v.as_str())
-            .filter(|s| !s.trim().is_empty())
-            .map(str::to_owned);
-
-        let synopsis = val
-            .get("overview")
-            .and_then(|v| v.as_str())
-            .filter(|s| !s.trim().is_empty())
-            .map(str::to_owned);
-
-        let date_str = val
-            .get("release_date")
-            .or_else(|| val.get("first_air_date"))
-            .and_then(|v| v.as_str());
-
+        let title = val.title.or(val.name);
+        let original_title = val.original_title.or(val.original_name);
+        let tagline = val.tagline.filter(|s| !s.trim().is_empty());
+        let synopsis = val.overview.filter(|s| !s.trim().is_empty());
+        let date_str = val.release_date.or(val.first_air_date);
         let year = date_str
+            .as_deref()
             .and_then(|d| d.split('-').next())
             .and_then(|y| y.parse::<u16>().ok());
-
         let runtime = val
-            .get("runtime")
-            .and_then(|v| v.as_u64())
+            .runtime
             .map(|r| r as u32)
-            .or_else(|| {
-                val.get("episode_run_time")
-                    .and_then(|v| v.as_array())
-                    .and_then(|arr| arr.first())
-                    .and_then(|v| v.as_u64())
-                    .map(|r| r as u32)
-            });
+            .or_else(|| val.episode_run_time.first().map(|&r| r as u32));
 
-        let mut genres = Vec::new();
-        if let Some(arr) = val.get("genres").and_then(|v| v.as_array()) {
-            for g in arr {
-                if let Some(name) = g.get("name").and_then(|v| v.as_str()) {
-                    genres.push(name.to_owned());
-                }
-            }
-        }
+        let genres: Vec<String> = val.genres.into_iter().filter_map(|g| g.name).collect();
 
         let mut directors = Vec::new();
         let mut writers = Vec::new();
@@ -724,68 +791,63 @@ impl TmdbPlugin {
         let mut actor_ids = Vec::new();
         let mut crew_credits = Vec::new();
 
-        if let Some(credits) = val.get("credits") {
-            if let Some(crew) = credits.get("crew").and_then(|v| v.as_array()) {
-                for c in crew {
-                    let job = c.get("job").and_then(|v| v.as_str()).unwrap_or("");
-                    let name = c.get("name").and_then(|v| v.as_str());
-                    if let Some(n) = name {
-                        if job == "Director" && !directors.contains(&n.to_string()) {
-                            directors.push(n.to_string());
-                        } else if (job == "Screenplay" || job == "Writer")
-                            && !writers.contains(&n.to_string())
-                        {
-                            writers.push(n.to_string());
-                        }
-                        if matches!(job, "Director" | "Screenplay" | "Writer")
-                            && !n.trim().is_empty()
-                            && n.len() <= 512
-                            && crew_credits.len() < 100
-                        {
-                            crew_credits.push(serde_json::json!({"name": n, "role": job, "thumbUrl": profile_url(c), "providerId": person_id(c)}));
-                        }
+        if let Some(credits) = val.credits {
+            for c in credits.crew {
+                let job = c.job.as_deref().unwrap_or("");
+                if let Some(n) = c.name.as_deref() {
+                    if job == "Director" && !directors.iter().any(|d| d == n) {
+                        directors.push(n.to_owned());
+                    } else if (job == "Screenplay" || job == "Writer")
+                        && !writers.iter().any(|w| w == n)
+                    {
+                        writers.push(n.to_owned());
+                    }
+                    if matches!(job, "Director" | "Screenplay" | "Writer")
+                        && !n.trim().is_empty()
+                        && n.len() <= 512
+                        && crew_credits.len() < 100
+                    {
+                        crew_credits.push(serde_json::json!({
+                            "name": n,
+                            "role": job,
+                            "thumbUrl": valid_profile_url(c.profile_path.as_deref()),
+                            "providerId": format_person_id(c.id),
+                        }));
                     }
                 }
             }
 
-            if let Some(cast) = credits.get("cast").and_then(|v| v.as_array()) {
-                for (idx, c) in cast.iter().take(20).enumerate() {
-                    if let Some(name) = c.get("name").and_then(|v| v.as_str()) {
-                        let role = c
-                            .get("character")
-                            .and_then(|v| v.as_str())
-                            .map(str::to_owned);
-                        let thumb_url = profile_url(c);
-                        actors.push(ActorCredit {
-                            name: name.to_string(),
-                            role,
-                            thumb_url,
-                            order: Some(idx as u32),
-                        });
-                        actor_ids.push(person_id(c));
-                    }
+            for (idx, c) in credits.cast.into_iter().take(20).enumerate() {
+                if let Some(name) = c.name {
+                    let thumb_url = valid_profile_url(c.profile_path.as_deref());
+                    actors.push(ActorCredit {
+                        name,
+                        role: c.character,
+                        thumb_url,
+                        order: Some(idx as u32),
+                    });
+                    actor_ids.push(format_person_id(c.id));
                 }
             }
         }
 
         let mut ratings = Vec::new();
-        if let Some(vote_avg) = val.get("vote_average").and_then(|v| v.as_f64()) {
-            let votes = val.get("vote_count").and_then(|v| v.as_u64());
+        if let Some(vote_avg) = val.vote_average {
             ratings.push(ProviderRating {
                 provider: "tmdb".into(),
                 value: vote_avg,
                 max: 10.0,
-                votes,
+                votes: val.vote_count,
             });
         }
 
         let mut external_ids = BTreeMap::new();
         external_ids.insert("tmdb".into(), id.clone());
-        if let Some(ext) = val.get("external_ids") {
-            if let Some(imdb) = ext.get("imdb_id").and_then(|v| v.as_str()) {
-                external_ids.insert("imdb".into(), imdb.to_string());
+        if let Some(ext) = val.external_ids {
+            if let Some(imdb) = ext.imdb_id {
+                external_ids.insert("imdb".into(), imdb);
             }
-            if let Some(tvdb) = ext.get("tvdb_id").and_then(|v| v.as_u64()) {
+            if let Some(tvdb) = ext.tvdb_id {
                 external_ids.insert("tvdb".into(), tvdb.to_string());
             }
         }
@@ -795,7 +857,7 @@ impl TmdbPlugin {
         // is not reported, so it is left unknown instead of being labelled with the request.
         let mut posters = Vec::new();
         let mut backdrops = Vec::new();
-        if let Some(poster_path) = val.get("poster_path").and_then(|v| v.as_str()) {
+        if let Some(poster_path) = val.poster_path {
             posters.push(MediaImage {
                 url: format!("{IMAGE_ORIGINAL_URL}{poster_path}"),
                 image_type: ImageType::Poster,
@@ -807,7 +869,7 @@ impl TmdbPlugin {
                 is_primary: true,
             });
         }
-        if let Some(backdrop_path) = val.get("backdrop_path").and_then(|v| v.as_str()) {
+        if let Some(backdrop_path) = val.backdrop_path {
             backdrops.push(MediaImage {
                 url: format!("{IMAGE_ORIGINAL_URL}{backdrop_path}"),
                 image_type: ImageType::Backdrop,
@@ -828,10 +890,10 @@ impl TmdbPlugin {
             used += 1;
             let url = format!("{endpoint}/translations");
             match self
-                .fetch_json::<serde_json::Value>(&url, &[], config)
+                .fetch_json::<TmdbTranslationsResponse>(&url, &[], config)
                 .await
             {
-                Ok(value) => translations = parse_translations(&value, &wanted),
+                Ok(value) => translations = parse_translations(value, &wanted),
                 Err(e) if is_fatal(&e) => return Err(e),
                 // A missing translation list must not discard the main-language details.
                 Err(_) => {}
@@ -839,42 +901,28 @@ impl TmdbPlugin {
         }
 
         let mut seasons = Vec::new();
-        if is_tv && let Some(s_arr) = val.get("seasons").and_then(|v| v.as_array()) {
+        if is_tv && !val.seasons.is_empty() {
             // Real seasons first, in order; specials (season 0) last, so a short budget
             // never spends its calls on extras.
-            let mut order: Vec<&serde_json::Value> = s_arr.iter().collect();
-            order.sort_by_key(|s| {
-                let n = s.get("season_number").and_then(|v| v.as_u64()).unwrap_or(0);
-                (n == 0, n)
-            });
+            let mut order = val.seasons;
+            order.sort_by_key(|s| (s.season_number == 0, s.season_number));
             let mut fetched: Vec<u32> = Vec::new();
             let mut by_number: BTreeMap<u32, aether_plugin_api::SeasonMetadata> = BTreeMap::new();
             let mut exhausted = false;
             for s in order {
-                let s_num = s
-                    .get("season_number")
-                    .and_then(|v| v.as_u64())
-                    .map(|n| n as u32)
-                    .unwrap_or(0);
+                let s_num = s.season_number;
                 let mut season = aether_plugin_api::SeasonMetadata {
                     season_number: s_num,
-                    title: s.get("name").and_then(|v| v.as_str()).map(str::to_owned),
-                    overview: s
-                        .get("overview")
-                        .and_then(|v| v.as_str())
-                        .filter(|s| !s.trim().is_empty())
-                        .map(str::to_owned),
-                    poster_url: s
-                        .get("poster_path")
-                        .and_then(|v| v.as_str())
-                        .map(|p| format!("{IMAGE_ORIGINAL_URL}{p}")),
+                    title: s.name,
+                    overview: s.overview.filter(|o| !o.trim().is_empty()),
+                    poster_url: s.poster_path.map(|p| format!("{IMAGE_ORIGINAL_URL}{p}")),
                     ..Default::default()
                 };
                 if !exhausted && used < MAX_REQUESTS {
                     used += 1;
                     let endpoint = format!("tv/{id}/season/{s_num}");
                     match self
-                        .fetch_json::<serde_json::Value>(
+                        .fetch_json::<TmdbSeasonResponse>(
                             &endpoint,
                             &[("language", language)],
                             config,
@@ -882,7 +930,7 @@ impl TmdbPlugin {
                         .await
                     {
                         Ok(season_val) => {
-                            season.episodes = parse_episodes(&season_val);
+                            season.episodes = parse_episodes(season_val.episodes);
                             fetched.push(s_num);
                         }
                         Err(e) if is_fatal(&e) => return Err(e),
@@ -907,7 +955,7 @@ impl TmdbPlugin {
                     used += 1;
                     let endpoint = format!("tv/{id}/season/{number}");
                     match self
-                        .fetch_json::<serde_json::Value>(
+                        .fetch_json::<TmdbSeasonResponse>(
                             &endpoint,
                             &[("language", extra.as_str())],
                             config,
@@ -916,7 +964,7 @@ impl TmdbPlugin {
                     {
                         Ok(season_val) => {
                             if let Some(season) = by_number.get_mut(number) {
-                                merge_season_language(season, &season_val, extra);
+                                merge_season_language(season, season_val, extra);
                             }
                         }
                         Err(e) if is_fatal(&e) => return Err(e),
@@ -928,23 +976,22 @@ impl TmdbPlugin {
             seasons = by_number.into_values().collect();
         }
 
-        let collection = val.get("belongs_to_collection").and_then(|collection| {
-            let id = collection.get("id")?.as_u64()?;
-            let name = collection.get("name")?.as_str()?.trim();
-            (!name.is_empty() && name.len() <= 300).then(|| aether_plugin_api::MetadataCollection {
-                id: format!("tmdb:{id}"),
-                name: name.to_owned(),
+        let collection = val.belongs_to_collection.and_then(|collection| {
+            let id = collection.id?;
+            let name = collection.name?;
+            let trimmed = name.trim();
+            (!trimmed.is_empty() && trimmed.len() <= 300).then(|| {
+                aether_plugin_api::MetadataCollection {
+                    id: format!("tmdb:{id}"),
+                    name: trimmed.to_owned(),
+                }
             })
         });
-        let original_language = val
-            .get("original_language")
-            .and_then(|v| v.as_str())
-            .filter(|v| {
-                !v.is_empty()
-                    && v.len() <= 35
-                    && v.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
-            })
-            .map(str::to_owned);
+        let original_language = val.original_language.filter(|v| {
+            !v.is_empty()
+                && v.len() <= 35
+                && v.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+        });
         let mut metadata = StructuredMetadata {
             collection,
             provider: "tmdb".into(),
@@ -957,7 +1004,7 @@ impl TmdbPlugin {
             tagline,
             synopsis,
             year,
-            release_date: date_str.map(str::to_owned),
+            release_date: date_str,
             runtime_minutes: runtime,
             genres,
             directors,
@@ -965,10 +1012,7 @@ impl TmdbPlugin {
             actors,
             ratings,
             mpaa: None,
-            status: val
-                .get("status")
-                .and_then(|v| v.as_str())
-                .map(str::to_owned),
+            status: val.status,
             posters,
             backdrops,
             images: Vec::new(),
@@ -1025,18 +1069,73 @@ fn wanted_locales(requested: &[String], main: Option<&str>) -> Vec<String> {
     out
 }
 
-fn non_empty(value: Option<&serde_json::Value>) -> Option<String> {
-    value
-        .and_then(|v| v.as_str())
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(str::to_owned)
+#[derive(Deserialize)]
+struct TmdbTranslationsResponse {
+    #[serde(default)]
+    translations: Vec<TmdbTranslationEntry>,
+}
+
+#[derive(Deserialize)]
+struct TmdbTranslationEntry {
+    #[serde(default)]
+    iso_639_1: Option<String>,
+    #[serde(default)]
+    iso_3166_1: Option<String>,
+    #[serde(default)]
+    data: Option<TmdbTranslationData>,
+}
+
+#[derive(Deserialize)]
+struct TmdbTranslationData {
+    #[serde(default)]
+    title: Option<String>,
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    overview: Option<String>,
+    #[serde(default)]
+    tagline: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct TmdbSeasonResponse {
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    overview: Option<String>,
+    #[serde(default)]
+    episodes: Vec<TmdbEpisode>,
+}
+
+#[derive(Deserialize)]
+struct TmdbEpisode {
+    #[serde(default)]
+    episode_number: u32,
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    overview: Option<String>,
+    #[serde(default)]
+    air_date: Option<String>,
+    #[serde(default)]
+    runtime: Option<u32>,
+    #[serde(default)]
+    still_path: Option<String>,
+    #[serde(default)]
+    vote_average: Option<f64>,
+}
+
+fn non_empty_str(value: Option<String>) -> Option<String> {
+    value.and_then(|s| {
+        let trimmed = s.trim();
+        (!trimmed.is_empty()).then(|| trimmed.to_owned())
+    })
 }
 
 /// Keep the entries for the requested languages. Keys keep the region when the provider
 /// gives one (`fr-CA`); a request for bare `fr` accepts every French entry.
 fn parse_translations(
-    value: &serde_json::Value,
+    value: TmdbTranslationsResponse,
     wanted: &[String],
 ) -> BTreeMap<String, aether_plugin_api::TranslationItem> {
     let bases: Vec<&str> = wanted
@@ -1044,23 +1143,11 @@ fn parse_translations(
         .map(|t| t.split('-').next().unwrap_or(t))
         .collect();
     let mut out = BTreeMap::new();
-    for item in value
-        .get("translations")
-        .and_then(|v| v.as_array())
-        .into_iter()
-        .flatten()
-    {
-        let Some(iso) = item
-            .get("iso_639_1")
-            .and_then(|v| v.as_str())
-            .filter(|v| v.len() == 2)
-        else {
+    for item in value.translations {
+        let Some(iso) = item.iso_639_1.filter(|v| v.len() == 2) else {
             continue;
         };
-        let region = item
-            .get("iso_3166_1")
-            .and_then(|v| v.as_str())
-            .filter(|v| v.len() == 2);
+        let region = item.iso_3166_1.filter(|v| v.len() == 2);
         let key = match region {
             Some(region) => format!(
                 "{}-{}",
@@ -1072,13 +1159,13 @@ fn parse_translations(
         if !bases.contains(&key.split('-').next().unwrap_or("")) || out.len() >= MAX_TRANSLATIONS {
             continue;
         }
-        let Some(data) = item.get("data") else {
+        let Some(data) = item.data else {
             continue;
         };
         let entry = aether_plugin_api::TranslationItem {
-            title: non_empty(data.get("title").or_else(|| data.get("name"))),
-            overview: non_empty(data.get("overview")),
-            tagline: non_empty(data.get("tagline")),
+            title: non_empty_str(data.title.or(data.name)),
+            overview: non_empty_str(data.overview),
+            tagline: non_empty_str(data.tagline),
         };
         // TMDb returns empty strings for languages it has not translated.
         if entry.title.is_some() || entry.overview.is_some() || entry.tagline.is_some() {
@@ -1088,30 +1175,17 @@ fn parse_translations(
     out
 }
 
-fn parse_episodes(season: &serde_json::Value) -> Vec<aether_plugin_api::EpisodeMetadata> {
-    season
-        .get("episodes")
-        .and_then(|v| v.as_array())
+fn parse_episodes(episodes: Vec<TmdbEpisode>) -> Vec<aether_plugin_api::EpisodeMetadata> {
+    episodes
         .into_iter()
-        .flatten()
         .map(|ep| aether_plugin_api::EpisodeMetadata {
-            episode_number: ep
-                .get("episode_number")
-                .and_then(|v| v.as_u64())
-                .map(|n| n as u32)
-                .unwrap_or(0),
-            title: ep.get("name").and_then(|v| v.as_str()).map(str::to_owned),
-            overview: non_empty(ep.get("overview")),
-            air_date: ep
-                .get("air_date")
-                .and_then(|v| v.as_str())
-                .map(str::to_owned),
-            runtime_minutes: ep.get("runtime").and_then(|v| v.as_u64()).map(|r| r as u32),
-            still_url: ep
-                .get("still_path")
-                .and_then(|v| v.as_str())
-                .map(|p| format!("{IMAGE_ORIGINAL_URL}{p}")),
-            rating: ep.get("vote_average").and_then(|v| v.as_f64()),
+            episode_number: ep.episode_number,
+            title: ep.name,
+            overview: non_empty_str(ep.overview),
+            air_date: ep.air_date,
+            runtime_minutes: ep.runtime,
+            still_url: ep.still_path.map(|p| format!("{IMAGE_ORIGINAL_URL}{p}")),
+            rating: ep.vote_average,
             translations: BTreeMap::new(),
         })
         .collect()
@@ -1120,18 +1194,18 @@ fn parse_episodes(season: &serde_json::Value) -> Vec<aether_plugin_api::EpisodeM
 /// Attach another language's season and episode texts under `tag`.
 fn merge_season_language(
     season: &mut aether_plugin_api::SeasonMetadata,
-    response: &serde_json::Value,
+    response: TmdbSeasonResponse,
     tag: &str,
 ) {
     let item = aether_plugin_api::TranslationItem {
-        title: non_empty(response.get("name")),
-        overview: non_empty(response.get("overview")),
+        title: non_empty_str(response.name),
+        overview: non_empty_str(response.overview),
         tagline: None,
     };
     if item.title.is_some() || item.overview.is_some() {
         season.translations.insert(tag.to_owned(), item);
     }
-    for ep in parse_episodes(response) {
+    for ep in parse_episodes(response.episodes) {
         let entry = aether_plugin_api::TranslationItem {
             title: ep.title.filter(|t| !t.trim().is_empty()),
             overview: ep.overview,
